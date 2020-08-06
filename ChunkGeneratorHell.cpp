@@ -166,10 +166,10 @@ std::vector<double> ChunkGeneratorHell::getHeights(std::vector<double>* bufferIn
     }
 
     this->noiseData4 = this->scaleNoise.generateNoiseOctaves(&this->noiseData4, xOffset, yOffset, zOffset, xSize, 1, zSize, 1.0, 0.0, 1.0);
-    this->dr = this->depthNoise.generateNoiseOctaves(&this->dr, xOffset, yOffset, zOffset, xSize, 1, zSize, 100.0, 0.0, 100.0);
-    this->pnr = this->perlinNoise1.generateNoiseOctaves(&this->pnr, xOffset, yOffset, zOffset, xSize, ySize, zSize, 8.555150000000001, 34.2206, 8.555150000000001);
-    this->ar = this->lperlinNoise1.generateNoiseOctaves(&this->ar, xOffset, yOffset, zOffset, xSize, ySize, zSize, 684.412, 2053.236, 684.412);
-    this->br = this->lperlinNoise2.generateNoiseOctaves(&this->br, xOffset, yOffset, zOffset, xSize, ySize, zSize, 684.412, 2053.236, 684.412);
+    this->dr =         this->depthNoise.generateNoiseOctaves(&this->dr,         xOffset, yOffset, zOffset, xSize, 1, zSize, 100.0, 0.0, 100.0);
+    this->pnr =      this->perlinNoise1.generateNoiseOctaves(&this->pnr,        xOffset, yOffset, zOffset, xSize, ySize,   zSize, 8.555150000000001, 34.2206, 8.555150000000001);
+    this->ar =      this->lperlinNoise1.generateNoiseOctaves(&this->ar,         xOffset, yOffset, zOffset, xSize, ySize,   zSize, 684.412, 2053.236, 684.412);
+    this->br =      this->lperlinNoise2.generateNoiseOctaves(&this->br,         xOffset, yOffset, zOffset, xSize, ySize,   zSize, 684.412, 2053.236, 684.412);
     int i = 0;
     // 256 allocated but only ySize used
     double adouble[256]{}; assert(ySize <= 256);
