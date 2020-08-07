@@ -2,6 +2,7 @@
 
 #include <cmath>
 #include <cassert>
+#include <chrono>
 
 ChunkPrimer ChunkGeneratorHell::generateChunk(int x, int z) {
     this->rand.setSeed((int64_t)x * 341873128712L + (int64_t)z * 132897987541L);
@@ -59,7 +60,8 @@ void ChunkGeneratorHell::prepareHeights(int sizeX, int sizeZ, ChunkPrimer& prime
                             int l2 = j2 + j1 * 4;
                             int i3 = i2 + l1 * 8;
                             int j3 = k2 + k1 * 4;
-                            primer.setBlock(l2, i3, j3, iblockstate);
+                            // bitset defaults to air so writing 0 to it is pointless
+                            if (iblockstate) primer.setBlock(l2, i3, j3, iblockstate);
                             d15 += d16;
                         }
 
@@ -170,6 +172,7 @@ std::vector<double> ChunkGeneratorHell::getHeights(std::vector<double>* bufferIn
     this->pnr =      this->perlinNoise1.generateNoiseOctaves(&this->pnr,        xOffset, yOffset, zOffset, xSize, ySize,   zSize, 8.555150000000001, 34.2206, 8.555150000000001);
     this->ar =      this->lperlinNoise1.generateNoiseOctaves(&this->ar,         xOffset, yOffset, zOffset, xSize, ySize,   zSize, 684.412, 2053.236, 684.412);
     this->br =      this->lperlinNoise2.generateNoiseOctaves(&this->br,         xOffset, yOffset, zOffset, xSize, ySize,   zSize, 684.412, 2053.236, 684.412);
+
     int i = 0;
     // 256 allocated but only ySize used
     double adouble[256]{}; assert(ySize <= 256);

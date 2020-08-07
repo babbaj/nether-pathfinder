@@ -1,6 +1,6 @@
 #include "NoiseGeneratorOctaves.h"
 
-#include <cmath>
+#include <chrono>
 
 int64_t lfloor(double value) {
     int64_t i = (int64_t)value;
