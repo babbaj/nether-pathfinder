@@ -1,9 +1,12 @@
 #pragma once
 
 #include <cmath>
+#include <chrono>
+#include <iostream>
 
 #include "NoiseGeneratorOctaves.h"
 #include "ChunkPrimer.h"
+#include "SimpleThreadPool.h"
 
 struct ChunkGeneratorHell {
 public:
@@ -21,11 +24,11 @@ public:
     NoiseGeneratorOctaves<16> depthNoise;
 
 
-    void prepareHeights(int x, int z, ChunkPrimer& primer) const;
+    void prepareHeights(int x, int z, ChunkPrimer& primer, ThreadPool<3>& threadPool) const;
 
     // buffer may be null
     template<int xSize, int ySize, int zSize>
-    std::array<double, xSize * ySize * zSize> getHeights(int xOffset, int yOffset, int zOffset) const;
+    std::array<double, xSize * ySize * zSize> getHeights(int xOffset, int yOffset, int zOffset, ThreadPool<3>& threadPool) const;
 public:
 
     static ChunkGeneratorHell fromSeed(uint64_t seed) {
@@ -42,19 +45,26 @@ public:
         };
     }
 
-    ChunkPrimer generateChunk(int x, int z) const;
+    ChunkPrimer generateChunk(int x, int z, ThreadPool<3>& threadPool) const;
 };
 
 // This is only instantiated once
 template<int xSize, int ySize, int zSize>
-std::array<double, xSize * ySize * zSize> ChunkGeneratorHell::getHeights(int xOffset, int yOffset, int zOffset) const {
+std::array<double, xSize * ySize * zSize> ChunkGeneratorHell::getHeights(int xOffset, int yOffset, int zOffset, ThreadPool<3>& threadPool) const {
     std::array<double, xSize * ySize * zSize> buffer{};
 
-    auto noiseData4 = this->scaleNoise.generateNoiseOctaves<xSize,     1, zSize>(xOffset, yOffset, zOffset, 1.0, 0.0, 1.0);
-    auto dr =         this->depthNoise.generateNoiseOctaves<xSize,     1, zSize>(xOffset, yOffset, zOffset, 100.0, 0.0, 100.0);
-    auto pnr =      this->perlinNoise1.generateNoiseOctaves<xSize, ySize, zSize>(xOffset, yOffset, zOffset, 8.555150000000001, 34.2206, 8.555150000000001);
-    auto ar =      this->lperlinNoise1.generateNoiseOctaves<xSize, ySize, zSize>(xOffset, yOffset, zOffset, 684.412, 2053.236, 684.412);
-    auto br =      this->lperlinNoise2.generateNoiseOctaves<xSize, ySize, zSize>(xOffset, yOffset, zOffset, 684.412, 2053.236, 684.412);
+    //auto noiseData4 = this->scaleNoise.generateNoiseOctaves<xSize,     1, zSize>(xOffset, yOffset, zOffset, 1.0, 0.0, 1.0);
+    // TODO: execute these in parallel
+
+    auto dr =         this->depthNoise.generateNoiseOctaves<xSize,     1, zSize>(xOffset, yOffset, zOffset, 100.0, 0.0, 100.0); // 5us
+    /*auto pnr =      this->perlinNoise1.generateNoiseOctaves<xSize, ySize, zSize>(xOffset, yOffset, zOffset, 8.555150000000001, 34.2206, 8.555150000000001); // 55us
+    auto ar =      this->lperlinNoise1.generateNoiseOctaves<xSize, ySize, zSize>(xOffset, yOffset, zOffset, 684.412, 2053.236, 684.412); // 105us
+    auto br =      this->lperlinNoise2.generateNoiseOctaves<xSize, ySize, zSize>(xOffset, yOffset, zOffset, 684.412, 2053.236, 684.412); // 105us*/
+    auto [pnr, ar, br] = threadPool.enqueue(
+        [&, this] { return this->perlinNoise1.generateNoiseOctaves<xSize, ySize, zSize>(xOffset, yOffset, zOffset, 8.555150000000001, 34.2206, 8.555150000000001); },
+        [&, this] { return this->lperlinNoise1.generateNoiseOctaves<xSize, ySize, zSize>(xOffset, yOffset, zOffset, 684.412, 2053.236, 684.412); },
+        [&, this] { return this->lperlinNoise2.generateNoiseOctaves<xSize, ySize, zSize>(xOffset, yOffset, zOffset, 684.412, 2053.236, 684.412); }
+        );
 
     int i = 0;
     // 256 allocated but only ySize used

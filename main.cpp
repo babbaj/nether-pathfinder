@@ -26,9 +26,10 @@ void writeChunk(const char* fileName, const ChunkPrimer& chunk) {
 int main(int argc, char** argv) {
     constexpr auto seed = 146008555100680;
     auto generator = ChunkGeneratorHell::fromSeed(seed);
+    auto pool = ThreadPool<3>{};
 
     auto t1 = std::chrono::steady_clock::now();
-    auto chunk = generator.generateChunk(0, 0);
+    auto chunk = generator.generateChunk(0, 0, pool);
     auto t2 = std::chrono::steady_clock::now();
 
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>( t2 - t1 ).count();
