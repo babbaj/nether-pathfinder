@@ -14,16 +14,28 @@ struct Worker {
     std::function<void()> task;
     std::mutex mutex;
     std::thread thread;
+    bool stop = false;
 
     Worker(): thread([this] {
         while (true) {
             std::unique_lock lock(this->mutex);
-            this->condition.wait(lock, [this] { return static_cast<bool>(this->task); });
+            this->condition.wait(lock, [this] { return this->stop || static_cast<bool>(this->task); });
+            if (this->stop && !this->task) return;
 
             this->task();
             this->task = nullptr;
         }
     }) {}
+
+    // Stopping and joining sequentially isn't the most efficient but doesn't matter
+    ~Worker() {
+        {
+            std::lock_guard lock(mutex);
+            this->stop = true;
+        }
+        this->condition.notify_all();
+        this->thread.join();
+    }
 };
 
 // promise/future is bloated
@@ -35,17 +47,16 @@ struct Signal {
     std::condition_variable condition;
 };
 
-template<int Threads>
-struct ThreadPool {
-    std::array<Worker, Threads> workers;
-    // TODO: destructor
+template<int Tasks>
+struct ParallelExecutor {
+    std::array<Worker, Tasks> workers;
 
-    template<typename... Fn> requires (sizeof...(Fn) == Threads)
-    auto enqueue(Fn&&... tasks) {
+    template<typename... Fn> requires (sizeof...(Fn) == Tasks)
+    auto compute(Fn&&... tasks) {
         std::tuple args = std::make_tuple(std::forward<Fn>(tasks)...);
 
         std::tuple<std::invoke_result_t<Fn>...> results;
-        std::array<Signal, Threads> signals;
+        std::array<Signal, Tasks> signals;
 
         [&]<size_t... I>(std::index_sequence<I...>) {
             ([&] {
@@ -66,9 +77,9 @@ struct ThreadPool {
 
                 worker.condition.notify_one();
             }(), ...);
-        }(std::make_index_sequence<Threads>{});
+        }(std::make_index_sequence<Tasks>{});
 
-        for (int i = 0; i < Threads; i++) {
+        for (int i = 0; i < Tasks; i++) {
             std::unique_lock lock(workers[i].mutex);
             Signal& signal = signals[i];
             signal.condition.wait(lock, [&] { return signal.status == Signal::Status::READY; });

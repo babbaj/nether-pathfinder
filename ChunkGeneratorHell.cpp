@@ -4,7 +4,7 @@
 #include <cassert>
 #include <chrono>
 
-ChunkPrimer ChunkGeneratorHell::generateChunk(int x, int z, ThreadPool<3>& threadPool) const {
+ChunkPrimer ChunkGeneratorHell::generateChunk(int x, int z, ParallelExecutor<3>& threadPool) const {
     //this->rand.setSeed((int64_t)x * 341873128712L + (int64_t)z * 132897987541L);
     ChunkPrimer chunkprimer{};
     prepareHeights(x, z, chunkprimer, threadPool);
@@ -12,7 +12,7 @@ ChunkPrimer ChunkGeneratorHell::generateChunk(int x, int z, ThreadPool<3>& threa
     return chunkprimer;
 }
 
-void ChunkGeneratorHell::prepareHeights(int x, int z, ChunkPrimer& primer, ThreadPool<3>& threadPool) const {
+void ChunkGeneratorHell::prepareHeights(int x, int z, ChunkPrimer& primer, ParallelExecutor<3>& threadPool) const {
     std::array buffer = this->getHeights<5, 17, 5>(x * 4, 0, z * 4, threadPool);
 
     constexpr auto j = 64 / 2 + 1; // 64 = sea level
