@@ -1,7 +1,6 @@
 #pragma once
 
 #include <array>
-#include <vector>
 
 #include "NoiseGeneratorImproved.h"
 #include "Random.h"
@@ -16,7 +15,10 @@ struct NoiseGeneratorOctavesBase {
     template<size_t Octaves>
     explicit NoiseGeneratorOctavesBase(NoiseGeneratorOctaves<Octaves>&);
 
-    std::vector<double> generateNoiseOctaves(std::vector<double>* noiseArray, int xOffset, int yOffset, int zOffset, int xSize, int ySize, int zSize, double xScale, double yScale, double zScale);
+    template<int xSize, int ySize, int zSize>
+    std::array<double, xSize * ySize * zSize> generateNoiseOctaves(int xOffset, int yOffset, int zOffset, double xScale, double yScale, double zScale) const;
+private:
+    void generateNoiseOctaves0(double* noiseArray, int xOffset, int yOffset, int zOffset, int xSize, int ySize, int zSize, double xScale, double yScale, double zScale) const;
 };
 
 template<size_t Octaves>
@@ -37,3 +39,13 @@ private:
 template<size_t Octaves>
 NoiseGeneratorOctavesBase::NoiseGeneratorOctavesBase(NoiseGeneratorOctaves<Octaves>& noiseGen):
     octaves(Octaves), generators(&noiseGen.generatorCollection[0]) {};
+
+
+template<int xSize, int ySize, int zSize>
+std::array<double, xSize * ySize * zSize> NoiseGeneratorOctavesBase::generateNoiseOctaves(int xOffset, int yOffset, int zOffset, double xScale, double yScale, double zScale) const {
+    std::array<double, xSize * ySize * zSize> noiseArray{};
+
+    generateNoiseOctaves0(&noiseArray[0], xOffset, yOffset, zOffset, xSize, ySize, zSize, xScale, yScale, zScale);
+
+    return noiseArray;
+}

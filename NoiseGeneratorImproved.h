@@ -1,7 +1,6 @@
 #pragma once
 
 #include <array>
-#include <vector>
 #include <cstdio>
 
 #include "Random.h"
@@ -33,5 +32,5 @@ struct NoiseGeneratorImproved {
         }
 
 
-    void populateNoiseArray(std::vector<double>& noiseArray, double xOffset, double yOffset, double zOffset, int xSize, int ySize, int zSize, double xScale, double yScale, double zScale, double noiseScale);
+    void populateNoiseArray(double* noiseArray, double xOffset, double yOffset, double zOffset, int xSize, int ySize, int zSize, double xScale, double yScale, double zScale, double noiseScale) const;
 };

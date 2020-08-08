@@ -25,7 +25,7 @@ void writeChunk(const char* fileName, const ChunkPrimer& chunk) {
 
 int main(int argc, char** argv) {
     constexpr auto seed = 146008555100680;
-    ChunkGeneratorHell generator{seed};
+    auto generator = ChunkGeneratorHell::fromSeed(seed);
 
     auto t1 = std::chrono::steady_clock::now();
     auto chunk = generator.generateChunk(0, 0);
@@ -36,6 +36,4 @@ int main(int argc, char** argv) {
     std::cout << "Generating chunk took " << duration << "us " << std::endl;
 
     writeChunk("testchunk", chunk);
-
-
 }

@@ -24,7 +24,7 @@ constexpr static double grad(int p_76310_1_, double p_76310_2_, double p_76310_4
 }
 
 
-void NoiseGeneratorImproved::populateNoiseArray(std::vector<double>& noiseArray, double xOffset, double yOffset, double zOffset, int xSize, int ySize, int zSize, double xScale, double yScale, double zScale, double noiseScale) {
+void NoiseGeneratorImproved::populateNoiseArray(double* noiseArray, double xOffset, double yOffset, double zOffset, int xSize, int ySize, int zSize, double xScale, double yScale, double zScale, double noiseScale) const {
     if (ySize == 1)
     {
         int i5 = 0;
