@@ -17,6 +17,10 @@ struct BlockPos {
         return {this->x >> 4, this->z >> 4};
     }
 
+    [[nodiscard]] BlockPos toChunkLocal() const {
+        return {this->x & 15, this->y, this->z & 15};
+    }
+
     [[nodiscard]] double distanceTo(const BlockPos& pos) const {
         const int dx = pos.x - this->x;
         const int dy = pos.y - this->y;
