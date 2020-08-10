@@ -24,6 +24,29 @@ void writeChunk(const char* fileName, const ChunkPrimer& chunk) {
     out.write(&bytes[0], bytes.size());
 }
 
+template<typename T>
+void write(std::ofstream& out, T x) {
+    char buf[sizeof(T)];
+    memcpy(&buf[0], (char*)&x, sizeof(T));
+    std::reverse(std::begin(buf), std::end(buf));
+    out.write(buf, sizeof(buf));
+}
+
+void writeBreadCrumbFile(const char* fileName, const Path& path) {
+    std::ofstream out(fileName, std::ios::out | std::ios::binary);
+    write(out, 1); // 1 trail
+    {
+        write(out, -1);
+        write(out, (int)path.path.size());
+        for (const BlockPos& pos : path.path) {
+            write(out, (double)pos.x);
+            write(out, (double)pos.y);
+            write(out, (double)pos.z);
+        }
+    }
+    out.close();
+}
+
 int main(int argc, char** argv) {
     constexpr auto seed = 146008555100680;
     auto generator = ChunkGeneratorHell::fromSeed(seed);
@@ -40,13 +63,17 @@ int main(int argc, char** argv) {
     writeChunk("testchunk", chunk);*/
 
     auto t1 = std::chrono::steady_clock::now();
-    std::optional<Path> path = findPath({-67, 67, -31}, {103, 84, -177}, generator);
+    std::optional<Path> path = findPath({0, 42, 0}, {46000, 64, 0}, generator);
     auto t2 = std::chrono::steady_clock::now();
 
-    auto duration = std::chrono::duration_cast<std::chrono::seconds>(t2 - t1).count();
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
 
-    //std::cout << "Finding path took " << duration << "s " << std::endl;
+    std::cout << "Finding path took " << duration / 1000.0 << "s " << std::endl;
     std::cout << "Path has " << path->path.size() << " blocks and " << path->nodes.size() << " nodes\n";
+    std::cout << "start = " << "{" << path->start.x << ", " << path->start.y << ", " << path->start.z << "} end = " << "{" << path->goal.x << ", " << path->goal.y << ", " << path->goal.z << "}\n";
 
     std::cout << (path.has_value() ? "Found a path!\n" : "no path :-(\n") << '\n';
+    if (path) {
+        writeBreadCrumbFile("test", *path);
+    }
 }

@@ -75,6 +75,8 @@ ChunkPrimer& getOrGenChunk(map_t<ChunkPos, ChunkPrimer>& cache, const ChunkPos& 
 }
 
 std::optional<Path> findPath(const BlockPos& start, const BlockPos& goal, const ChunkGeneratorHell& gen) {
+    std::cout << "distance = " << start.distanceTo(goal) << '\n';
+
     map_t<ChunkPos, ChunkPrimer> chunkCache;
     map_t<BlockPos, std::unique_ptr<PathNode>> map;
     BinaryHeapOpenSet openSet;
@@ -107,7 +109,10 @@ std::optional<Path> findPath(const BlockPos& start, const BlockPos& goal, const 
             const ChunkPrimer& neighborChunk = neighborBlock.toChunkPos() == cpos
                 ? currentChunk : getOrGenChunk(chunkCache, neighborBlock.toChunkPos(), gen, executor);
 
-            const auto& troll = neighborBlock;
+            if (neighborChunk.isSolid(neighborBlock.toChunkLocal())) {
+                continue;
+            }
+
             PathNode* neighborNode = getNodeAtPosition(map, neighborBlock, goal);
             constexpr double cost = 1; // cost to move 1 block is 1
             const double tentativeCost = currentNode->cost + cost;

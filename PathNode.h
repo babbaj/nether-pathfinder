@@ -24,7 +24,12 @@ struct PathNode {
     }
 
 private:
+    static int manhattan(const BlockPos& a, const BlockPos& b) {
+        return (abs((a.x - b.x)) + abs((a.y - b.y)) + abs((a.z - b.z))) * 2;
+    }
+
     static double heuristic(const BlockPos& pos, const BlockPos& goal) {
-        return pos.distanceTo(goal);
+        //return pos.distanceTo(goal);
+        return manhattan(pos, goal) * 1.1 + pos.distanceTo(goal) * 0.001;
     }
 };

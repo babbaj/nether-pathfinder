@@ -1,6 +1,9 @@
 #pragma once
 
+#include "Utils.h"
+
 #include <bitset>
+
 
 struct ChunkPrimer {
 public:
@@ -12,6 +15,10 @@ public:
 public:
     void setBlock(int x, int y, int z, bool solid) {
         data[getBlockIndex(x, y, z)] = solid;
+    }
+
+    bool isSolid(const BlockPos& pos) const {
+        return isSolid(pos.x, pos.y, pos.z);
     }
 
     bool isSolid(int x, int y, int z) const {
