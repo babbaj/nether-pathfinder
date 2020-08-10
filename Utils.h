@@ -14,7 +14,7 @@ struct BlockPos {
     int z;
 
     [[nodiscard]] ChunkPos toChunkPos() const {
-        return {this->x & 15, this->z & 15};
+        return {this->x >> 4, this->z >> 4};
     }
 
     [[nodiscard]] double distanceTo(const BlockPos& pos) const {
