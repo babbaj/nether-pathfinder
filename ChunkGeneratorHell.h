@@ -45,6 +45,7 @@ public:
         };
     }
 
+    void generateChunk(int x, int z, ChunkPrimer& chunkPrimer, ParallelExecutor<3>& threadPool) const;
     ChunkPrimer generateChunk(int x, int z, ParallelExecutor<3>& threadPool) const;
 };
 
@@ -54,25 +55,21 @@ std::array<double, xSize * ySize * zSize> ChunkGeneratorHell::getHeights(int xOf
     std::array<double, xSize * ySize * zSize> buffer{};
 
     //auto noiseData4 = this->scaleNoise.generateNoiseOctaves<xSize,     1, zSize>(xOffset, yOffset, zOffset, 1.0, 0.0, 1.0);
-    // TODO: execute these in parallel
 
     auto dr =         this->depthNoise.generateNoiseOctaves<xSize,     1, zSize>(xOffset, yOffset, zOffset, 100.0, 0.0, 100.0); // 5us
     /*auto pnr =      this->perlinNoise1.generateNoiseOctaves<xSize, ySize, zSize>(xOffset, yOffset, zOffset, 8.555150000000001, 34.2206, 8.555150000000001); // 55us
     auto ar =      this->lperlinNoise1.generateNoiseOctaves<xSize, ySize, zSize>(xOffset, yOffset, zOffset, 684.412, 2053.236, 684.412); // 105us
     auto br =      this->lperlinNoise2.generateNoiseOctaves<xSize, ySize, zSize>(xOffset, yOffset, zOffset, 684.412, 2053.236, 684.412); // 105us*/
+
     auto [pnr, ar, br] = threadPool.compute(
-        [&, this] {
-            return this->perlinNoise1.generateNoiseOctaves<xSize, ySize, zSize>(xOffset, yOffset, zOffset,
-                                                                                8.555150000000001, 34.2206,
-                                                                                8.555150000000001);
+        [=] {
+            return this->perlinNoise1.generateNoiseOctaves<xSize, ySize, zSize>(xOffset, yOffset, zOffset, 8.555150000000001, 34.2206, 8.555150000000001);
         },
-        [&, this] {
-            return this->lperlinNoise1.generateNoiseOctaves<xSize, ySize, zSize>(xOffset, yOffset, zOffset, 684.412,
-                                                                                 2053.236, 684.412);
+        [=] {
+            return this->lperlinNoise1.generateNoiseOctaves<xSize, ySize, zSize>(xOffset, yOffset, zOffset, 684.412, 2053.236, 684.412);
         },
-        [&, this] {
-            return this->lperlinNoise2.generateNoiseOctaves<xSize, ySize, zSize>(xOffset, yOffset, zOffset, 684.412,
-                                                                                 2053.236, 684.412);
+        [=] {
+            return this->lperlinNoise2.generateNoiseOctaves<xSize, ySize, zSize>(xOffset, yOffset, zOffset, 684.412, 2053.236, 684.412);
         }
     );
 
@@ -101,7 +98,6 @@ std::array<double, xSize * ySize * zSize> ChunkGeneratorHell::getHeights(int xOf
     {
         for (int i1 = 0; i1 < zSize; ++i1)
         {
-
             for (int k = 0; k < ySize; ++k)
             {
                 const double d4 = adouble[k];

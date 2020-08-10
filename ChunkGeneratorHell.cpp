@@ -4,8 +4,11 @@
 #include <cassert>
 #include <chrono>
 
+void ChunkGeneratorHell::generateChunk(int x, int z, ChunkPrimer& chunkprimer, ParallelExecutor<3>& threadPool) const {
+    prepareHeights(x, z, chunkprimer, threadPool);
+}
+
 ChunkPrimer ChunkGeneratorHell::generateChunk(int x, int z, ParallelExecutor<3>& threadPool) const {
-    //this->rand.setSeed((int64_t)x * 341873128712L + (int64_t)z * 132897987541L);
     ChunkPrimer chunkprimer{};
     prepareHeights(x, z, chunkprimer, threadPool);
 

@@ -2,7 +2,7 @@
 
 #include <cstdio>
 #include <thread>
-#include <future>
+#include <functional>
 #include <array>
 #include <tuple>
 #include <condition_variable>
@@ -53,6 +53,7 @@ struct ParallelExecutor {
 
     template<typename... Fn> requires (sizeof...(Fn) == Tasks)
     auto compute(Fn&&... tasks) {
+        // Indexing parameter packs is aids
         std::tuple args = std::make_tuple(std::forward<Fn>(tasks)...);
 
         std::tuple<std::invoke_result_t<Fn>...> results;
