@@ -26,12 +26,10 @@ public:
         return this->size == 0;
     }
 
-    // value must be created by new
     void insert(PathNode* value) {
         assert(value != nullptr);
         if (this->size >= this->vector.size() - 1) {
             this->vector.resize(this->vector.size() << 1);
-            //array = Arrays.copyOf(array, array.length << 1);
         }
         this->size++;
         value->heapPosition = this->size;
@@ -68,7 +66,6 @@ public:
         PathNode* val = vector[this->size];
         vector[1] = val;
         val->heapPosition = 1;
-        this->vector[this->size] = (PathNode*)0xCCCC;//nullptr;
         this->size--;
         result->heapPosition = -1;
         if (this->size < 2) {

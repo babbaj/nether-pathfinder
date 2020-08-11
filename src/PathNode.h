@@ -19,7 +19,7 @@ struct PathNode {
 
     explicit PathNode(const BlockPos& pos, const BlockPos& goal): pos(pos), estimatedCostToGoal(heuristic(pos, goal)) {}
 
-    bool isOpen() const {
+    [[nodiscard]] bool isOpen() const {
         return this->heapPosition != -1;
     }
 
