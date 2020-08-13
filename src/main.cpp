@@ -63,7 +63,7 @@ int main(int argc, char** argv) {
     writeChunk("testchunk", chunk);*/
 
     auto t1 = std::chrono::steady_clock::now();
-    std::optional<Path> path = findPath({0, 42, 0}, {10000, 64, 10000}, generator);
+    std::optional<Path> path = findPath({335597, 32, 108802}, {335511, 53, 107812}, generator);
     auto t2 = std::chrono::steady_clock::now();
 
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();

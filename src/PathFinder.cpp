@@ -9,8 +9,11 @@
 #include <iostream>
 #include <algorithm>
 
+#include "absl/container/flat_hash_map.h"
+
 template<typename K, typename V>
 using map_t = std::unordered_map<K, V>; // TODO: use non shit hashmap
+//using map_t = absl::flat_hash_map<K, V>;
 
 // never returns null
 PathNode* getNodeAtPosition(map_t<BlockPos, std::unique_ptr<PathNode>>& map, const BlockPos& pos, const BlockPos& goal) {
@@ -81,6 +84,7 @@ std::optional<Path> findPath(const BlockPos& start, const BlockPos& goal, const 
     map_t<BlockPos, std::unique_ptr<PathNode>> map;
     BinaryHeapOpenSet openSet;
     ParallelExecutor<3> executor;
+    std::cout << "1\n";
 
     PathNode* const startNode = getNodeAtPosition(map, start, goal);
     startNode->cost = 0;
@@ -90,6 +94,7 @@ std::optional<Path> findPath(const BlockPos& start, const BlockPos& goal, const 
     PathNode* bestSoFar = startNode;
     double bestHeuristicSoFar = startNode->estimatedCostToGoal;
 
+    std::cout << "2\n";
     auto t1 = std::chrono::steady_clock::now();
     while (!openSet.isEmpty()) {
         PathNode* currentNode = openSet.removeLowest();

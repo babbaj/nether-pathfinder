@@ -8,4 +8,7 @@ set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -g")
 
 file(GLOB_RECURSE SRC src/*)
 
+add_subdirectory(abseil-cpp)
+
 add_executable(nether_pathfinder ${SRC})
+target_link_libraries(nether_pathfinder absl::base absl::flat_hash_map)

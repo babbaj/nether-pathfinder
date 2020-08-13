@@ -4,6 +4,11 @@
 
 #include "Utils.h"
 
+//constexpr int64_t COST_SCALE = 1000;
+//constexpr int64_t COST_INF = 1000000 * COST_SCALE;/*1000000.0*/;
+//constexpr int64_t COST_ONE = 1 * COST_SCALE;
+
+
 struct PathNode {
     static constexpr double COST_INF = 1000000.0; // probably don't need this
     static constexpr double COST_ONE = 1.0;
@@ -29,7 +34,6 @@ private:
     }
 
     static double heuristic(const BlockPos& pos, const BlockPos& goal) {
-        //return pos.distanceTo(goal);
         return manhattan(pos, goal) * 1.1 + pos.distanceTo(goal) * 0.001;
     }
 };

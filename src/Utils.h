@@ -1,8 +1,7 @@
 #pragma once
 
 #include <cmath>
-
-
+#include <functional>
 
 struct ChunkPos {
     int x, z;
@@ -21,10 +20,10 @@ struct BlockPos {
         return {this->x & 15, this->y, this->z & 15};
     }
 
-    [[nodiscard]] double distanceTo(const BlockPos& pos) const {
-        const int dx = pos.x - this->x;
-        const int dy = pos.y - this->y;
-        const int dz = pos.z - this->z;
+    [[nodiscard]]  double distanceTo(const BlockPos& pos) const {
+        const double dx = pos.x - this->x;
+        const double dy = pos.y - this->y;
+        const double dz = pos.z - this->z;
 
         return sqrt((dx * dx) + (dy * dy) + (dz * dz));
     }
