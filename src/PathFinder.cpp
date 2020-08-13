@@ -11,9 +11,10 @@
 
 #include "absl/container/flat_hash_map.h"
 
+
 template<typename K, typename V>
-using map_t = std::unordered_map<K, V>; // TODO: use non shit hashmap
-//using map_t = absl::flat_hash_map<K, V>;
+//using map_t = std::unordered_map<K, V>;
+using map_t = absl::flat_hash_map<K, V>;
 
 // never returns null
 PathNode* getNodeAtPosition(map_t<BlockPos, std::unique_ptr<PathNode>>& map, const BlockPos& pos, const BlockPos& goal) {
@@ -63,28 +64,26 @@ std::array<BlockPos, 6> getNeighbors(const BlockPos& pos) {
     return {pos.up(), pos.down(), pos.north(), pos.south(), pos.east(), pos.west()};
 }
 
-ChunkPrimer& getOrGenChunk(map_t<ChunkPos, ChunkPrimer>& cache, const ChunkPos& pos, const ChunkGeneratorHell& generator, ParallelExecutor<3>& executor) {
+ChunkPrimer& getOrGenChunk(map_t<ChunkPos, std::unique_ptr<ChunkPrimer>>& cache, const ChunkPos& pos, const ChunkGeneratorHell& generator, ParallelExecutor<3>& executor) {
     auto it = cache.find(pos);
     if (it != cache.end()) {
-        return it->second;
+        return *it->second;
     } else {
-        // TODO: don't copy 8kb object
-        ChunkPrimer chunk = generator.generateChunk(pos.x, pos.z, executor);
-
-        auto out = cache.emplace(pos, chunk);
-        assert(out.second);
-        return out.first->second;
+        std::unique_ptr ptr = std::make_unique<ChunkPrimer>();
+        auto& chunk = *ptr;
+        generator.generateChunk(pos.x, pos.z, *ptr, executor);
+        cache.emplace(pos, std::move(ptr));
+        return chunk;
     }
 }
 
 std::optional<Path> findPath(const BlockPos& start, const BlockPos& goal, const ChunkGeneratorHell& gen) {
     std::cout << "distance = " << start.distanceTo(goal) << '\n';
 
-    map_t<ChunkPos, ChunkPrimer> chunkCache;
+    map_t<ChunkPos, std::unique_ptr<ChunkPrimer>> chunkCache;
     map_t<BlockPos, std::unique_ptr<PathNode>> map;
     BinaryHeapOpenSet openSet;
     ParallelExecutor<3> executor;
-    std::cout << "1\n";
 
     PathNode* const startNode = getNodeAtPosition(map, start, goal);
     startNode->cost = 0;
@@ -94,7 +93,6 @@ std::optional<Path> findPath(const BlockPos& start, const BlockPos& goal, const 
     PathNode* bestSoFar = startNode;
     double bestHeuristicSoFar = startNode->estimatedCostToGoal;
 
-    std::cout << "2\n";
     auto t1 = std::chrono::steady_clock::now();
     while (!openSet.isEmpty()) {
         PathNode* currentNode = openSet.removeLowest();

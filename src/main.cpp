@@ -1,6 +1,7 @@
 #include <iostream>
 #include <chrono>
 #include <fstream>
+#include <cstring>
 
 #include "ChunkGeneratorHell.h"
 #include "PathFinder.h"
