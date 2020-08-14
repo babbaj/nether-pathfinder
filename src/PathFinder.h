@@ -8,10 +8,21 @@
 #include "PathNode.h"
 
 struct Path {
+    enum class Type {
+        SEGMENT,
+        FINISHED
+    };
+
+    Type type;
     BlockPos start;
-    BlockPos goal;
-    std::vector<BlockPos> path;
+    BlockPos goal; // where the path wants to go, not necessarily where it ends
+    std::vector<BlockPos> blocks;
     std::vector<std::unique_ptr<PathNode>> nodes;
+
+    [[nodiscard]] const BlockPos& getEndPos() const {
+        // This should basically never be empty
+        return !nodes.empty() ? nodes.back()->pos : this->start;
+    }
 };
 
 

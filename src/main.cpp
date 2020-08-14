@@ -38,8 +38,8 @@ void writeBreadCrumbFile(const char* fileName, const Path& path) {
     write(out, 1); // 1 trail
     {
         write(out, -1);
-        write(out, (int)path.path.size());
-        for (const BlockPos& pos : path.path) {
+        write(out, (int)path.blocks.size());
+        for (const BlockPos& pos : path.blocks) {
             write(out, (double)pos.x);
             write(out, (double)pos.y);
             write(out, (double)pos.z);
@@ -49,6 +49,11 @@ void writeBreadCrumbFile(const char* fileName, const Path& path) {
 }
 
 int main(int argc, char** argv) {
+    auto now = std::chrono::system_clock::now();
+    now.time_since_epoch().count();
+    auto millis = std::chrono::time_point_cast<std::chrono::milliseconds>(now).time_since_epoch().count();
+    std::cout << "now = " << now.time_since_epoch().count()  << "  millis = " << millis << '\n';
+
     constexpr auto seed = 146008555100680;
     auto generator = ChunkGeneratorHell::fromSeed(seed);
     /*auto pool = ParallelExecutor<3>{};
@@ -64,17 +69,23 @@ int main(int argc, char** argv) {
     writeChunk("testchunk", chunk);*/
 
     auto t1 = std::chrono::steady_clock::now();
-    std::optional<Path> path = findPath({335597, 32, 108802}, {335511, 53, 107812}, generator);
+    constexpr BlockPos ONE_MIL = {1000072, 64, -121};
+    constexpr BlockPos ONE_HUNDRED_K = {100000, 50, 0};
+    constexpr BlockPos TEN_K = {10000, 64, 0};
+    constexpr BlockPos ONE_K = {1000, 64, 0};
+    std::optional<Path> path = findPath({0, 40, 0}, ONE_HUNDRED_K, generator);
     auto t2 = std::chrono::steady_clock::now();
 
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
 
     std::cout << "Finding path took " << duration / 1000.0 << "s " << std::endl;
-    std::cout << "Path has " << path->path.size() << " blocks and " << path->nodes.size() << " nodes\n";
-    std::cout << "start = " << "{" << path->start.x << ", " << path->start.y << ", " << path->start.z << "} end = " << "{" << path->goal.x << ", " << path->goal.y << ", " << path->goal.z << "}\n";
+    if (path.has_value()) {
+        std::cout << "Path has " << path->blocks.size() << " blocks and " << path->nodes.size() << " nodes\n";
+        const auto& endPos = path->getEndPos();
+        std::cout << "start = " << "{" << path->start.x << ", " << path->start.y << ", " << path->start.z << "} end = " << "{" << endPos.x << ", " << endPos.y << ", " << endPos.z << "}\n";
 
-    std::cout << (path.has_value() ? "Found a path!\n" : "no path :-(\n") << '\n';
-    if (path) {
         writeBreadCrumbFile("test", *path);
+    } else {
+        std::cout << "No path :-(\n";
     }
 }

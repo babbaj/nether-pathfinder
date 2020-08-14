@@ -20,12 +20,16 @@ struct BlockPos {
         return {this->x & 15, this->y, this->z & 15};
     }
 
-    [[nodiscard]]  double distanceTo(const BlockPos& pos) const {
+    [[nodiscard]] double distanceToSq(const BlockPos& pos) const {
         const double dx = pos.x - this->x;
         const double dy = pos.y - this->y;
         const double dz = pos.z - this->z;
 
-        return sqrt((dx * dx) + (dy * dy) + (dz * dz));
+        return (dx * dx) + (dy * dy) + (dz * dz);
+    }
+
+    [[nodiscard]] double distanceTo(const BlockPos& pos) const {
+        return sqrt(this->distanceToSq(pos));
     }
 
     [[nodiscard]] BlockPos up() const {
