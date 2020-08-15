@@ -5,7 +5,7 @@
 #include <iostream>
 
 #include "NoiseGeneratorOctaves.h"
-#include "ChunkPrimer.h"
+#include "Chunk.h"
 #include "ParallelExecutor.h"
 
 struct ChunkGeneratorHell {
@@ -24,7 +24,7 @@ public:
     NoiseGeneratorOctaves<16> depthNoise;
 
 
-    void prepareHeights(int x, int z, ChunkPrimer& primer, ParallelExecutor<3>& threadPool) const;
+    void prepareHeights(int x, int z, Chunk& primer, ParallelExecutor<3>& threadPool) const;
 
     // buffer may be null
     template<int xSize, int ySize, int zSize>
@@ -45,8 +45,8 @@ public:
         };
     }
 
-    void generateChunk(int x, int z, ChunkPrimer& chunkPrimer, ParallelExecutor<3>& threadPool) const;
-    ChunkPrimer generateChunk(int x, int z, ParallelExecutor<3>& threadPool) const;
+    void generateChunk(int x, int z, Chunk& chunkPrimer, ParallelExecutor<3>& threadPool) const;
+    Chunk generateChunk(int x, int z, ParallelExecutor<3>& threadPool) const;
 };
 
 // This is only instantiated once

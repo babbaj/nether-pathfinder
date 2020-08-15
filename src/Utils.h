@@ -32,28 +32,28 @@ struct BlockPos {
         return sqrt(this->distanceToSq(pos));
     }
 
-    [[nodiscard]] BlockPos up() const {
-        return {this->x, this->y + 1, this->z};
+    [[nodiscard]] BlockPos up(int n = 1) const {
+        return {this->x, this->y + n, this->z};
     }
 
-    [[nodiscard]] BlockPos down() const {
-        return {this->x, this->y - 1, this->z};
+    [[nodiscard]] BlockPos down(int n = 1) const {
+        return {this->x, this->y - n, this->z};
     }
 
-    [[nodiscard]] BlockPos east() const {
-        return {this->x + 1, this->y, this->z};
+    [[nodiscard]] BlockPos east(int n = 1) const {
+        return {this->x + n, this->y, this->z};
     }
 
-    [[nodiscard]] BlockPos west() const {
-        return {this->x - 1, this->y, this->z};
+    [[nodiscard]] BlockPos west(int n = 1) const {
+        return {this->x - n, this->y, this->z};
     }
 
-    [[nodiscard]] BlockPos north() const {
-        return {this->x, this->y, this->z - 1};
+    [[nodiscard]] BlockPos north(int n = 1) const {
+        return {this->x, this->y, this->z - n};
     }
 
-    [[nodiscard]] BlockPos south() const {
-        return {this->x, this->y, this->z + 1};
+    [[nodiscard]] BlockPos south(int n = 1) const {
+        return {this->x, this->y, this->z + n};
     }
 };
 

@@ -4,18 +4,18 @@
 #include <cassert>
 #include <chrono>
 
-void ChunkGeneratorHell::generateChunk(int x, int z, ChunkPrimer& chunkprimer, ParallelExecutor<3>& threadPool) const {
+void ChunkGeneratorHell::generateChunk(int x, int z, Chunk& chunkprimer, ParallelExecutor<3>& threadPool) const {
     prepareHeights(x, z, chunkprimer, threadPool);
 }
 
-ChunkPrimer ChunkGeneratorHell::generateChunk(int x, int z, ParallelExecutor<3>& threadPool) const {
-    ChunkPrimer chunkprimer{};
+Chunk ChunkGeneratorHell::generateChunk(int x, int z, ParallelExecutor<3>& threadPool) const {
+    Chunk chunkprimer{};
     prepareHeights(x, z, chunkprimer, threadPool);
 
     return chunkprimer;
 }
 
-void ChunkGeneratorHell::prepareHeights(int x, int z, ChunkPrimer& primer, ParallelExecutor<3>& threadPool) const {
+void ChunkGeneratorHell::prepareHeights(int x, int z, Chunk& primer, ParallelExecutor<3>& threadPool) const {
     std::array buffer = this->getHeights<5, 17, 5>(x * 4, 0, z * 4, threadPool);
 
     constexpr auto j = 64 / 2 + 1; // 64 = sea level

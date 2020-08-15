@@ -64,12 +64,12 @@ std::array<BlockPos, 6> getNeighbors(const BlockPos& pos) {
     return {pos.up(), pos.down(), pos.north(), pos.south(), pos.east(), pos.west()};
 }
 
-ChunkPrimer& getOrGenChunk(map_t<ChunkPos, std::unique_ptr<ChunkPrimer>>& cache, const ChunkPos& pos, const ChunkGeneratorHell& generator, ParallelExecutor<3>& executor) {
+Chunk& getOrGenChunk(map_t<ChunkPos, std::unique_ptr<Chunk>>& cache, const ChunkPos& pos, const ChunkGeneratorHell& generator, ParallelExecutor<3>& executor) {
     auto it = cache.find(pos);
     if (it != cache.end()) {
         return *it->second;
     } else {
-        std::unique_ptr ptr = std::make_unique<ChunkPrimer>();
+        std::unique_ptr ptr = std::make_unique<Chunk>();
         auto& chunk = *ptr;
         generator.generateChunk(pos.x, pos.z, *ptr, executor);
         cache.emplace(pos, std::move(ptr));
@@ -99,7 +99,7 @@ std::optional<Path> findPath0(const BlockPos& start, const BlockPos& goal, const
 
     std::cout << "distance = " << start.distanceTo(goal) << '\n';
 
-    map_t<ChunkPos, std::unique_ptr<ChunkPrimer>> chunkCache;
+    map_t<ChunkPos, std::unique_ptr<Chunk>> chunkCache;
     map_t<BlockPos, std::unique_ptr<PathNode>> map;
     BinaryHeapOpenSet openSet;
 
@@ -140,10 +140,11 @@ std::optional<Path> findPath0(const BlockPos& start, const BlockPos& goal, const
 
         const auto pos = currentNode->pos;
         const auto cpos = pos.toChunkPos();
-        const ChunkPrimer& currentChunk = getOrGenChunk(chunkCache, cpos, gen, executor);
+        const Chunk& currentChunk = getOrGenChunk(chunkCache, cpos, gen, executor);
         for (auto neighbors = getNeighbors(pos); const BlockPos& neighborBlock : neighbors) {
+            // TODO: make sure neighborBlock is in bounds
             // avoid unnecessary lookups
-            const ChunkPrimer& neighborChunk = neighborBlock.toChunkPos() == cpos
+            const Chunk& neighborChunk = neighborBlock.toChunkPos() == cpos
                 ? currentChunk : getOrGenChunk(chunkCache, neighborBlock.toChunkPos(), gen, executor);
 
             if (neighborChunk.isSolid(neighborBlock.toChunkLocal())) {
@@ -184,6 +185,7 @@ std::optional<Path> findPath0(const BlockPos& start, const BlockPos& goal, const
     std::cout << "failing = " << failing << '\n';
     std::cout << "Open set getSize: " << openSet.getSize() << '\n';
     std::cout << "PathNode map size: " << map.size() << '\n';
+    std::cout << "chunk cache size: " << chunkCache.size() << '\n';
     std::cout << '\n';
 
     return bestPathSoFar(map, startNode, bestSoFar, start, goal);

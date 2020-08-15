@@ -5,7 +5,7 @@
 #include <bitset>
 
 
-struct ChunkPrimer {
+struct Chunk {
 public:
     std::bitset<65536> data{};
 

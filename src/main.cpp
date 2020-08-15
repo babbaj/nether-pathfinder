@@ -19,7 +19,7 @@ std::array<char, Bits / 8> bitsetToBytes(const std::bitset<Bits>& bitSet) {
     return out;
 }
 
-void writeChunk(const char* fileName, const ChunkPrimer& chunk) {
+void writeChunk(const char* fileName, const Chunk& chunk) {
     std::fstream out(fileName, std::ios::out);
     std::array bytes = bitsetToBytes(chunk.data);
     out.write(&bytes[0], bytes.size());
@@ -56,6 +56,7 @@ int main(int argc, char** argv) {
 
     constexpr auto seed = 146008555100680;
     auto generator = ChunkGeneratorHell::fromSeed(seed);
+
     /*auto pool = ParallelExecutor<3>{};
 
     auto t1 = std::chrono::steady_clock::now();
