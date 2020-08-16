@@ -16,8 +16,15 @@ struct BlockPos {
         return {this->x >> 4, this->z >> 4};
     }
 
-    [[nodiscard]] BlockPos toChunkLocal() const {
-        return {this->x & 15, this->y, this->z & 15};
+    /*template<unsigned Res> requires (16 % Res == 0 && Res <= 16)
+    [[nodiscard]] constexpr BlockPos toChunkLocal() const {
+        constexpr int xzMask = 0xFu >> (Res - 1);
+        static_assert(xzMask <= 0xF && xzMask >= 1);
+        return {this->x & xzMask, static_cast<int>(this->y / Res), this->z & xzMask};
+    }*/
+
+    [[nodiscard]] constexpr BlockPos toChunkLocal() const {
+        return {this->x & 0xF, this->y, this->z & 0xF};
     }
 
     [[nodiscard]] double distanceToSq(const BlockPos& pos) const {

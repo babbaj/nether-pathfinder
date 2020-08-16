@@ -2,6 +2,7 @@
 #include <chrono>
 #include <fstream>
 #include <cstring>
+#include <bitset>
 
 #include "ChunkGeneratorHell.h"
 #include "PathFinder.h"
@@ -19,9 +20,22 @@ std::array<char, Bits / 8> bitsetToBytes(const std::bitset<Bits>& bitSet) {
     return out;
 }
 
+static int getBlockIndex(int x, int y, int z) {
+    return x << 12  | z << 8  | y;
+}
+
 void writeChunk(const char* fileName, const Chunk& chunk) {
     std::fstream out(fileName, std::ios::out);
-    std::array bytes = bitsetToBytes(chunk.data);
+    std::bitset<65536> bits;
+    for (int x = 0; x < 16; x++) {
+        for (int z = 0; z < 16; z++) {
+            for (int y = 0; y < 128; y++) {
+                bits[getBlockIndex(x, y, z)] = chunk.isSolid(x, y, z);
+            }
+        }
+    }
+
+    std::array bytes = bitsetToBytes(bits);
     out.write(&bytes[0], bytes.size());
 }
 
@@ -49,32 +63,22 @@ void writeBreadCrumbFile(const char* fileName, const Path& path) {
 }
 
 int main(int argc, char** argv) {
-    auto now = std::chrono::system_clock::now();
-    now.time_since_epoch().count();
-    auto millis = std::chrono::time_point_cast<std::chrono::milliseconds>(now).time_since_epoch().count();
-    std::cout << "now = " << now.time_since_epoch().count()  << "  millis = " << millis << '\n';
-
     constexpr auto seed = 146008555100680;
     auto generator = ChunkGeneratorHell::fromSeed(seed);
 
-    /*auto pool = ParallelExecutor<3>{};
+    auto pool = ParallelExecutor<3>{};
 
-    auto t1 = std::chrono::steady_clock::now();
-    auto chunk = generator.generateChunk(0, 0, pool);
-    auto t2 = std::chrono::steady_clock::now();
-
-    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count();
-
-    std::cout << "Generating chunk took " << duration << "us " << std::endl;
-
-    writeChunk("testchunk", chunk);*/
+    //auto chunk = generator.generateChunk(1, 0, pool);
+    //std::cout << chunk.isSolid(12, 38, 4) << '\n';
+    //writeChunk("testchunk", chunk);
+    //return 0;
 
     auto t1 = std::chrono::steady_clock::now();
     constexpr BlockPos ONE_MIL = {1000072, 64, -121};
     constexpr BlockPos ONE_HUNDRED_K = {100000, 50, 0};
     constexpr BlockPos TEN_K = {10000, 64, 0};
     constexpr BlockPos ONE_K = {1000, 64, 0};
-    std::optional<Path> path = findPath({0, 40, 0}, ONE_HUNDRED_K, generator);
+    std::optional<Path> path = findPath({0, 40, 0}, TEN_K, generator);
     auto t2 = std::chrono::steady_clock::now();
 
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
