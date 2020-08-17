@@ -11,6 +11,7 @@ void ChunkGeneratorHell::generateChunk(int x, int z, Chunk& chunkprimer, Paralle
 Chunk ChunkGeneratorHell::generateChunk(int x, int z, ParallelExecutor<3>& threadPool) const {
     Chunk chunkprimer{};
     prepareHeights(x, z, chunkprimer, threadPool);
+    chunkprimer.calcEmptyX16();
 
     return chunkprimer;
 }

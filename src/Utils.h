@@ -3,6 +3,17 @@
 #include <cmath>
 #include <functional>
 
+enum Face {
+    UP,
+    DOWN,
+    NORTH,
+    SOUTH,
+    EAST,
+    WEST
+};
+constexpr std::array<Face, 6> ALL_FACES {Face::UP, Face::DOWN, Face::NORTH, Face::SOUTH, Face::EAST, Face::WEST};
+
+
 struct ChunkPos {
     int x, z;
 };
@@ -39,29 +50,41 @@ struct BlockPos {
         return sqrt(this->distanceToSq(pos));
     }
 
-    [[nodiscard]] BlockPos up(int n = 1) const {
+    [[nodiscard]] BlockPos offset(Face face, int n = 1) const {
+        switch (face) {
+            case Face::UP: return up(n);
+            case Face::DOWN: return down(n);
+            case Face::NORTH: return north(n);
+            case Face::SOUTH: return south(n);
+            case Face::EAST: return east(n);
+            case Face::WEST: return west(n);
+        }
+    }
+
+    BlockPos up(int n = 1) const {
         return {this->x, this->y + n, this->z};
     }
 
-    [[nodiscard]] BlockPos down(int n = 1) const {
+    BlockPos down(int n = 1) const {
         return {this->x, this->y - n, this->z};
     }
 
-    [[nodiscard]] BlockPos east(int n = 1) const {
+    BlockPos east(int n = 1) const {
         return {this->x + n, this->y, this->z};
     }
 
-    [[nodiscard]] BlockPos west(int n = 1) const {
+    BlockPos west(int n = 1) const {
         return {this->x - n, this->y, this->z};
     }
 
-    [[nodiscard]] BlockPos north(int n = 1) const {
+    BlockPos north(int n = 1) const {
         return {this->x, this->y, this->z - n};
     }
 
-    [[nodiscard]] BlockPos south(int n = 1) const {
+    BlockPos south(int n = 1) const {
         return {this->x, this->y, this->z + n};
     }
+
 };
 
 constexpr bool operator==(const BlockPos& a, const BlockPos& b) {

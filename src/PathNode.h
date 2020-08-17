@@ -1,19 +1,31 @@
 #pragma once
 
 #include <cmath>
+#include <array>
 
 #include "Utils.h"
 
-//constexpr int64_t COST_SCALE = 1000;
-//constexpr int64_t COST_INF = 1000000 * COST_SCALE;/*1000000.0*/;
-//constexpr int64_t COST_ONE = 1 * COST_SCALE;
 
+enum Size : int {
+    X1,
+    X2,
+    X4,
+    X8,
+    X16
+};
+
+
+struct NodePos {
+    const Size size;
+    const BlockPos pos; // not guaranteed to be aligned
+};
 
 struct PathNode {
     static constexpr double COST_INF = 1000000.0; // probably don't need this
     static constexpr double COST_ONE = 1.0;
 
     const BlockPos pos;
+    const NodePos pos0{};
 
     const double estimatedCostToGoal;
     double cost = COST_INF;
