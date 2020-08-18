@@ -43,7 +43,7 @@ Path createPath(map_t<NodePos, std::unique_ptr<PathNode>>& map, const PathNode* 
     std::vector<BlockPos> tempPath;
 
     const PathNode* current = end;
-    while (current != nullptr) {
+    while (current) {
         auto& uniqueptr = map.at(current->pos);
         tempNodes.push_back(std::move(uniqueptr));
         tempPath.push_back(current->pos.absolutePosCenter());
