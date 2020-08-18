@@ -54,7 +54,7 @@ void ChunkGeneratorHell::prepareHeights(int x, int z, Chunk& primer, ParallelExe
                             bool iblockstate = false;
                             if (l1 * 8 + i2 < j)
                             {
-                                iblockstate = false; // LAVA
+                                iblockstate = true; // LAVA
                             }
 
                             if (d15 > 0.0)

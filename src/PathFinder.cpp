@@ -115,8 +115,8 @@ std::array<BlockPos, 4> neighborCubes(const BlockPos& origin, Face face, int siz
         }
         case Face::WEST: {
             const BlockPos& corner = origin.east(size);
-            const BlockPos oppositeCorner = corner.east(size).up(size);
-            return {corner, corner.east(size), corner.up(size), oppositeCorner};
+            const BlockPos oppositeCorner = corner.south(size).up(size);
+            return {corner, corner.south(size), corner.up(size), oppositeCorner};
         }
     }
 }
@@ -125,18 +125,20 @@ std::array<BlockPos, 4> neighborCubes(const BlockPos& origin, Face face, int siz
 void forEachNeighborInCube(const Chunk& chunk, const NodePos& neighborNode, const Face face, auto callback) {
     // I'm pretty sure this is already aligned
     const auto [nodeX, nodeY, nodeZ] = neighborNode.absolutePosZero();
+    const auto nodeX_ = nodeX, nodeY_ = nodeY, nodeZ_ = nodeZ;
+    const auto [chunkX, chunkY, chunkZ] = neighborNode.absolutePosZero().toChunkLocal();
     const auto size = neighborNode.size;
 
     // TODO: reduce copy/pasting
     switch (size) {
         case Size::X16: {
-            if (chunk.isX16Empty(nodeY)) {
+            if (chunk.isX16Empty(chunkY)) {
                 callback(neighborNode);
             } else {
                 // x/y only ever use the first 4 bits
-                const int alignedX = 0;
+                const int alignedX = nodeX & ~15;
                 const int alignedY = nodeY & ~15;
-                const int alignedZ = 0;
+                const int alignedZ = nodeZ & ~15;
                 const std::array subCubes = neighborCubes({alignedX, alignedY, alignedZ}, face, 8);
                 for (const BlockPos& subCube : subCubes) {
                     forEachNeighborInCube(chunk, NodePos{Size::X8, subCube}, face, callback);
@@ -145,7 +147,7 @@ void forEachNeighborInCube(const Chunk& chunk, const NodePos& neighborNode, cons
             break;
         }
         case Size::X8: {
-            if (chunk.isX8Empty(nodeX, nodeY, nodeZ)) {
+            if (chunk.isX8Empty(chunkX, chunkY, chunkZ)) {
                 callback(neighborNode);
             } else {
                 const int alignedX = nodeX & ~7;
@@ -159,7 +161,7 @@ void forEachNeighborInCube(const Chunk& chunk, const NodePos& neighborNode, cons
             break;
         }
         case Size::X4: {
-            if (chunk.isX4Empty(nodeX, nodeY, nodeZ)) {
+            if (chunk.isX4Empty(chunkX, chunkY, chunkZ)) {
                 callback(neighborNode);
             } else {
                 const int alignedX = nodeX & ~3;
@@ -173,7 +175,7 @@ void forEachNeighborInCube(const Chunk& chunk, const NodePos& neighborNode, cons
             break;
         }
         case Size::X2: {
-            if (chunk.isX2Empty(nodeX, nodeY, nodeZ)) {
+            if (chunk.isX2Empty(chunkX, chunkY, chunkZ)) {
                 callback(neighborNode);
             } else {
                 const int alignedX = nodeX & ~1;
@@ -187,7 +189,10 @@ void forEachNeighborInCube(const Chunk& chunk, const NodePos& neighborNode, cons
             break;
         }
         case Size::X1: {
-            if (chunk.isX1Empty(nodeX, nodeY, nodeZ)) {
+            if (chunk.isX1Empty(chunkX, chunkY, chunkZ)) {
+                const int x = chunkX, y = chunkY, z = chunkZ;
+                const auto chunkPos = neighborNode.absolutePosZero().toChunkPos();
+                //std::cout << "chunk = " << &chunk << '\n';
                 callback(neighborNode);
             }
             break;
@@ -247,10 +252,15 @@ void forEachNeighbor(ChunkProvider chunks, const PathNode& node, auto callback) 
         if (!isInBounds(neighborNodePos.absolutePosZero())) continue;
 
         const ChunkPos neighborCpos = neighborNodePos.absolutePosZero().toChunkPos();
-        const Chunk& chunk = neighborCpos == cpos
-            ? currentChunk : getOrGenChunk(chunks.cache, neighborCpos, chunks.generator, chunks.executor);
+        /*const Chunk& chunk = neighborCpos == cpos
+            ? currentChunk : getOrGenChunk(chunks.cache, neighborCpos, chunks.generator, chunks.executor);*/
+        const Chunk& chunk = getOrGenChunk(chunks.cache, neighborCpos, chunks.generator, chunks.executor);
 
         const NodePos thick = growNodePos(chunk, neighborNodePos);
+        const BlockPos uwu = neighborNodePos.absolutePosZero();
+        const BlockPos uwu2 = thick.absolutePosZero();
+        const auto neighborUwu = uwu.toChunkPos();
+        const auto neighborUwu2 = uwu2.toChunkPos();
         forEachNeighborInCube(chunk, thick, face, callback);
     }
 }
@@ -326,13 +336,13 @@ std::optional<Path> findPath0(const BlockPos& start, const BlockPos& goal, const
             return createPath(map, startNode, currentNode, start, goal, Path::Type::FINISHED);
         }
 
-        const auto pos = currentNode->pos;
-        const auto bpos = pos.absolutePosZero();
-        const auto cpos = bpos.toChunkPos();
-        const Chunk& currentChunk = getOrGenChunk(chunkCache, cpos, gen, executor);
+        //const auto pos = currentNode->pos;
+        //const auto bpos = pos.absolutePosZero();
+        //const auto cpos = bpos.toChunkPos();
 
         forEachNeighbor({chunkCache, gen, executor}, *currentNode, [&](const NodePos& neighborPos) {
             const auto& block = neighborPos.absolutePosZero();
+            const Chunk& currentChunk = getOrGenChunk(chunkCache, block.toChunkPos(), gen, executor);
 
             PathNode* neighborNode = getNodeAtPosition(map, neighborPos, goal);
             constexpr double cost = 1; // cost to move 1 block is 1

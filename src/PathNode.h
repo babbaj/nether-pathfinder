@@ -14,15 +14,12 @@ enum class Size : int {
     X16
 };
 
-// this is used to much there should probably be a pre calculated field
+constexpr int shiftFor(Size size) {
+    return static_cast<int>(size);
+}
+
 constexpr int getSize(Size sizeEnum) {
-    switch (sizeEnum) {
-        case Size::X16: return 16;
-        case Size::X8: return 8;
-        case Size::X4: return 4;
-        case Size::X2: return 2;
-        case Size::X1: return 1;
-    }
+    return 1 << shiftFor(sizeEnum);
 }
 
 struct NodePos {
@@ -32,17 +29,17 @@ struct NodePos {
 private:
     const BlockPos pos; // absolute pos / size
 public:
-    explicit NodePos(Size enumSize, const BlockPos& approxPosition): size(enumSize), pos(approxPosition / getSize(enumSize)) { }
+    explicit NodePos(Size enumSize, const BlockPos& approxPosition): size(enumSize), pos(approxPosition >> shiftFor(enumSize)) { }
 
     BlockPos absolutePosZero() const {
-        return this->pos * getSize(this->size);
+        return this->pos << shiftFor(this->size);
     }
     BlockPos absolutePosCenter() const {
         const auto sz = getSize(this->size);
-        return (this->pos * sz) + sz / 2;
+        return (this->pos << shiftFor(this->size)) + (sz / 2);
     }
 
-    // TODO: function that returns the real center instead of block aligned center
+    // TODO: function that returns the real center instead of block aligned center?
 
     constexpr friend bool operator==(const NodePos& a, const NodePos& b) {
         return a.pos == b.pos && a.size == b.size;
@@ -90,8 +87,8 @@ private:
     }
 
     static double heuristic(const NodePos& pos, const BlockPos& goal) {
-        // The size arg allows the heuristic to prefer larger nodes
+        // TODO: adjust preference for bigger nodes
         const auto bpos = pos.absolutePosCenter();
-        return manhattan(bpos, goal) * 1.1 + bpos.distanceTo(goal) * 0.001 - (getSize(pos.size) * 5);
+        return manhattan(bpos, goal) * 1.1 + bpos.distanceTo(goal) * 0.001 - (getSize(pos.size) * 3);
     }
 };

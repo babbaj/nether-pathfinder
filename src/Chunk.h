@@ -132,9 +132,10 @@ public:
     }
 
     bool isX1Empty(int x, int y, int z) const {
-        const auto x2 = getX2(x, y, z);
-        const auto bit = bitIndex(x, y, z);
-        return ((x2 >> bit) & 1) == 0;
+        //const auto x2 = getX2(x, y, z);
+        //const auto bit = bitIndex(x, y, z);
+        //return ((x2 >> bit) & 1) == 0;
+        return getBit(x, y, z) == 0;
     }
 
 

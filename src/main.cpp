@@ -62,6 +62,54 @@ void writeBreadCrumbFile(const char* fileName, const Path& path) {
     out.close();
 }
 
+int totalLength(const Path& path) {
+    const auto& blocks = path.blocks;
+    for (auto it = blocks.begin() + 1; it != blocks.end(); it++) {
+
+    }
+}
+
+void printSizes(const Path& path) {
+    int x16 = 0, x8 = 0, x4 = 0, x2 = 0, x1 = 0;
+    for (const auto& nodePtr : path.nodes) {
+        const PathNode& node = *nodePtr;
+        const Size size = node.pos.size;
+
+        switch (size) {
+            case Size::X16: x16++; break;
+            case Size::X8: x8++; break;
+            case Size::X4: x4++; break;
+            case Size::X2: x2++; break;
+            case Size::X1: x1++; break;
+        }
+    }
+
+    std::cout << "X16 = " << x16 << '\n';
+    std::cout << "X8 = " << x8 << '\n';
+    std::cout << "X4 = " << x4 << '\n';
+    std::cout << "X2 = " << x2 << '\n';
+    std::cout << "X1 = " << x1 << '\n';
+    const PathNode& last = *path.nodes.back();
+    auto print = [](auto& node) {
+        switch (node.pos.size) {
+            case Size::X16: std::cout << "X16"; break;
+            case Size::X8: std::cout << "X8"; break;
+            case Size::X4: std::cout << "X4"; break;
+            case Size::X2: std::cout << "X2"; break;
+            case Size::X1: std::cout << "X1"; break;
+        }
+        std::cout << '\n';
+    };
+
+    std::cout << "2nd to last node = ";
+    print(**(path.nodes.end() - 2));
+    std::cout << '\n';
+    std::cout << "last node = ";
+    print(last);
+    std::cout << '\n';
+
+}
+
 int main(int argc, char** argv) {
     constexpr auto seed = 146008555100680;
     auto generator = ChunkGeneratorHell::fromSeed(seed);
@@ -78,7 +126,7 @@ int main(int argc, char** argv) {
     constexpr BlockPos ONE_HUNDRED_K = {100000, 50, 0};
     constexpr BlockPos TEN_K = {10000, 64, 0};
     constexpr BlockPos ONE_K = {1000, 64, 0};
-    std::optional<Path> path = findPath({0, 40, 0}, TEN_K, generator);
+    std::optional<Path> path = findPath({0, 40, 0}, ONE_MIL, generator);
     auto t2 = std::chrono::steady_clock::now();
 
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
@@ -90,6 +138,7 @@ int main(int argc, char** argv) {
         std::cout << "start = " << "{" << path->start.x << ", " << path->start.y << ", " << path->start.z << "} end = " << "{" << endPos.x << ", " << endPos.y << ", " << endPos.z << "}\n";
 
         writeBreadCrumbFile("test", *path);
+        printSizes(*path);
     } else {
         std::cout << "No path :-(\n";
     }
