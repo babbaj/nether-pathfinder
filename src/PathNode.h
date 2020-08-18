@@ -44,7 +44,7 @@ public:
     // TODO: function that returns the real center instead of block aligned center
 
     constexpr friend bool operator==(const NodePos& a, const NodePos& b) {
-        return a.size == b.size && a.pos == b.pos;
+        return a.pos == b.pos && a.size == b.size;
     }
 };
 

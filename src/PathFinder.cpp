@@ -153,7 +153,7 @@ void forEachNeighborInCube(const Chunk& chunk, const NodePos& neighborNode, cons
                 const int alignedZ = nodeZ & ~7;
                 const std::array subCubes = neighborCubes({alignedX, alignedY, alignedZ}, face, 4);
                 for (const BlockPos& subCube : subCubes) {
-                    forEachNeighborInCube(chunk, NodePos{Size::X8, subCube}, face, callback);
+                    forEachNeighborInCube(chunk, NodePos{Size::X4, subCube}, face, callback);
                 }
             }
             break;
@@ -167,7 +167,7 @@ void forEachNeighborInCube(const Chunk& chunk, const NodePos& neighborNode, cons
                 const int alignedZ = nodeZ & ~3;
                 const std::array subCubes = neighborCubes({alignedX, alignedY, alignedZ}, face, 2);
                 for (const BlockPos& subCube : subCubes) {
-                    forEachNeighborInCube(chunk, NodePos{Size::X8, subCube}, face, callback);
+                    forEachNeighborInCube(chunk, NodePos{Size::X2, subCube}, face, callback);
                 }
             }
             break;
@@ -181,7 +181,7 @@ void forEachNeighborInCube(const Chunk& chunk, const NodePos& neighborNode, cons
                 const int alignedZ = nodeZ & ~1;
                 const std::array subCubes = neighborCubes({alignedX, alignedY, alignedZ}, face, 1);
                 for (const BlockPos& subCube : subCubes) {
-                    forEachNeighborInCube(chunk, NodePos{Size::X8, subCube}, face, callback);
+                    forEachNeighborInCube(chunk, NodePos{Size::X1, subCube}, face, callback);
                 }
             }
             break;
@@ -195,6 +195,45 @@ void forEachNeighborInCube(const Chunk& chunk, const NodePos& neighborNode, cons
     }
 }
 
+NodePos growNodePos(const Chunk& chunk, const NodePos& pos) {
+    const auto bpos = pos.absolutePosZero();
+
+    switch (pos.size) {
+        case Size::X16: return pos;
+        case Size::X8:  {
+            if (chunk.isX16Empty(bpos.y)) {
+                return NodePos{Size::X16, bpos};
+            } else {
+                return pos;
+            }
+        }
+        case Size::X4: {
+            if (chunk.isX8Empty(bpos.x, bpos.y, bpos.z)) {
+                return growNodePos(chunk, NodePos{Size::X8, bpos}); // TODO: dont keep reconstructing new NodePos's?
+            } else {
+                return pos;
+            }
+        }
+        case Size::X2: {
+            if (chunk.isX4Empty(bpos.x, bpos.y, bpos.z)) {
+                return growNodePos(chunk, NodePos{Size::X4, bpos});
+            } else {
+                return pos;
+            }
+        }
+        case Size::X1: {
+            if (chunk.isX2Empty(bpos.x, bpos.y, bpos.z)) {
+                return growNodePos(chunk, NodePos{Size::X2, bpos});
+            } else {
+                return pos;
+            }
+        }
+    }
+}
+
+bool isInBounds(const BlockPos& pos) {
+    return pos.y >= 0 && pos.y < 128;
+}
 
 void forEachNeighbor(ChunkProvider chunks, const PathNode& node, auto callback) {
     const auto size = node.pos.size;
@@ -205,15 +244,18 @@ void forEachNeighbor(ChunkProvider chunks, const PathNode& node, auto callback) 
 
     for (const enum Face face : ALL_FACES) {
         const NodePos neighborNodePos {size, bpos.offset(face, getSize(size))};
+        if (!isInBounds(neighborNodePos.absolutePosZero())) continue;
+
         const ChunkPos neighborCpos = neighborNodePos.absolutePosZero().toChunkPos();
         const Chunk& chunk = neighborCpos == cpos
             ? currentChunk : getOrGenChunk(chunks.cache, neighborCpos, chunks.generator, chunks.executor);
 
-        forEachNeighborInCube(chunk, neighborNodePos, face, callback);
+        const NodePos thick = growNodePos(chunk, neighborNodePos);
+        forEachNeighborInCube(chunk, thick, face, callback);
     }
 }
 
-std::array<BlockPos, 6> getNeighbors(const BlockPos& pos) {
+[[deprecated]] std::array<BlockPos, 6> getNeighbors(const BlockPos& pos) {
     return {pos.up(), pos.down(), pos.north(), pos.south(), pos.east(), pos.west()};
 }
 
@@ -238,7 +280,7 @@ std::optional<Path> bestPathSoFar(map_t<NodePos, std::unique_ptr<PathNode>>& map
 
 bool inGoal(const NodePos& node, const BlockPos& goal) {
     // TODO: test if goal is in cube
-    return node.absolutePosCenter().distanceToSq(goal) <= 17 * 17;
+    return node.absolutePosCenter().distanceToSq(goal) <= 10 * 10;
 }
 
 std::optional<Path> findPath0(const BlockPos& start, const BlockPos& goal, const ChunkGeneratorHell& gen, ParallelExecutor<3>& executor) {
