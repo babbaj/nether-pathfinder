@@ -204,35 +204,20 @@ NodePos growNodePos(const Chunk& chunk, const NodePos& pos) {
     const auto bpos = pos.absolutePosZero();
 
     switch (pos.size) {
-        case Size::X16: return pos;
-        case Size::X8:  {
-            if (chunk.isX16Empty(bpos.y)) {
-                return NodePos{Size::X16, bpos};
-            } else {
+        case Size::X1:
+            if (!chunk.isX2Empty(bpos.x, bpos.y, bpos.z))
+        case Size::X16:
                 return pos;
-            }
-        }
-        case Size::X4: {
-            if (chunk.isX8Empty(bpos.x, bpos.y, bpos.z)) {
-                return growNodePos(chunk, NodePos{Size::X8, bpos}); // TODO: dont keep reconstructing new NodePos's?
-            } else {
-                return pos;
-            }
-        }
-        case Size::X2: {
-            if (chunk.isX4Empty(bpos.x, bpos.y, bpos.z)) {
-                return growNodePos(chunk, NodePos{Size::X4, bpos});
-            } else {
-                return pos;
-            }
-        }
-        case Size::X1: {
-            if (chunk.isX2Empty(bpos.x, bpos.y, bpos.z)) {
-                return growNodePos(chunk, NodePos{Size::X2, bpos});
-            } else {
-                return pos;
-            }
-        }
+        case Size::X2: 
+            if (!chunk.isX4Empty(bpos.x, bpos.y, bpos.z))
+                return NodePos{Size::X2, bpos};
+        case Size::X4:
+            if (!chunk.isX8Empty(bpos.x, bpos.y, bpos.z))
+                return NodePos{Size::X4, bpos};
+        case Size::X8:
+            if (!chunk.isX16Empty(bpos.y))
+                return NodePos{Size::X8, bpos};
+            return NodePos{Size::X16, bpos};
     }
 }
 
