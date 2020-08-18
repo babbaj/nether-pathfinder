@@ -305,7 +305,7 @@ std::optional<Path> findPath0(const BlockPos& start, const BlockPos& goal, const
             const Chunk& currentChunk = getOrGenChunk(chunkCache, block.toChunkPos(), gen, executor);
 
             PathNode* neighborNode = getNodeAtPosition(map, neighborPos, goal);
-            constexpr double cost = 1; // cost to move 1 block is 1
+            const double cost = getSize(neighborNode->pos.size);
             const double tentativeCost = currentNode->cost + cost;
             constexpr double MIN_IMPROVEMENT = 0.01;
             if (neighborNode->cost - tentativeCost > MIN_IMPROVEMENT) {
