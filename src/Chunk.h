@@ -15,7 +15,7 @@ inline bool isEmpty(const x4_t& x4) {
     int64_t num;
     static_assert(sizeof(num) == sizeof(x4));
     memcpy(&num, &x4, sizeof(x4));
-    return num != 0;
+    return num == 0;
 }
 
 inline bool isEmpty(const x8_t& x8) {
@@ -128,7 +128,7 @@ public:
     }
 
     bool isX2Empty(int x, int y, int z) const {
-        return getX2(x, y, z) != 0;
+        return getX2(x, y, z) == 0;
     }
 
     bool isX1Empty(int x, int y, int z) const {

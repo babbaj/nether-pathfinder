@@ -14,6 +14,7 @@ enum class Size : int {
     X16
 };
 
+// this is used to much there should probably be a pre calculated field
 constexpr int getSize(Size sizeEnum) {
     switch (sizeEnum) {
         case Size::X16: return 16;
@@ -77,7 +78,7 @@ struct PathNode {
     PathNode* previous = nullptr;
     int heapPosition = -1;
 
-    explicit PathNode(const NodePos& pos, const BlockPos& goal): pos(pos), estimatedCostToGoal(heuristic(pos.absolutePosCenter(), goal)) {}
+    explicit PathNode(const NodePos& pos, const BlockPos& goal): pos(pos), estimatedCostToGoal(heuristic(pos, goal)) {}
 
     [[nodiscard]] bool isOpen() const {
         return this->heapPosition != -1;
@@ -85,10 +86,12 @@ struct PathNode {
 
 private:
     static int manhattan(const BlockPos& a, const BlockPos& b) {
-        return (abs((a.x - b.x)) + abs((a.y - b.y)) + abs((a.z - b.z))) * 2;
+        return (abs((a.x - b.x)) + abs((a.y - b.y)) + abs((a.z - b.z)));
     }
 
-    static double heuristic(const BlockPos& pos, const BlockPos& goal) {
-        return manhattan(pos, goal) * 1.1 + pos.distanceTo(goal) * 0.001;
+    static double heuristic(const NodePos& pos, const BlockPos& goal) {
+        // The size arg allows the heuristic to prefer larger nodes
+        const auto bpos = pos.absolutePosCenter();
+        return manhattan(bpos, goal) * 1.1 + bpos.distanceTo(goal) * 0.001 - (getSize(pos.size) * 5);
     }
 };

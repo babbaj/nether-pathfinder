@@ -6,6 +6,7 @@
 
 void ChunkGeneratorHell::generateChunk(int x, int z, Chunk& chunkprimer, ParallelExecutor<3>& threadPool) const {
     prepareHeights(x, z, chunkprimer, threadPool);
+    chunkprimer.calcEmptyX16();
 }
 
 Chunk ChunkGeneratorHell::generateChunk(int x, int z, ParallelExecutor<3>& threadPool) const {
