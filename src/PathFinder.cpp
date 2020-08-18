@@ -84,45 +84,48 @@ Chunk& getOrGenChunk(map_t<ChunkPos, std::unique_ptr<Chunk>>& cache, const Chunk
 // This is called inside of a big neighbor cube and returns the 4 sub cubes that are adjacent to the original cube.
 // The face argument is relative to the original cube.
 // This size argument is the size of the sub cubes.
-std::array<BlockPos, 4> neighborCubes(const BlockPos& origin, Face face, int size) {
-    // origin leans towards north/west/down
-
-    switch (face) {
-        case Face::UP: {
-            const BlockPos& corner = origin;
-            const BlockPos& oppositeCorner = origin.east(size).south(size);
-            return {corner, corner.east(size), corner.south(size), oppositeCorner};
-        }
-        case Face::DOWN: {
-            const BlockPos corner = origin.up(size);
-            const BlockPos& oppositeCorner = origin.east(size).south(size);
-            return {corner, corner.east(size), corner.south(size), oppositeCorner};
-        }
-        case Face::NORTH: {
-            const BlockPos& corner = origin.south(size);
-            const BlockPos oppositeCorner = corner.east(size).up(size);
-            return {corner, corner.east(size), corner.up(size), oppositeCorner};
-        }
-        case Face::SOUTH: {
-            const BlockPos& corner = origin;
-            const BlockPos oppositeCorner = corner.east(size).up(size);
-            return {corner, corner.east(size), corner.up(size), oppositeCorner};
-        }
-        case Face::EAST: {
-            const BlockPos& corner = origin;
-            const BlockPos oppositeCorner = corner.south(size).up(size);
-            return {corner, corner.south(size), corner.up(size), oppositeCorner};
-        }
-        case Face::WEST: {
-            const BlockPos& corner = origin.east(size);
-            const BlockPos oppositeCorner = corner.south(size).up(size);
-            return {corner, corner.south(size), corner.up(size), oppositeCorner};
-        }
-    }
+// origin leans towards north/west/down
+template<Face::UP>
+std::array<BlockPos, 4> neighborCubes(const BlockPos& origin, int size) {
+    const BlockPos& corner = origin;
+    const BlockPos& oppositeCorner = origin.east(size).south(size);
+    return {corner, corner.east(size), corner.south(size), oppositeCorner};
+}
+template<Face::DOWN>
+std::array<BlockPos, 4> neighborCubes(const BlockPos& origin, int size) {
+    const BlockPos corner = origin.up(size);
+    const BlockPos& oppositeCorner = origin.east(size).south(size);
+    return {corner, corner.east(size), corner.south(size), oppositeCorner};
+}
+template<Face::NORTH>
+std::array<BlockPos, 4> neighborCubes(const BlockPos& origin, int size) {
+    const BlockPos& corner = origin.south(size);
+    const BlockPos oppositeCorner = corner.east(size).up(size);
+    return {corner, corner.east(size), corner.up(size), oppositeCorner};
+}
+template<Face::SOUTH>
+std::array<BlockPos, 4> neighborCubes(const BlockPos& origin, int size) {
+    const BlockPos& corner = origin;
+    const BlockPos oppositeCorner = corner.east(size).up(size);
+    return {corner, corner.east(size), corner.up(size), oppositeCorner};
+}
+template<Face::EAST>
+std::array<BlockPos, 4> neighborCubes(const BlockPos& origin, int size) {
+    const BlockPos& corner = origin;
+    const BlockPos oppositeCorner = corner.south(size).up(size);
+    return {corner, corner.south(size), corner.up(size), oppositeCorner};
+}
+template<Face::WEST>
+std::array<BlockPos, 4> neighborCubes(const BlockPos& origin, int size) {
+    const BlockPos& corner = origin.east(size);
+    const BlockPos oppositeCorner = corner.south(size).up(size);
+    return {corner, corner.south(size), corner.up(size), oppositeCorner};
 }
 
+
 // face is relative to the original cube
-void forEachNeighborInCube(const Chunk& chunk, const NodePos& neighborNode, const Face face, auto callback) {
+template<Face face>
+void forEachNeighborInCube(const Chunk& chunk, const NodePos& neighborNode, auto callback) {
     // I'm pretty sure this is already aligned
     const auto [nodeX, nodeY, nodeZ] = neighborNode.absolutePosZero();
     const auto nodeX_ = nodeX, nodeY_ = nodeY, nodeZ_ = nodeZ;
@@ -169,9 +172,9 @@ void forEachNeighborInCube(const Chunk& chunk, const NodePos& neighborNode, cons
     const int alignedY = nodeY & ~mask;
     const int alignedZ = nodeZ & ~mask;
     const auto nextSize = static_cast<Size>(static_cast<int>(size) - 1);
-    const std::array subCubes = neighborCubes({alignedX, alignedY, alignedZ}, face, getSize(nextSize));
+    const std::array subCubes = neighborCubes<face>({alignedX, alignedY, alignedZ}, face, getSize(nextSize));
     for (const BlockPos& subCube : subCubes) {
-        forEachNeighborInCube(chunk, NodePos{nextSize, subCube}, face, callback);
+        forEachNeighborInCube<face>(chunk, NodePos{nextSize, subCube}, callback);
     }
 }
 
@@ -200,29 +203,36 @@ bool isInBounds(const BlockPos& pos) {
     return pos.y >= 0 && pos.y < 128;
 }
 
+template<Face face>
+void expandNode(auto size, auto bpos, auto cpos, auto currentChunk, auto callback) {
+    const NodePos neighborNodePos {size, bpos.offset(face, getSize(size))};
+    if (!isInBounds(neighborNodePos.absolutePosZero())) continue;
+
+    const ChunkPos neighborCpos = neighborNodePos.absolutePosZero().toChunkPos();
+    /*const Chunk& chunk = neighborCpos == cpos
+        ? currentChunk : getOrGenChunk(chunks.cache, neighborCpos, chunks.generator, chunks.executor);*/
+    const Chunk& chunk = getOrGenChunk(chunks.cache, neighborCpos, chunks.generator, chunks.executor);
+
+    const NodePos thick = growNodePos(chunk, neighborNodePos);
+    const BlockPos uwu = neighborNodePos.absolutePosZero();
+    const BlockPos uwu2 = thick.absolutePosZero();
+    const auto neighborUwu = uwu.toChunkPos();
+    const auto neighborUwu2 = uwu2.toChunkPos();
+    forEachNeighborInCube(chunk, thick, face, callback);
+}
+
 void forEachNeighbor(ChunkProvider chunks, const PathNode& node, auto callback) {
     const auto size = node.pos.size;
     const auto bpos = node.pos.absolutePosZero();
 
     const ChunkPos cpos = bpos.toChunkPos();
     const Chunk& currentChunk = getOrGenChunk(chunks.cache, cpos, chunks.generator, chunks.executor);
-
-    for (const enum Face face : ALL_FACES) {
-        const NodePos neighborNodePos {size, bpos.offset(face, getSize(size))};
-        if (!isInBounds(neighborNodePos.absolutePosZero())) continue;
-
-        const ChunkPos neighborCpos = neighborNodePos.absolutePosZero().toChunkPos();
-        /*const Chunk& chunk = neighborCpos == cpos
-            ? currentChunk : getOrGenChunk(chunks.cache, neighborCpos, chunks.generator, chunks.executor);*/
-        const Chunk& chunk = getOrGenChunk(chunks.cache, neighborCpos, chunks.generator, chunks.executor);
-
-        const NodePos thick = growNodePos(chunk, neighborNodePos);
-        const BlockPos uwu = neighborNodePos.absolutePosZero();
-        const BlockPos uwu2 = thick.absolutePosZero();
-        const auto neighborUwu = uwu.toChunkPos();
-        const auto neighborUwu2 = uwu2.toChunkPos();
-        forEachNeighborInCube(chunk, thick, face, callback);
-    }
+    expandNode<Face::UP>(size, bpos, cpos, currentChunk, callback);
+    expandNode<Face::DOWN>(size, bpos, cpos, currentChunk, callback);
+    expandNode<Face::NORTH>(size, bpos, cpos, currentChunk, callback);
+    expandNode<Face::SOUTH>(size, bpos, cpos, currentChunk, callback);
+    expandNode<Face::EAST>(size, bpos, cpos, currentChunk, callback);
+    expandNode<Face::WEST>(size, bpos, cpos, currentChunk, callback);
 }
 
 [[deprecated]] std::array<BlockPos, 6> getNeighbors(const BlockPos& pos) {
