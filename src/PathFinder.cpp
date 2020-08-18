@@ -25,7 +25,7 @@ struct ChunkProvider {
 };
 
 // never returns null
-PathNode* getNodeAtPosition(map_t<BlockPos, std::unique_ptr<PathNode>>& map, const BlockPos& pos, const BlockPos& goal) {
+PathNode* getNodeAtPosition(map_t<NodePos, std::unique_ptr<PathNode>>& map, const NodePos& pos, const BlockPos& goal) {
     auto iter = map.find(pos);
     if (iter == map.end()) {
         auto node = std::make_unique<PathNode>(pos, goal);
@@ -38,7 +38,7 @@ PathNode* getNodeAtPosition(map_t<BlockPos, std::unique_ptr<PathNode>>& map, con
 }
 
 
-Path createPath(map_t<BlockPos, std::unique_ptr<PathNode>>& map, const PathNode* start, const PathNode* end, const BlockPos& startPos, const BlockPos& goal, Path::Type pathType) {
+Path createPath(map_t<NodePos, std::unique_ptr<PathNode>>& map, const PathNode* start, const PathNode* end, const BlockPos& startPos, const BlockPos& goal, Path::Type pathType) {
     std::vector<std::unique_ptr<PathNode>> tempNodes;
     std::vector<BlockPos> tempPath;
 
@@ -46,7 +46,7 @@ Path createPath(map_t<BlockPos, std::unique_ptr<PathNode>>& map, const PathNode*
     while (current != nullptr) {
         auto& uniqueptr = map.at(current->pos);
         tempNodes.push_back(std::move(uniqueptr));
-        tempPath.push_back(current->pos);
+        tempPath.push_back(current->pos.absolutePosCenter());
         current = current->previous;
     }
 
@@ -123,7 +123,8 @@ std::array<BlockPos, 4> neighborCubes(const BlockPos& origin, Face face, int siz
 
 // face is relative to the original cube
 void forEachNeighborInCube(const Chunk& chunk, const NodePos& neighborNode, const Face face, auto callback) {
-    const auto [nodeX, nodeY, nodeZ] = neighborNode.pos;
+    // I'm pretty sure this is already aligned
+    const auto [nodeX, nodeY, nodeZ] = neighborNode.absolutePosZero();
     const auto size = neighborNode.size;
 
     // TODO: reduce copy/pasting
@@ -138,7 +139,7 @@ void forEachNeighborInCube(const Chunk& chunk, const NodePos& neighborNode, cons
                 const int alignedZ = 0;
                 const std::array subCubes = neighborCubes({alignedX, alignedY, alignedZ}, face, 8);
                 for (const BlockPos& subCube : subCubes) {
-                    forEachNeighbor0(chunk, NodePos{Size::X8, subCube}, face, callback);
+                    forEachNeighborInCube(chunk, NodePos{Size::X8, subCube}, face, callback);
                 }
             }
             break;
@@ -152,7 +153,7 @@ void forEachNeighborInCube(const Chunk& chunk, const NodePos& neighborNode, cons
                 const int alignedZ = nodeZ & ~7;
                 const std::array subCubes = neighborCubes({alignedX, alignedY, alignedZ}, face, 4);
                 for (const BlockPos& subCube : subCubes) {
-                    forEachNeighbor0(chunk, NodePos{Size::X8, subCube}, face, callback);
+                    forEachNeighborInCube(chunk, NodePos{Size::X8, subCube}, face, callback);
                 }
             }
             break;
@@ -166,7 +167,7 @@ void forEachNeighborInCube(const Chunk& chunk, const NodePos& neighborNode, cons
                 const int alignedZ = nodeZ & ~3;
                 const std::array subCubes = neighborCubes({alignedX, alignedY, alignedZ}, face, 2);
                 for (const BlockPos& subCube : subCubes) {
-                    forEachNeighbor0(chunk, NodePos{Size::X8, subCube}, face, callback);
+                    forEachNeighborInCube(chunk, NodePos{Size::X8, subCube}, face, callback);
                 }
             }
             break;
@@ -180,7 +181,7 @@ void forEachNeighborInCube(const Chunk& chunk, const NodePos& neighborNode, cons
                 const int alignedZ = nodeZ & ~1;
                 const std::array subCubes = neighborCubes({alignedX, alignedY, alignedZ}, face, 1);
                 for (const BlockPos& subCube : subCubes) {
-                    forEachNeighbor0(chunk, NodePos{Size::X8, subCube}, face, callback);
+                    forEachNeighborInCube(chunk, NodePos{Size::X8, subCube}, face, callback);
                 }
             }
             break;
@@ -194,24 +195,17 @@ void forEachNeighborInCube(const Chunk& chunk, const NodePos& neighborNode, cons
     }
 }
 
-int getSize(Size sizeEnum) {
-    switch (sizeEnum) {
-        case X16: return 16;
-        case X8: return 8;
-        case X4: return 4;
-        case X2: return 2;
-        case X1: return 1;
-    }
-}
 
 void forEachNeighbor(ChunkProvider chunks, const PathNode& node, auto callback) {
-    const auto[size, pos] = node.pos0;
-    const ChunkPos cpos = pos.toChunkPos();
+    const auto size = node.pos.size;
+    const auto bpos = node.pos.absolutePosZero();
+
+    const ChunkPos cpos = bpos.toChunkPos();
     const Chunk& currentChunk = getOrGenChunk(chunks.cache, cpos, chunks.generator, chunks.executor);
 
     for (const enum Face face : ALL_FACES) {
-        const NodePos neighborNodePos = {size, pos.offset(face, getSize(size))};
-        const ChunkPos neighborCpos = neighborNodePos.pos.toChunkPos();
+        const NodePos neighborNodePos {size, bpos.offset(face, getSize(size))};
+        const ChunkPos neighborCpos = neighborNodePos.absolutePosZero().toChunkPos();
         const Chunk& chunk = neighborCpos == cpos
             ? currentChunk : getOrGenChunk(chunks.cache, neighborCpos, chunks.generator, chunks.executor);
 
@@ -226,14 +220,14 @@ std::array<BlockPos, 6> getNeighbors(const BlockPos& pos) {
 
 constexpr double MIN_DIST_PATH = 5; // might want to increase this
 
-std::optional<Path> bestPathSoFar(map_t<BlockPos, std::unique_ptr<PathNode>>& map, const PathNode* start, const PathNode* end, const BlockPos& startPos, const BlockPos& goal) {
-    const double distSq = startPos.distanceToSq(end->pos);
+std::optional<Path> bestPathSoFar(map_t<NodePos, std::unique_ptr<PathNode>>& map, const PathNode* start, const PathNode* end, const BlockPos& startPos, const BlockPos& goal) {
+    const double distSq = startPos.distanceToSq(end->pos.absolutePosCenter());
 
     if (distSq > MIN_DIST_PATH * MIN_DIST_PATH) {
         //return createPath(map, start, end, startPos, goal, Path::Type::SEGMENT);
     } else {
         std::cout << "Path took too long and got nowhere\n";
-        auto [x, y, z] = end->pos;
+        auto [x, y, z] = end->pos.absolutePosCenter();
         std::cout << "(Path ended at {" << x << ", " << y << ", " << z << "})\n";
         //return std::nullopt;
     }
@@ -242,14 +236,19 @@ std::optional<Path> bestPathSoFar(map_t<BlockPos, std::unique_ptr<PathNode>>& ma
     return createPath(map, start, end, startPos, goal, Path::Type::SEGMENT);
 }
 
+bool inGoal(const NodePos& node, const BlockPos& goal) {
+    // TODO: test if goal is in cube
+    return node.absolutePosCenter().distanceToSq(goal) <= 17 * 17;
+}
+
 std::optional<Path> findPath0(const BlockPos& start, const BlockPos& goal, const ChunkGeneratorHell& gen, ParallelExecutor<3>& executor) {
     std::cout << "distance = " << start.distanceTo(goal) << '\n';
 
     map_t<ChunkPos, std::unique_ptr<Chunk>> chunkCache;
-    map_t<BlockPos, std::unique_ptr<PathNode>> map;
+    map_t<NodePos, std::unique_ptr<PathNode>> map;
     BinaryHeapOpenSet openSet;
 
-    PathNode* const startNode = getNodeAtPosition(map, start, goal);
+    PathNode* const startNode = getNodeAtPosition(map, NodePos{Size::X1, start}, goal);
     startNode->cost = 0;
     startNode->combinedCost = startNode->estimatedCostToGoal;
     openSet.insert(startNode);
@@ -276,7 +275,8 @@ std::optional<Path> findPath0(const BlockPos& start, const BlockPos& goal, const
 
         PathNode* currentNode = openSet.removeLowest();
 
-        if (currentNode->pos == goal) {
+        // TODO: get the right sub cube
+        if (inGoal(currentNode->pos, goal)) {
             std::cout << "chunkCache size = " << chunkCache.size() << '\n';
             std::cout << "openSet size = " << openSet.getSize() << '\n';
             std::cout << "map size = " << map.size() << '\n';
@@ -285,31 +285,14 @@ std::optional<Path> findPath0(const BlockPos& start, const BlockPos& goal, const
         }
 
         const auto pos = currentNode->pos;
-        const auto pos0 = currentNode->pos0;
-        const auto cpos = pos.toChunkPos();
+        const auto bpos = pos.absolutePosZero();
+        const auto cpos = bpos.toChunkPos();
         const Chunk& currentChunk = getOrGenChunk(chunkCache, cpos, gen, executor);
 
-        for (const enum Face face : ALL_FACES) {
-            const BlockPos neighborCubePos = pos0.pos.offset(face, pos0.size); // approximate position, good enough to query the cube
-            const Chunk& neighborChunk = neighborCubePos.toChunkPos() == cpos
-                ? currentChunk : getOrGenChunk(chunkCache, neighborCubePos.toChunkPos(), gen, executor);
+        forEachNeighbor({chunkCache, gen, executor}, *currentNode, [&](const NodePos& neighborPos) {
+            const auto& block = neighborPos.absolutePosZero();
 
-            switch (pos0.size) {
-
-            }
-        }
-
-        for (auto neighbors = getNeighbors(pos); const BlockPos& neighborBlock : neighbors) {
-            // TODO: make sure neighborBlock is in bounds
-            // avoid unnecessary lookups
-            const Chunk& neighborChunk = neighborBlock.toChunkPos() == cpos
-                ? currentChunk : getOrGenChunk(chunkCache, neighborBlock.toChunkPos(), gen, executor);
-
-            if (neighborChunk.isSolid(neighborBlock.toChunkLocal())) {
-                continue;
-            }
-
-            PathNode* neighborNode = getNodeAtPosition(map, neighborBlock, goal);
+            PathNode* neighborNode = getNodeAtPosition(map, neighborPos, goal);
             constexpr double cost = 1; // cost to move 1 block is 1
             const double tentativeCost = currentNode->cost + cost;
             constexpr double MIN_IMPROVEMENT = 0.01;
@@ -328,17 +311,24 @@ std::optional<Path> findPath0(const BlockPos& start, const BlockPos& goal, const
                 if (bestHeuristicSoFar - heuristic > MIN_IMPROVEMENT) {
                     bestHeuristicSoFar = heuristic;
                     bestSoFar = neighborNode;
-                    if (failing && start.distanceToSq(neighborBlock) > MIN_DIST_PATH * MIN_DIST_PATH) {
+                    // TODO: consider the size of the node
+                    if (failing && start.distanceToSq(block) > MIN_DIST_PATH * MIN_DIST_PATH) {
                         failing = false;
                     }
                 }
             }
-        }
+        });
+
+        /*for (auto neighbors = getNeighbors(pos); const BlockPos& neighborBlock : neighbors) {
+            // TODO: make sure neighborBlock is in bounds
+            // avoid unnecessary lookups
+
+        }*/
 
 
     }
 
-    auto [x, y, z] = bestSoFar->pos;
+    auto [x, y, z] = bestSoFar->pos.absolutePosCenter();
     std::cout << "Best position = {" << x << ", " << y << ", " << z << "}\n";
     std::cout << "failing = " << failing << '\n';
     std::cout << "Open set getSize: " << openSet.getSize() << '\n';

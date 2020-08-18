@@ -103,6 +103,22 @@ constexpr bool operator!=(const ChunkPos& a, const ChunkPos& b) {
     return !(a == b);
 }
 
+constexpr BlockPos operator/(const BlockPos& pos, int n) {
+    return {pos.x / n, pos.y / n, pos.z / n};
+}
+
+constexpr BlockPos operator*(const BlockPos& pos, int n) {
+    return {pos.x * n, pos.y * n, pos.z * n};
+}
+
+constexpr BlockPos operator+(const BlockPos& pos, int n) {
+    return {pos.x + n, pos.y + n, pos.z + n};
+}
+
+constexpr BlockPos operator-(const BlockPos& pos, int n) {
+    return {pos.x - n, pos.y - n, pos.z - n};
+}
+
 
 namespace std {
     template<>

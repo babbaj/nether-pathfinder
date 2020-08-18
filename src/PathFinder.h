@@ -21,7 +21,7 @@ struct Path {
 
     [[nodiscard]] const BlockPos& getEndPos() const {
         // This should basically never be empty
-        return !nodes.empty() ? nodes.back()->pos : this->start;
+        return !blocks.empty() ? blocks.back() : this->start;
     }
 };
 

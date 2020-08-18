@@ -10,18 +10,15 @@ using x4_t = std::array<x2_t, 8>;
 using x8_t = std::array<x4_t, 8>;
 using x16_t = std::array<x8_t, 8>;
 
-bool isEmpty(const x2_t x2) {
-    return x2 != 0;
-}
 
-bool isEmpty(const x4_t& x4) {
+inline bool isEmpty(const x4_t& x4) {
     int64_t num;
     static_assert(sizeof(num) == sizeof(x4));
     memcpy(&num, &x4, sizeof(x4));
     return num != 0;
 }
 
-bool isEmpty(const x8_t& x8) {
+inline bool isEmpty(const x8_t& x8) {
     int64_t nums[8];
     memcpy(&nums[0], &x8, sizeof(nums));
 
@@ -54,13 +51,6 @@ public:
         return ((x & 4) >> 2) | ((y & 4) >> 1) | ((z & 4));
     }
 
-    /*static constexpr int x2Index(int x, int y, int z) {
-        return ((x & 2) >> 1) | ((y & 2)) | ((z & 2) << 1);
-    }
-
-    static constexpr int bitIndex(int x, int y, int z) {
-        return ((x & 1)) | ((y & 1) << 1) | ((z & 1) << 2);
-    }*/
     static constexpr int x2Index(int x, int y, int z) {
         return ((x & 2) << 1) | ((y & 2)) | ((z & 2) >> 1);
     }
