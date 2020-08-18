@@ -128,75 +128,50 @@ void forEachNeighborInCube(const Chunk& chunk, const NodePos& neighborNode, cons
     const auto nodeX_ = nodeX, nodeY_ = nodeY, nodeZ_ = nodeZ;
     const auto [chunkX, chunkY, chunkZ] = neighborNode.absolutePosZero().toChunkLocal();
     const auto size = neighborNode.size;
-
-    // TODO: reduce copy/pasting
     switch (size) {
         case Size::X16: {
             if (chunk.isX16Empty(chunkY)) {
                 callback(neighborNode);
-            } else {
-                // x/y only ever use the first 4 bits
-                const int alignedX = nodeX & ~15;
-                const int alignedY = nodeY & ~15;
-                const int alignedZ = nodeZ & ~15;
-                const std::array subCubes = neighborCubes({alignedX, alignedY, alignedZ}, face, 8);
-                for (const BlockPos& subCube : subCubes) {
-                    forEachNeighborInCube(chunk, NodePos{Size::X8, subCube}, face, callback);
-                }
+                return;
             }
             break;
         }
         case Size::X8: {
             if (chunk.isX8Empty(chunkX, chunkY, chunkZ)) {
                 callback(neighborNode);
-            } else {
-                const int alignedX = nodeX & ~7;
-                const int alignedY = nodeY & ~7;
-                const int alignedZ = nodeZ & ~7;
-                const std::array subCubes = neighborCubes({alignedX, alignedY, alignedZ}, face, 4);
-                for (const BlockPos& subCube : subCubes) {
-                    forEachNeighborInCube(chunk, NodePos{Size::X4, subCube}, face, callback);
-                }
+                return;
             }
             break;
         }
         case Size::X4: {
             if (chunk.isX4Empty(chunkX, chunkY, chunkZ)) {
                 callback(neighborNode);
-            } else {
-                const int alignedX = nodeX & ~3;
-                const int alignedY = nodeY & ~3;
-                const int alignedZ = nodeZ & ~3;
-                const std::array subCubes = neighborCubes({alignedX, alignedY, alignedZ}, face, 2);
-                for (const BlockPos& subCube : subCubes) {
-                    forEachNeighborInCube(chunk, NodePos{Size::X2, subCube}, face, callback);
-                }
+                return;
             }
             break;
         }
         case Size::X2: {
             if (chunk.isX2Empty(chunkX, chunkY, chunkZ)) {
                 callback(neighborNode);
-            } else {
-                const int alignedX = nodeX & ~1;
-                const int alignedY = nodeY & ~1;
-                const int alignedZ = nodeZ & ~1;
-                const std::array subCubes = neighborCubes({alignedX, alignedY, alignedZ}, face, 1);
-                for (const BlockPos& subCube : subCubes) {
-                    forEachNeighborInCube(chunk, NodePos{Size::X1, subCube}, face, callback);
-                }
+                return;
             }
             break;
         }
         case Size::X1: {
             if (chunk.isX1Empty(chunkX, chunkY, chunkZ)) {
-                const int x = chunkX, y = chunkY, z = chunkZ;
-                const auto chunkPos = neighborNode.absolutePosZero().toChunkPos();
-                //std::cout << "chunk = " << &chunk << '\n';
                 callback(neighborNode);
             }
-            break;
+            return; // intentional return and not break
         }
+    }
+    const auto mask = getSize(size) - 1;
+    const int alignedX = nodeX & ~mask;
+    const int alignedY = nodeY & ~mask;
+    const int alignedZ = nodeZ & ~mask;
+    const auto nextSize = static_cast<Size>(static_cast<int>(size) - 1);
+    const std::array subCubes = neighborCubes({alignedX, alignedY, alignedZ}, face, getSize(nextSize));
+    for (const BlockPos& subCube : subCubes) {
+        forEachNeighborInCube(chunk, NodePos{nextSize, subCube}, face, callback);
     }
 }
 
