@@ -302,7 +302,6 @@ std::optional<Path> findPath0(const BlockPos& start, const BlockPos& goal, const
 
         forEachNeighbor({chunkCache, gen, executor}, *currentNode, [&](const NodePos& neighborPos) {
             const auto& block = neighborPos.absolutePosZero();
-            const Chunk& currentChunk = getOrGenChunk(chunkCache, block.toChunkPos(), gen, executor);
 
             PathNode* neighborNode = getNodeAtPosition(map, neighborPos, goal);
             const double cost = getSize(neighborNode->pos.size);
