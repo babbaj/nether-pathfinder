@@ -178,6 +178,17 @@ void forEachNeighborInCube(const Chunk& chunk, const NodePos& neighborNode, auto
     }
 }
 
+template<Face face, Size::X1>
+void forEachNeighborInCube(const Chunk& chunk, const NodePos& neighborNode, auto callback) {
+    // I'm pretty sure this is already aligned
+    const auto [nodeX, nodeY, nodeZ] = neighborNode.absolutePosZero();
+    const auto nodeX_ = nodeX, nodeY_ = nodeY, nodeZ_ = nodeZ;
+    const auto [chunkX, chunkY, chunkZ] = neighborNode.absolutePosZero().toChunkLocal();
+    if (chunk.isX1Empty(chunkX, chunkY, chunkZ)) {
+        callback(neighborNode);
+    }
+}
+
 template<Face face>
 void growThenIterate(const Chunk& chunk, const NodePos& pos, auto callback) {
     const auto bpos = pos.absolutePosZero();
