@@ -112,6 +112,9 @@ public:
         return data[x16Index(y)][x8Index(x, y, z)][x4Index(x, y, z)][x2Index(x, y, z)];
     }
 
+    template<Size>
+    bool isEmpty(int x, int y, int z) const = delete;
+
     template<>
     bool isEmpty<Size::X16>(int x, int y, int z) const {
         return x16Empty[y >> 4];
@@ -120,13 +123,13 @@ public:
     template<>
     bool isEmpty<Size::X8>(int x, int y, int z) const {
         const x8_t& x8 = getX8(x, y, z);
-        return isEmpty(x8);
+        return ::isEmpty(x8);
     }
 
     template<>
     bool isEmpty<Size::X4>(int x, int y, int z) const {
         const x4_t& x4 = getX4(x, y, z);
-        return isEmpty(x4);
+        return ::isEmpty(x4);
     }
 
     template<>
