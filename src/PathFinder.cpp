@@ -296,7 +296,8 @@ std::optional<Path> findPath0(const BlockPos& start, const BlockPos& goal, const
             const auto& block = neighborPos.absolutePosZero();
 
             PathNode* neighborNode = getNodeAtPosition(map, neighborPos, goal);
-            const double cost = getSize(neighborNode->pos.size);
+            auto sqrtSize = [](Size sz) { return sqrt(getSize(sz)); };
+            const double cost = 1;//sqrtSize(neighborNode->pos.size);//getSize(neighborNode->pos.size);
             const double tentativeCost = currentNode->cost + cost;
             constexpr double MIN_IMPROVEMENT = 0.01;
             if (neighborNode->cost - tentativeCost > MIN_IMPROVEMENT) {
@@ -315,7 +316,7 @@ std::optional<Path> findPath0(const BlockPos& start, const BlockPos& goal, const
                     bestHeuristicSoFar = heuristic;
                     bestSoFar = neighborNode;
                     // TODO: consider the size of the node
-                    if (failing && start.distanceToSq(block) > MIN_DIST_PATH * MIN_DIST_PATH) {
+                    if (failing && start.distanceToSq(neighborPos.absolutePosCenter()) > MIN_DIST_PATH * MIN_DIST_PATH) {
                         failing = false;
                     }
                 }

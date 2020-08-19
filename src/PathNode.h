@@ -87,8 +87,7 @@ private:
     }
 
     static double heuristic(const NodePos& pos, const BlockPos& goal) {
-        // TODO: adjust preference for bigger nodes
         const auto bpos = pos.absolutePosCenter();
-        return manhattan(bpos, goal) * 1.1 + bpos.distanceTo(goal) * 0.001 - (getSize(pos.size) * 3);
+        return manhattan(bpos, goal) * 0.7 + bpos.distanceTo(goal) * 0.001 - (getSize(pos.size) * 4);
     }
 };

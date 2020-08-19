@@ -62,11 +62,16 @@ void writeBreadCrumbFile(const char* fileName, const Path& path) {
     out.close();
 }
 
-int totalLength(const Path& path) {
+double totalLength(const Path& path) {
     const auto& blocks = path.blocks;
+    double sumDist = 0;
     for (auto it = blocks.begin() + 1; it != blocks.end(); it++) {
-
+        const BlockPos& behind = *(it - 1);
+        const BlockPos& pos = *it;
+        const double pythag = pos.distanceTo(behind);
+        sumDist += pythag;
     }
+    return sumDist;
 }
 
 void printSizes(const Path& path) {
@@ -101,12 +106,11 @@ void printSizes(const Path& path) {
         std::cout << '\n';
     };
 
-    std::cout << "2nd to last node = ";
-    print(**(path.nodes.end() - 2));
-    std::cout << '\n';
+
     std::cout << "last node = ";
     print(last);
     std::cout << '\n';
+    std::cout << "Length = " << totalLength(path) << '\n';
 
 }
 
@@ -126,7 +130,7 @@ int main(int argc, char** argv) {
     constexpr BlockPos ONE_HUNDRED_K = {100000, 50, 0};
     constexpr BlockPos TEN_K = {10000, 64, 0};
     constexpr BlockPos ONE_K = {1000, 64, 0};
-    std::optional<Path> path = findPath({0, 40, 0}, ONE_MIL, generator);
+    std::optional<Path> path = findPath({0, 40, 0}, ONE_HUNDRED_K, generator);
     auto t2 = std::chrono::steady_clock::now();
 
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
