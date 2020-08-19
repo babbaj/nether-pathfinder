@@ -116,7 +116,7 @@ public:
     bool isEmpty(int x, int y, int z) const = delete;
 
     template<>
-    bool isEmpty<Size::X16>(int x, int y, int z) const {
+    bool isEmpty<Size::X16>(int, int y, int) const {
         return x16Empty[y >> 4];
     }
 

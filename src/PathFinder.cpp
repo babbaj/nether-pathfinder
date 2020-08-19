@@ -167,7 +167,7 @@ void growThenIterateInner(const Chunk& chunk, const NodePos& pos, auto callback)
                 return;
             }
         case Size::X8:
-            if (!chunk.isEmpty<Size::X16>(bpos.y)) {
+            if (!chunk.isEmpty<Size::X16>(bpos.x, bpos.y, bpos.z)) {
                 forEachNeighborInCube<face, Size::X8, originalSize != Size::X8>(chunk, NodePos{Size::X8, bpos}, callback);
                 return;
             }
@@ -208,7 +208,7 @@ void forEachNeighbor(ChunkProvider chunks, const PathNode& node, auto callback) 
             constexpr Face face = ALL_FACES[I];
             const NodePos neighborNodePos {size, bpos.offset(face, getSize(size))};
             const BlockPos origin = neighborNodePos.absolutePosZero();
-            if constexpr (face == Face::UP || face == FACE::DOWN)
+            if constexpr (face == Face::UP || face == Face::DOWN)
                 if (!isInBounds(origin))
                     return;
             const ChunkPos neighborCpos = origin.toChunkPos();
