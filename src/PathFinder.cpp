@@ -179,7 +179,7 @@ void forEachNeighborInCube(const Chunk& chunk, const NodePos& neighborNode, auto
         constexpr auto nextSize = static_cast<Size>(static_cast<int>(size) - 1);
         const std::array subCubes = neighborCubes<face>({alignedX, alignedY, alignedZ}, getSize(nextSize));
         for (const BlockPos& subCube : subCubes) {
-            forEachNeighborInCube<face, nextSize>(chunk, NodePos{nextSize, subCube}, callback);
+            forEachNeighborInCube<face, nextSize, false>(chunk, NodePos{nextSize, subCube}, callback);
         }
     }
 }
@@ -197,7 +197,7 @@ void growThenIterateInner(const Chunk& chunk, const NodePos& pos, auto callback)
             }
         case Size::X2: 
             if (!chunk.isX4Empty(bpos.x, bpos.y, bpos.z)) {
-                forEachNeighborInCube<face, Size::X2, originalSize != Size:X2>(chunk, NodePos{Size::X2, bpos}, callback);
+                forEachNeighborInCube<face, Size::X2, originalSize != Size::X2>(chunk, NodePos{Size::X2, bpos}, callback);
                 return;
             }
         case Size::X4:
@@ -222,19 +222,19 @@ void growThenIterateOuter(const Chunk& chunk, const NodePos& pos, auto callback)
 
     switch (pos.size) {
         case Size::X1:
-            growThenIterateOuter<face, Size::X1>(chunk, pos, callback);
+            growThenIterateInner<face, Size::X1>(chunk, pos, callback);
             return;
         case Size::X2:
-            growThenIterateOuter<face, Size::X2>(chunk, pos, callback);
+            growThenIterateInner<face, Size::X2>(chunk, pos, callback);
             return;
         case Size::X4:
-            growThenIterateOuter<face, Size::X4>(chunk, pos, callback);
+            growThenIterateInner<face, Size::X4>(chunk, pos, callback);
             return;
         case Size::X8:
-            growThenIterateOuter<face, Size::X8>(chunk, pos, callback);
+            growThenIterateInner<face, Size::X8>(chunk, pos, callback);
             return;
         case Size::X16:
-            growThenIterateOuter<face, Size::X16>(chunk, pos, callback);
+            growThenIterateInner<face, Size::X16>(chunk, pos, callback);
             return;
 
     }
@@ -310,9 +310,9 @@ std::optional<Path> findPath0(const BlockPos& start, const BlockPos& goal, const
     double bestHeuristicSoFar = startNode->estimatedCostToGoal;
 
     using namespace std::chrono_literals;
-    const auto now = std::chrono::system_clock::now();
-    const auto primaryTimeoutTime = now + 500ms;
-    const auto failureTimeout = now + 1min;
+    const auto startTime = std::chrono::system_clock::now();
+    const auto primaryTimeoutTime = startTime + 500ms;
+    const auto failureTimeout = startTime + 1min;
 
     bool failing = true;
     int numNodes = 0;
@@ -342,7 +342,7 @@ std::optional<Path> findPath0(const BlockPos& start, const BlockPos& goal, const
 
             PathNode* neighborNode = getNodeAtPosition(map, neighborPos, goal);
             auto sqrtSize = [](Size sz) { return sqrt(getSize(sz)); };
-            const double cost = sqrtSize(neighborNode->pos.size);//getSize(neighborNode->pos.size);
+            const double cost = 1;//sqrtSize(neighborNode->pos.size);//getSize(neighborNode->pos.size);
             const double tentativeCost = currentNode->cost + cost;
             constexpr double MIN_IMPROVEMENT = 0.01;
             if (neighborNode->cost - tentativeCost > MIN_IMPROVEMENT) {
@@ -360,7 +360,7 @@ std::optional<Path> findPath0(const BlockPos& start, const BlockPos& goal, const
                 if (bestHeuristicSoFar - heuristic > MIN_IMPROVEMENT) {
                     bestHeuristicSoFar = heuristic;
                     bestSoFar = neighborNode;
-                    // TODO: consider the size of the node
+
                     if (failing && start.distanceToSq(neighborPos.absolutePosCenter()) > MIN_DIST_PATH * MIN_DIST_PATH) {
                         failing = false;
                     }
@@ -407,7 +407,6 @@ std::optional<Path> findPath(const BlockPos& start, const BlockPos& goal, const 
             break;
         } else {
             const bool finished = path->type == Path::Type::FINISHED;
-            // TODO: print current position
             segments.push_back(std::move(*path));
             if (finished) break;
         }
