@@ -10,7 +10,7 @@ using x4_t = std::array<x2_t, 8>;
 using x8_t = std::array<x4_t, 8>;
 using x16_t = std::array<x8_t, 8>;
 
-template<typename T> // :pleading_face: :point_right: :point_left: babbaj pwease add an appropriate "requires" here :3 UwU
+template<typename T> requires (sizeof(T) >= sizeof(int64_t))
 inline bool isEmpty(const T& input) {
     constexpr auto arrSize = sizeof(T) / sizeof(int64_t);
     int64_t nums[arrSize];
@@ -77,7 +77,7 @@ private:
 public:
     void calcEmptyX16() {
         for (int i = 0; i < 8; i++) {
-            x16Empty[i] = isEmpty(data[i]);
+            x16Empty[i] = ::isEmpty(data[i]);
         }
     }
 
