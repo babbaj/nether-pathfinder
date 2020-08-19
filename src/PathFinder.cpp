@@ -127,57 +127,18 @@ inline std::array<BlockPos, 4> neighborCubes(const BlockPos& origin, int size) {
 // face is relative to the original cube
 template<Face face, Size size, bool sizeChange>
 void forEachNeighborInCube(const Chunk& chunk, const NodePos& neighborNode, auto callback) {
-    // I'm pretty sure this is already aligned
-    const auto [nodeX, nodeY, nodeZ] = neighborNode.absolutePosZero();
-    const auto [chunkX, chunkY, chunkZ] = neighborNode.absolutePosZero().toChunkLocal();
-
     if constexpr (sizeChange) {
         callback(neighborNode);
         return;
     }
-    switch (size) {
-        case Size::X16: {
-            if (chunk.isX16Empty(chunkY)) {
-                callback(neighborNode);
-                return;
-            }
-            break;
-        }
-        case Size::X8: {
-            if (chunk.isX8Empty(chunkX, chunkY, chunkZ)) {
-                callback(neighborNode);
-                return;
-            }
-            break;
-        }
-        case Size::X4: {
-            if (chunk.isX4Empty(chunkX, chunkY, chunkZ)) {
-                callback(neighborNode);
-                return;
-            }
-            break;
-        }
-        case Size::X2: {
-            if (chunk.isX2Empty(chunkX, chunkY, chunkZ)) {
-                callback(neighborNode);
-                return;
-            }
-            break;
-        }
-        case Size::X1: {
-            if (chunk.isX1Empty(chunkX, chunkY, chunkZ)) {
-                callback(neighborNode);
-            }
-            return; // intentional return and not break
-        }
+    const auto pos = neighborNode.absolutePosZero();
+    if (chunk.isEmpty<size>(pos.x, pos.y, pos.z)) {
+        callback(neighborNode);
+        return;
     }
     if constexpr (size != Size::X1) {
-        const auto mask = getSize(size) - 1;
-        const int alignedX = nodeX & ~mask;
-        const int alignedY = nodeY & ~mask;
-        const int alignedZ = nodeZ & ~mask;
         constexpr auto nextSize = static_cast<Size>(static_cast<int>(size) - 1);
-        const std::array subCubes = neighborCubes<face>({alignedX, alignedY, alignedZ}, getSize(nextSize));
+        const std::array subCubes = neighborCubes<face>(pos, getSize(nextSize));
         for (const BlockPos& subCube : subCubes) {
             forEachNeighborInCube<face, nextSize, false>(chunk, NodePos{nextSize, subCube}, callback);
         }
@@ -191,22 +152,22 @@ void growThenIterateInner(const Chunk& chunk, const NodePos& pos, auto callback)
 
     switch (originalSize) {
         case Size::X1:
-            if (!chunk.isX2Empty(bpos.x, bpos.y, bpos.z)) {
+            if (!chunk.isEmpty<Size::X2>(bpos.x, bpos.y, bpos.z)) {
                 forEachNeighborInCube<face, Size::X1, originalSize != Size::X1>(chunk, pos, callback);
                 return;
             }
         case Size::X2: 
-            if (!chunk.isX4Empty(bpos.x, bpos.y, bpos.z)) {
+            if (!chunk.isEmpty<Size::X4>(bpos.x, bpos.y, bpos.z)) {
                 forEachNeighborInCube<face, Size::X2, originalSize != Size::X2>(chunk, NodePos{Size::X2, bpos}, callback);
                 return;
             }
         case Size::X4:
-            if (!chunk.isX8Empty(bpos.x, bpos.y, bpos.z)) {
+            if (!chunk.isEmpty<Size::X8>(bpos.x, bpos.y, bpos.z)) {
                 forEachNeighborInCube<face, Size::X4, originalSize != Size::X4>(chunk, NodePos{Size::X4, bpos}, callback);
                 return;
             }
         case Size::X8:
-            if (!chunk.isX16Empty(bpos.y)) {
+            if (!chunk.isEmpty<Size::X16>(bpos.y)) {
                 forEachNeighborInCube<face, Size::X8, originalSize != Size::X8>(chunk, NodePos{Size::X8, bpos}, callback);
                 return;
             }
@@ -219,25 +180,15 @@ void growThenIterateInner(const Chunk& chunk, const NodePos& pos, auto callback)
 template<Face face>
 void growThenIterateOuter(const Chunk& chunk, const NodePos& pos, auto callback) {
     const auto bpos = pos.absolutePosZero();
-
+    #define CASE(sz) case sz: growThenIterateInner<face, sz>(chunk, pos, callback); return;
     switch (pos.size) {
-        case Size::X1:
-            growThenIterateInner<face, Size::X1>(chunk, pos, callback);
-            return;
-        case Size::X2:
-            growThenIterateInner<face, Size::X2>(chunk, pos, callback);
-            return;
-        case Size::X4:
-            growThenIterateInner<face, Size::X4>(chunk, pos, callback);
-            return;
-        case Size::X8:
-            growThenIterateInner<face, Size::X8>(chunk, pos, callback);
-            return;
-        case Size::X16:
-            growThenIterateInner<face, Size::X16>(chunk, pos, callback);
-            return;
-
+        CASE(Size::X1)
+        CASE(Size::X2)
+        CASE(Size::X4)
+        CASE(Size::X8)
+        CASE(Size::X16)
     }
+    #undef CASE
 }
 
 bool isInBounds(const BlockPos& pos) {
@@ -256,8 +207,11 @@ void forEachNeighbor(ChunkProvider chunks, const PathNode& node, auto callback) 
         ([&] {
             constexpr Face face = ALL_FACES[I];
             const NodePos neighborNodePos {size, bpos.offset(face, getSize(size))};
-            if (!isInBounds(neighborNodePos.absolutePosZero())) return;
-            const ChunkPos neighborCpos = neighborNodePos.absolutePosZero().toChunkPos();
+            const BlockPos origin = neighborNodePos.absolutePosZero();
+            if constexpr (face == Face::UP || face == FACE::DOWN)
+                if (!isInBounds(origin))
+                    return;
+            const ChunkPos neighborCpos = origin.toChunkPos();
             const Chunk& chunk = neighborCpos == cpos
                 ? currentChunk : getOrGenChunk(chunks.cache, neighborCpos, chunks.generator, chunks.executor);
 
@@ -356,7 +310,7 @@ std::optional<Path> findPath0(const BlockPos& start, const BlockPos& goal, const
                     openSet.insert(neighborNode);//dont double count, dont insert into open set if it's already there
                 }
 
-                const double heuristic = neighborNode->estimatedCostToGoal + neighborNode->cost;
+                const double heuristic = neighborNode->combinedCost;
                 if (bestHeuristicSoFar - heuristic > MIN_IMPROVEMENT) {
                     bestHeuristicSoFar = heuristic;
                     bestSoFar = neighborNode;

@@ -5,15 +5,6 @@
 
 #include "Utils.h"
 
-
-enum class Size : int {
-    X1,
-    X2,
-    X4,
-    X8,
-    X16
-};
-
 constexpr int shiftFor(Size size) {
     return static_cast<int>(size);
 }

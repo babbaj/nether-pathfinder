@@ -13,6 +13,13 @@ enum Face {
 };
 constexpr std::array<Face, 6> ALL_FACES {Face::UP, Face::DOWN, Face::NORTH, Face::SOUTH, Face::EAST, Face::WEST};
 
+enum class Size : int {
+    X1,
+    X2,
+    X4,
+    X8,
+    X16
+};
 
 struct ChunkPos {
     int x, z;

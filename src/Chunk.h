@@ -112,32 +112,32 @@ public:
         return data[x16Index(y)][x8Index(x, y, z)][x4Index(x, y, z)][x2Index(x, y, z)];
     }
 
-    bool isX16Empty(int y) const {
+    template<>
+    bool isEmpty<Size::X16>(int x, int y, int z) const {
         return x16Empty[y >> 4];
     }
 
-    bool isX8Empty(int x, int y, int z) const {
+    template<>
+    bool isEmpty<Size::X8>(int x, int y, int z) const {
         const x8_t& x8 = getX8(x, y, z);
         return isEmpty(x8);
     }
 
-
-    bool isX4Empty(int x, int y, int z) const {
+    template<>
+    bool isEmpty<Size::X4>(int x, int y, int z) const {
         const x4_t& x4 = getX4(x, y, z);
         return isEmpty(x4);
     }
 
-    bool isX2Empty(int x, int y, int z) const {
+    template<>
+    bool isEmpty<Size::X2>(int x, int y, int z) const {
         return getX2(x, y, z) == 0;
     }
 
-    bool isX1Empty(int x, int y, int z) const {
-        //const auto x2 = getX2(x, y, z);
-        //const auto bit = bitIndex(x, y, z);
-        //return ((x2 >> bit) & 1) == 0;
+    template<>
+    bool isEmpty<Size::X1>(int x, int y, int z) const {
         return getBit(x, y, z) == 0;
     }
-
 
     void setBlock(int x, int y, int z, bool solid) {
         setBit(x, y, z, solid);
