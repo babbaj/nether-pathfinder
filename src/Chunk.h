@@ -10,19 +10,15 @@ using x4_t = std::array<x2_t, 8>;
 using x8_t = std::array<x4_t, 8>;
 using x16_t = std::array<x8_t, 8>;
 
+template<typename T> // :pleading_face: :point_right: :point_left: babbaj pwease add an appropriate "requires" here :3 UwU
+inline bool isEmpty(const T& input) {
+    constexpr auto arrSize = sizeof(T) / sizeof(int64_t);
+    int64_t nums[arrSize];
+    memcpy(&nums[0], &input, sizeof(nums));
 
-inline bool isEmpty(const x4_t& x4) {
-    int64_t num;
-    static_assert(sizeof(num) == sizeof(x4));
-    memcpy(&num, &x4, sizeof(x4));
-    return num == 0;
-}
-
-inline bool isEmpty(const x8_t& x8) {
-    int64_t nums[8];
-    memcpy(&nums[0], &x8, sizeof(nums));
-
-    return (nums[0]|nums[1]|nums[2]|nums[3]|nums[4]|nums[5]|nums[6]|nums[7]) == 0;
+    return [&nums]<size_t... I>(std::index_sequence<I...>) {
+        return (nums[I] | ...) == 0;
+    }(std::make_index_sequence<arrSize>{});
 }
 
 struct Chunk {
@@ -78,21 +74,10 @@ private:
 
 #undef CHUNK_GETBIT
 
-    bool x16EmptyImpl(int index) const {
-        const x16_t& x16 = data[index];
-        constexpr auto arrSize = sizeof(x16_t) / sizeof(int64_t); // 64
-        int64_t nums[arrSize];
-        memcpy(&nums[0], &x16, sizeof(nums));
-
-        return [&nums]<size_t... I>(std::index_sequence<I...>) {
-            return (nums[I] | ...) == 0;
-        }(std::make_index_sequence<arrSize>{});
-    }
-
 public:
     void calcEmptyX16() {
         for (int i = 0; i < 8; i++) {
-            x16Empty[i] = x16EmptyImpl(i);
+            x16Empty[i] = isEmpty(data[i]);
         }
     }
 
@@ -151,6 +136,6 @@ public:
     }
 
     bool isSolid(int x, int y, int z) const {
-        return getBit(x, y, z);
+        return getBit(x, y, z) == 1;
     }
 };
