@@ -129,8 +129,8 @@ template<Face face, Size size>
 void forEachNeighborInCube(const Chunk& chunk, const NodePos& neighborNode, auto callback) {
     // I'm pretty sure this is already aligned
     const auto [nodeX, nodeY, nodeZ] = neighborNode.absolutePosZero();
-    const auto nodeX_ = nodeX, nodeY_ = nodeY, nodeZ_ = nodeZ;
     const auto [chunkX, chunkY, chunkZ] = neighborNode.absolutePosZero().toChunkLocal();
+
     switch (size) {
         case Size::X16: {
             if (chunk.isX16Empty(chunkY)) {
@@ -167,27 +167,20 @@ void forEachNeighborInCube(const Chunk& chunk, const NodePos& neighborNode, auto
             return; // intentional return and not break
         }
     }
-    const auto mask = getSize(size) - 1;
-    const int alignedX = nodeX & ~mask;
-    const int alignedY = nodeY & ~mask;
-    const int alignedZ = nodeZ & ~mask;
-    constexpr auto nextSize = static_cast<Size>(static_cast<int>(size) - 1);
-    const std::array subCubes = neighborCubes<face>({alignedX, alignedY, alignedZ}, getSize(nextSize));
-    for (const BlockPos& subCube : subCubes) {
-        forEachNeighborInCube<face, nextSize>(chunk, NodePos{nextSize, subCube}, callback);
+    if constexpr (size != Size::X1) {
+        const auto mask = getSize(size) - 1;
+        const int alignedX = nodeX & ~mask;
+        const int alignedY = nodeY & ~mask;
+        const int alignedZ = nodeZ & ~mask;
+        constexpr auto nextSize = static_cast<Size>(static_cast<int>(size) - 1);
+        const std::array subCubes = neighborCubes<face>({alignedX, alignedY, alignedZ}, getSize(nextSize));
+        for (const BlockPos& subCube : subCubes) {
+            forEachNeighborInCube<face, nextSize>(chunk, NodePos{nextSize, subCube}, callback);
+        }
     }
 }
 
-template<Face face, Size::X1>
-void forEachNeighborInCube(const Chunk& chunk, const NodePos& neighborNode, auto callback) {
-    // I'm pretty sure this is already aligned
-    const auto [nodeX, nodeY, nodeZ] = neighborNode.absolutePosZero();
-    const auto nodeX_ = nodeX, nodeY_ = nodeY, nodeZ_ = nodeZ;
-    const auto [chunkX, chunkY, chunkZ] = neighborNode.absolutePosZero().toChunkLocal();
-    if (chunk.isX1Empty(chunkX, chunkY, chunkZ)) {
-        callback(neighborNode);
-    }
-}
+
 
 template<Face face>
 void growThenIterate(const Chunk& chunk, const NodePos& pos, auto callback) {
@@ -224,9 +217,9 @@ bool isInBounds(const BlockPos& pos) {
 }
 
 template<Face face>
-void expandNode(auto size, auto bpos, auto cpos, auto callback) {
+void expandNode(ChunkProvider chunks, Size size, const BlockPos& bpos, const ChunkPos& cpos, auto callback) {
     const NodePos neighborNodePos {size, bpos.offset(face, getSize(size))};
-    if (!isInBounds(neighborNodePos.absolutePosZero())) continue;
+    if (!isInBounds(neighborNodePos.absolutePosZero())) return;
 
     const ChunkPos neighborCpos = neighborNodePos.absolutePosZero().toChunkPos();
     const Chunk& chunk = getOrGenChunk(chunks.cache, neighborCpos, chunks.generator, chunks.executor);
@@ -239,12 +232,12 @@ void forEachNeighbor(ChunkProvider chunks, const PathNode& node, auto callback) 
     const auto bpos = node.pos.absolutePosZero();
 
     const ChunkPos cpos = bpos.toChunkPos();
-    expandNode<Face::UP>(size, bpos, cpos, callback);
-    expandNode<Face::DOWN>(size, bpos, cpos, callback);
-    expandNode<Face::NORTH>(size, bpos, cpos, callback);
-    expandNode<Face::SOUTH>(size, bpos, cpos, callback);
-    expandNode<Face::EAST>(size, bpos, cpos, callback);
-    expandNode<Face::WEST>(size, bpos, cpos, callback);
+    expandNode<Face::UP>(chunks, size, bpos, cpos, callback);
+    expandNode<Face::DOWN>(chunks, size, bpos, cpos, callback);
+    expandNode<Face::NORTH>(chunks, size, bpos, cpos, callback);
+    expandNode<Face::SOUTH>(chunks, size, bpos, cpos, callback);
+    expandNode<Face::EAST>(chunks, size, bpos, cpos, callback);
+    expandNode<Face::WEST>(chunks, size, bpos, cpos, callback);
 }
 
 [[deprecated]] std::array<BlockPos, 6> getNeighbors(const BlockPos& pos) {
