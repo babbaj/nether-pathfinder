@@ -82,19 +82,19 @@ public:
     }
 
     const x16_t& getX16(int y) const {
-        return data[y >> 4];
+        return data[x16Index(y)];
     }
 
     const x8_t& getX8(int x, int y, int z) const {
-        return data[x16Index(y)][x8Index(x, y, z)];
+        return getX16(y)[x8Index(x, y, z)];
     }
 
     const x4_t& getX4(int x, int y, int z) const {
-        return data[x16Index(y)][x8Index(x, y, z)][x4Index(x, y, z)];
+        return getX8(x, y, z)[x4Index(x, y, z)];
     }
 
     const x2_t& getX2(int x, int y, int z) const {
-        return data[x16Index(y)][x8Index(x, y, z)][x4Index(x, y, z)][x2Index(x, y, z)];
+        return getX4(x, y, z)[x2Index(x, y, z)];
     }
 
     template<Size>
@@ -102,7 +102,7 @@ public:
 
     template<>
     bool isEmpty<Size::X16>(int, int y, int) const {
-        return x16Empty[y >> 4];
+        return x16Empty[x16Index(y)];
     }
 
     template<>
