@@ -217,10 +217,6 @@ void forEachNeighbor(ChunkProvider chunks, const PathNode& node, auto callback) 
         const Chunk& chunk = getOrGenChunk(chunks.cache, neighborCpos, chunks.generator, chunks.executor);
 
         const NodePos thick = growNodePos(chunk, neighborNodePos);
-        const BlockPos uwu = neighborNodePos.absolutePosZero();
-        const BlockPos uwu2 = thick.absolutePosZero();
-        const auto neighborUwu = uwu.toChunkPos();
-        const auto neighborUwu2 = uwu2.toChunkPos();
         forEachNeighborInCube(chunk, thick, face, callback);
     }
 }
@@ -296,10 +292,6 @@ std::optional<Path> findPath0(const BlockPos& start, const BlockPos& goal, const
             return createPath(map, startNode, currentNode, start, goal, Path::Type::FINISHED);
         }
 
-        //const auto pos = currentNode->pos;
-        //const auto bpos = pos.absolutePosZero();
-        //const auto cpos = bpos.toChunkPos();
-
         forEachNeighbor({chunkCache, gen, executor}, *currentNode, [&](const NodePos& neighborPos) {
             const auto& block = neighborPos.absolutePosZero();
 
@@ -329,14 +321,6 @@ std::optional<Path> findPath0(const BlockPos& start, const BlockPos& goal, const
                 }
             }
         });
-
-        /*for (auto neighbors = getNeighbors(pos); const BlockPos& neighborBlock : neighbors) {
-            // TODO: make sure neighborBlock is in bounds
-            // avoid unnecessary lookups
-
-        }*/
-
-
     }
 
     auto [x, y, z] = bestSoFar->pos.absolutePosCenter();
