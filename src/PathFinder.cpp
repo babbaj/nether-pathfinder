@@ -216,28 +216,26 @@ bool isInBounds(const BlockPos& pos) {
     return pos.y >= 0 && pos.y < 128;
 }
 
-template<Face face>
-void expandNode(ChunkProvider chunks, Size size, const BlockPos& bpos, const ChunkPos& cpos, auto callback) {
-    const NodePos neighborNodePos {size, bpos.offset(face, getSize(size))};
-    if (!isInBounds(neighborNodePos.absolutePosZero())) return;
-
-    const ChunkPos neighborCpos = neighborNodePos.absolutePosZero().toChunkPos();
-    const Chunk& chunk = getOrGenChunk(chunks.cache, neighborCpos, chunks.generator, chunks.executor);
-
-    growThenIterate<face>(chunk, neighborNodePos, callback);
-}
 
 void forEachNeighbor(ChunkProvider chunks, const PathNode& node, auto callback) {
     const auto size = node.pos.size;
     const auto bpos = node.pos.absolutePosZero();
 
     const ChunkPos cpos = bpos.toChunkPos();
-    expandNode<Face::UP>(chunks, size, bpos, cpos, callback);
-    expandNode<Face::DOWN>(chunks, size, bpos, cpos, callback);
-    expandNode<Face::NORTH>(chunks, size, bpos, cpos, callback);
-    expandNode<Face::SOUTH>(chunks, size, bpos, cpos, callback);
-    expandNode<Face::EAST>(chunks, size, bpos, cpos, callback);
-    expandNode<Face::WEST>(chunks, size, bpos, cpos, callback);
+    const Chunk& currentChunk = getOrGenChunk(chunks.cache, cpos, chunks.generator, chunks.executor);
+
+    [&]<size_t... I>(std::index_sequence<I...>) {
+        ([&] {
+            constexpr Face face = ALL_FACES[I];
+            const NodePos neighborNodePos {size, bpos.offset(face, getSize(size))};
+            if (!isInBounds(neighborNodePos.absolutePosZero())) return;
+            const ChunkPos neighborCpos = neighborNodePos.absolutePosZero().toChunkPos();
+            const Chunk& chunk = neighborCpos == cpos
+                ? currentChunk : getOrGenChunk(chunks.cache, neighborCpos, chunks.generator, chunks.executor);
+
+            growThenIterate<face>(chunk, neighborNodePos, callback);
+        }(), ...);
+    }(std::make_index_sequence<ALL_FACES.size()>{});
 }
 
 [[deprecated]] std::array<BlockPos, 6> getNeighbors(const BlockPos& pos) {
@@ -316,7 +314,7 @@ std::optional<Path> findPath0(const BlockPos& start, const BlockPos& goal, const
 
             PathNode* neighborNode = getNodeAtPosition(map, neighborPos, goal);
             auto sqrtSize = [](Size sz) { return sqrt(getSize(sz)); };
-            const double cost = 1;//sqrtSize(neighborNode->pos.size);//getSize(neighborNode->pos.size);
+            const double cost = sqrtSize(neighborNode->pos.size);//getSize(neighborNode->pos.size);
             const double tentativeCost = currentNode->cost + cost;
             constexpr double MIN_IMPROVEMENT = 0.01;
             if (neighborNode->cost - tentativeCost > MIN_IMPROVEMENT) {
