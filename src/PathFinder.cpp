@@ -85,10 +85,10 @@ Chunk& getOrGenChunk(map_t<ChunkPos, std::unique_ptr<Chunk>>& cache, const Chunk
 // The face argument is relative to the original cube.
 // This size argument is the size of the sub cubes.
 // origin leans towards north/west/down
-template<Face face>
-inline std::array<BlockPos, 4> neighborCubes(const BlockPos& origin, int size) {
+template<Face face, Size sz>
+inline std::array<BlockPos, 4> neighborCubes(const BlockPos& origin) {
     // origin leans towards north/west/down
-
+    const auto size = getSize(sz);
     switch (face) {
         case Face::UP: {
             const BlockPos& corner = origin;
@@ -138,7 +138,7 @@ void forEachNeighborInCube(const Chunk& chunk, const NodePos& neighborNode, auto
     }
     if constexpr (size != Size::X1) {
         constexpr auto nextSize = static_cast<Size>(static_cast<int>(size) - 1);
-        const std::array subCubes = neighborCubes<face>(pos, getSize(nextSize));
+        const std::array subCubes = neighborCubes<face, nextSize>(pos);
         for (const BlockPos& subCube : subCubes) {
             forEachNeighborInCube<face, nextSize, false>(chunk, NodePos{nextSize, subCube}, callback);
         }
