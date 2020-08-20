@@ -240,7 +240,7 @@ std::optional<Path> bestPathSoFar(map_t<NodePos, std::unique_ptr<PathNode>>& map
 
 bool inGoal(const NodePos& node, const BlockPos& goal) {
     // TODO: test if goal is in cube
-    return node.absolutePosCenter().distanceToSq(goal) <= 10 * 10;
+    return node.absolutePosCenter().distanceToSq(goal) <= 16 * 16;
 }
 
 std::optional<Path> findPath0(const BlockPos& start, const BlockPos& goal, const ChunkGeneratorHell& gen, ParallelExecutor<3>& executor) {
