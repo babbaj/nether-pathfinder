@@ -179,7 +179,6 @@ void growThenIterateInner(const Chunk& chunk, const NodePos& pos, auto callback)
 
 template<Face face>
 void growThenIterateOuter(const Chunk& chunk, const NodePos& pos, auto callback) {
-    const auto bpos = pos.absolutePosZero();
     #define CASE(sz) case sz: growThenIterateInner<face, sz>(chunk, pos, callback); return;
     switch (pos.size) {
         CASE(Size::X1)
@@ -208,9 +207,9 @@ void forEachNeighbor(ChunkProvider chunks, const PathNode& node, auto callback) 
             constexpr Face face = ALL_FACES[I];
             const NodePos neighborNodePos {size, bpos.offset(face, getSize(size))};
             const BlockPos origin = neighborNodePos.absolutePosZero();
-            if constexpr (face == Face::UP || face == Face::DOWN)
-                if (!isInBounds(origin))
-                    return;
+            if constexpr (face == Face::UP || face == Face::DOWN) {
+                if (!isInBounds(origin)) return;
+            }
             const ChunkPos neighborCpos = origin.toChunkPos();
             const Chunk& chunk = neighborCpos == cpos
                 ? currentChunk : getOrGenChunk(chunks.cache, neighborCpos, chunks.generator, chunks.executor);
@@ -218,10 +217,6 @@ void forEachNeighbor(ChunkProvider chunks, const PathNode& node, auto callback) 
             growThenIterateOuter<face>(chunk, neighborNodePos, callback);
         }(), ...);
     }(std::make_index_sequence<ALL_FACES.size()>{});
-}
-
-[[deprecated]] std::array<BlockPos, 6> getNeighbors(const BlockPos& pos) {
-    return {pos.up(), pos.down(), pos.north(), pos.south(), pos.east(), pos.west()};
 }
 
 
