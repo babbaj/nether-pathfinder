@@ -26,7 +26,7 @@ extern "C" {
         if (path) {
             const std::vector<BlockPos>& blocks = path->blocks;
             std::vector<jlong> packed;
-            packed.resize(blocks.size());
+            packed.reserve(blocks.size());
             std::transform(blocks.begin(), blocks.end(), std::back_inserter(packed), packBlockPos);
 
             const auto len = packed.size();
