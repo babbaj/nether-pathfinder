@@ -32,8 +32,8 @@ extern "C" {
             const auto len = packed.size();
             jlongArray array = env->NewLongArray(len);
             env->SetLongArrayRegion(array, 0, len, packed.data());
-            return array;
 
+            return array;
         } else {
             return nullptr;
         }

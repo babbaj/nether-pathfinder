@@ -1,7 +1,5 @@
 #include "PathFinder.h"
-#include "PathNode.h"
 #include "BinaryHeapOpenSet.h"
-#include "ParallelExecutor.h"
 
 #include <unordered_map>
 #include <memory>
@@ -138,6 +136,9 @@ void forEachNeighborInCube(const Chunk& chunk, const NodePos& neighborNode, auto
     }
     if constexpr (size != Size::X1) {
         constexpr auto nextSize = static_cast<Size>(static_cast<int>(size) - 1);
+        // Don't shrink cubes to X1 because they suck and make the path try to squeeze through small areas
+        // TODO: allow this to be configurable?
+        if constexpr (nextSize == Size::X1) return;
         const std::array subCubes = neighborCubes<face, nextSize>(pos);
         for (const BlockPos& subCube : subCubes) {
             forEachNeighborInCube<face, nextSize, false>(chunk, NodePos{nextSize, subCube}, callback);
@@ -226,16 +227,16 @@ std::optional<Path> bestPathSoFar(map_t<NodePos, std::unique_ptr<PathNode>>& map
     const double distSq = startPos.distanceToSq(end->pos.absolutePosCenter());
 
     if (distSq > MIN_DIST_PATH * MIN_DIST_PATH) {
-        //return createPath(map, start, end, startPos, goal, Path::Type::SEGMENT);
+        return createPath(map, start, end, startPos, goal, Path::Type::SEGMENT);
     } else {
         std::cout << "Path took too long and got nowhere\n";
         auto [x, y, z] = end->pos.absolutePosCenter();
         std::cout << "(Path ended at {" << x << ", " << y << ", " << z << "})\n";
-        //return std::nullopt;
+        return std::nullopt;
     }
 
     // assume there's always a way
-    return createPath(map, start, end, startPos, goal, Path::Type::SEGMENT);
+    //return createPath(map, start, end, startPos, goal, Path::Type::SEGMENT);
 }
 
 bool inGoal(const NodePos& node, const BlockPos& goal) {
@@ -261,7 +262,7 @@ std::optional<Path> findPath0(const BlockPos& start, const BlockPos& goal, const
     using namespace std::chrono_literals;
     const auto startTime = std::chrono::system_clock::now();
     const auto primaryTimeoutTime = startTime + 500ms;
-    const auto failureTimeout = startTime + 1min;
+    const auto failureTimeout = startTime + 30s;
 
     bool failing = true;
     int numNodes = 0;
