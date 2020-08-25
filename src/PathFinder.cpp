@@ -124,7 +124,7 @@ inline std::array<BlockPos, 4> neighborCubes(const BlockPos& origin) {
 
 // face is relative to the original cube
 template<Face face, Size size, bool sizeChange>
-void forEachNeighborInCube(const Chunk& chunk, const NodePos& neighborNode, auto callback) {
+void forEachNeighborInCube(const Chunk& chunk, const NodePos& neighborNode, auto& callback) {
     if constexpr (sizeChange) {
         callback(neighborNode);
         return;
@@ -148,7 +148,7 @@ void forEachNeighborInCube(const Chunk& chunk, const NodePos& neighborNode, auto
 
 
 template<Face face, Size originalSize>
-void growThenIterateInner(const Chunk& chunk, const NodePos& pos, auto callback) {
+void growThenIterateInner(const Chunk& chunk, const NodePos& pos, auto& callback) {
     const auto bpos = pos.absolutePosZero();
 
     switch (originalSize) {
@@ -179,7 +179,7 @@ void growThenIterateInner(const Chunk& chunk, const NodePos& pos, auto callback)
 
 
 template<Face face>
-void growThenIterateOuter(const Chunk& chunk, const NodePos& pos, auto callback) {
+void growThenIterateOuter(const Chunk& chunk, const NodePos& pos, auto& callback) {
     #define CASE(sz) case sz: growThenIterateInner<face, sz>(chunk, pos, callback); return;
     switch (pos.size) {
         CASE(Size::X1)
@@ -346,6 +346,7 @@ Path splicePaths(std::vector<Path>&& paths) {
 }
 
 std::optional<Path> findPath(const BlockPos& start, const BlockPos& goal, const ChunkGeneratorHell& gen) {
+    if (!isInBounds(start)) throw "troll";
     ParallelExecutor<3> executor;
 
     std::vector<Path> segments;

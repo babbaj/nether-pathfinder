@@ -18,8 +18,15 @@ jlong packBlockPos(const BlockPos& pos) {
     return ((jlong)pos.x & X_MASK) << X_SHIFT | ((jlong)pos.y & Y_MASK) << Y_SHIFT | ((jlong)pos.z & Z_MASK) << 0;
 }
 
+bool inBounds(int y) {
+    return y >= 0 && y < 128;
+}
+
 extern "C" {
     JNIEXPORT jlongArray JNICALL Java_com_babbaj_pathfinder_PathFinder_pathFind(JNIEnv* env, jclass clazz, jlong seed, jint x1, jint y1, jint z1, jint x2, jint y2, jint z2) {
+        if (!inBounds(y1) || !inBounds(y2)) {
+            return nullptr; // TODO: throw exception
+        }
         auto generator = ChunkGeneratorHell::fromSeed(seed);
         std::optional<Path> path = findPath({x1, y1, z1}, {x2, y2, z2}, generator);
 

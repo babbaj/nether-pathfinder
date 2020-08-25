@@ -19,7 +19,6 @@ public:
     // Unused
     NoiseGeneratorOctaves<4> slowsandGravelNoiseGen;
     NoiseGeneratorOctaves<4> netherrackExculsivityNoiseGen;
-
     NoiseGeneratorOctaves<10> scaleNoise;
     NoiseGeneratorOctaves<16> depthNoise;
 
@@ -56,7 +55,6 @@ std::array<double, xSize * ySize * zSize> ChunkGeneratorHell::getHeights(int xOf
 
     //auto noiseData4 = this->scaleNoise.generateNoiseOctaves<xSize,     1, zSize>(xOffset, yOffset, zOffset, 1.0, 0.0, 1.0);
 
-    auto dr =         this->depthNoise.generateNoiseOctaves<xSize,     1, zSize>(xOffset, yOffset, zOffset, 100.0, 0.0, 100.0); // 5us
     /*auto pnr =      this->perlinNoise1.generateNoiseOctaves<xSize, ySize, zSize>(xOffset, yOffset, zOffset, 8.555150000000001, 34.2206, 8.555150000000001); // 55us
     auto ar =      this->lperlinNoise1.generateNoiseOctaves<xSize, ySize, zSize>(xOffset, yOffset, zOffset, 684.412, 2053.236, 684.412); // 105us
     auto br =      this->lperlinNoise2.generateNoiseOctaves<xSize, ySize, zSize>(xOffset, yOffset, zOffset, 684.412, 2053.236, 684.412); // 105us*/
@@ -74,8 +72,7 @@ std::array<double, xSize * ySize * zSize> ChunkGeneratorHell::getHeights(int xOf
     );
 
     int i = 0;
-    // 256 allocated but only ySize used
-    double adouble[256]{}; assert(ySize <= 256);
+    double adouble[ySize];
 
     for (int j = 0; j < ySize; ++j)
     {
