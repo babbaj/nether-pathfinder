@@ -66,6 +66,7 @@ struct BlockPos {
             case Face::EAST: return east(n);
             case Face::WEST: return west(n);
         }
+        throw "troll enum";
     }
 
     BlockPos up(int n = 1) const {

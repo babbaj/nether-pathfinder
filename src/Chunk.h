@@ -100,33 +100,6 @@ public:
     template<Size>
     bool isEmpty(int x, int y, int z) const = delete;
 
-    template<>
-    bool isEmpty<Size::X16>(int, int y, int) const {
-        return x16Empty[x16Index(y)];
-    }
-
-    template<>
-    bool isEmpty<Size::X8>(int x, int y, int z) const {
-        const x8_t& x8 = getX8(x, y, z);
-        return ::isEmpty(x8);
-    }
-
-    template<>
-    bool isEmpty<Size::X4>(int x, int y, int z) const {
-        const x4_t& x4 = getX4(x, y, z);
-        return ::isEmpty(x4);
-    }
-
-    template<>
-    bool isEmpty<Size::X2>(int x, int y, int z) const {
-        return getX2(x, y, z) == 0;
-    }
-
-    template<>
-    bool isEmpty<Size::X1>(int x, int y, int z) const {
-        return getBit(x, y, z) == 0;
-    }
-
     void setBlock(int x, int y, int z, bool solid) {
         setBit(x, y, z, solid);
     }
@@ -139,3 +112,30 @@ public:
         return getBit(x, y, z) == 1;
     }
 };
+
+template<>
+inline bool Chunk::isEmpty<Size::X16>(int, int y, int) const {
+    return x16Empty[x16Index(y)];
+}
+
+template<>
+inline bool Chunk::isEmpty<Size::X8>(int x, int y, int z) const {
+    const x8_t& x8 = getX8(x, y, z);
+    return ::isEmpty(x8);
+}
+
+template<>
+inline bool Chunk::isEmpty<Size::X4>(int x, int y, int z) const {
+    const x4_t& x4 = getX4(x, y, z);
+    return ::isEmpty(x4);
+}
+
+template<>
+inline bool Chunk::isEmpty<Size::X2>(int x, int y, int z) const {
+    return getX2(x, y, z) == 0;
+}
+
+template<>
+inline bool Chunk::isEmpty<Size::X1>(int x, int y, int z) const {
+    return getBit(x, y, z) == 0;
+}

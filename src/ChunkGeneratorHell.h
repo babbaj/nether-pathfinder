@@ -60,13 +60,13 @@ std::array<double, xSize * ySize * zSize> ChunkGeneratorHell::getHeights(int xOf
     auto br =      this->lperlinNoise2.generateNoiseOctaves<xSize, ySize, zSize>(xOffset, yOffset, zOffset, 684.412, 2053.236, 684.412); // 105us*/
 
     auto [pnr, ar, br] = threadPool.compute(
-        [=] {
+        [=, this] {
             return this->perlinNoise1.generateNoiseOctaves<xSize, ySize, zSize>(xOffset, yOffset, zOffset, 8.555150000000001, 34.2206, 8.555150000000001);
         },
-        [=] {
+        [=, this] {
             return this->lperlinNoise1.generateNoiseOctaves<xSize, ySize, zSize>(xOffset, yOffset, zOffset, 684.412, 2053.236, 684.412);
         },
-        [=] {
+        [=, this] {
             return this->lperlinNoise2.generateNoiseOctaves<xSize, ySize, zSize>(xOffset, yOffset, zOffset, 684.412, 2053.236, 684.412);
         }
     );
