@@ -12,9 +12,7 @@
 
 
 template<typename K, typename V>
-//using map_t = std::unordered_map<K, V>;
 using map_t = absl::flat_hash_map<K, V>;
-//using map_t = absl::node_hash_map<K, V>;
 
 struct ChunkProvider {
     map_t<ChunkPos, std::unique_ptr<Chunk>>& cache;
@@ -84,22 +82,22 @@ Chunk& getOrGenChunk(map_t<ChunkPos, std::unique_ptr<Chunk>>& cache, const Chunk
 // This size argument is the size of the sub cubes.
 // origin leans towards north/west/down
 template<Face face, Size sz>
-inline std::array<BlockPos, 4> neighborCubes(const BlockPos& origin) {
+std::array<BlockPos, 4> neighborCubes(const BlockPos& origin) {
     // origin leans towards north/west/down
-    const auto size = getSize(sz);
+    constexpr auto size = getSize(sz);
     switch (face) {
         case Face::UP: {
             const BlockPos& corner = origin;
-            const BlockPos& oppositeCorner = origin.east(size).south(size);
+            const BlockPos oppositeCorner = origin.east(size).south(size);
             return {corner, corner.east(size), corner.south(size), oppositeCorner};
         }
         case Face::DOWN: {
             const BlockPos corner = origin.up(size);
-            const BlockPos& oppositeCorner = origin.east(size).south(size);
+            const BlockPos oppositeCorner = origin.east(size).south(size);
             return {corner, corner.east(size), corner.south(size), oppositeCorner};
         }
         case Face::NORTH: {
-            const BlockPos& corner = origin.south(size);
+            const BlockPos corner = origin.south(size);
             const BlockPos oppositeCorner = corner.east(size).up(size);
             return {corner, corner.east(size), corner.up(size), oppositeCorner};
         }
@@ -114,7 +112,7 @@ inline std::array<BlockPos, 4> neighborCubes(const BlockPos& origin) {
             return {corner, corner.south(size), corner.up(size), oppositeCorner};
         }
         case Face::WEST: {
-            const BlockPos& corner = origin.east(size);
+            const BlockPos corner = origin.east(size);
             const BlockPos oppositeCorner = corner.south(size).up(size);
             return {corner, corner.south(size), corner.up(size), oppositeCorner};
         }
@@ -196,9 +194,9 @@ bool isInBounds(const BlockPos& pos) {
 }
 
 
-void forEachNeighbor(ChunkProvider chunks, const PathNode& node, auto callback) {
-    const auto size = node.pos.size;
-    const auto bpos = node.pos.absolutePosZero();
+void forEachNeighbor(ChunkProvider chunks, const NodePos& pos, auto callback) {
+    const auto size = pos.size;
+    const auto bpos = pos.absolutePosZero();
 
     const ChunkPos cpos = bpos.toChunkPos();
     const Chunk& currentChunk = getOrGenChunk(chunks.cache, cpos, chunks.generator, chunks.executor);
@@ -287,9 +285,7 @@ std::optional<Path> findPath0(const BlockPos& start, const BlockPos& goal, const
             return createPath(map, startNode, currentNode, start, goal, Path::Type::FINISHED);
         }
 
-        forEachNeighbor({chunkCache, gen, executor}, *currentNode, [&](const NodePos& neighborPos) {
-            const auto& block = neighborPos.absolutePosZero();
-
+        forEachNeighbor({chunkCache, gen, executor}, currentNode->pos, [&](const NodePos& neighborPos) {
             PathNode* neighborNode = getNodeAtPosition(map, neighborPos, goal);
             auto sqrtSize = [](Size sz) { return sqrt(getSize(sz)); };
             const double cost = 1;//sqrtSize(neighborNode->pos.size);//getSize(neighborNode->pos.size);

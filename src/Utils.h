@@ -2,8 +2,9 @@
 
 #include <cmath>
 #include <functional>
+#include <array>
 
-enum Face {
+enum class Face {
     UP,
     DOWN,
     NORTH,
@@ -69,27 +70,27 @@ struct BlockPos {
         throw "troll enum";
     }
 
-    BlockPos up(int n = 1) const {
+    [[nodiscard]] BlockPos up(int n = 1) const {
         return {this->x, this->y + n, this->z};
     }
 
-    BlockPos down(int n = 1) const {
+    [[nodiscard]] BlockPos down(int n = 1) const {
         return {this->x, this->y - n, this->z};
     }
 
-    BlockPos east(int n = 1) const {
+    [[nodiscard]] BlockPos east(int n = 1) const {
         return {this->x + n, this->y, this->z};
     }
 
-    BlockPos west(int n = 1) const {
+    [[nodiscard]] BlockPos west(int n = 1) const {
         return {this->x - n, this->y, this->z};
     }
 
-    BlockPos north(int n = 1) const {
+    [[nodiscard]] BlockPos north(int n = 1) const {
         return {this->x, this->y, this->z - n};
     }
 
-    BlockPos south(int n = 1) const {
+    [[nodiscard]] BlockPos south(int n = 1) const {
         return {this->x, this->y, this->z + n};
     }
 

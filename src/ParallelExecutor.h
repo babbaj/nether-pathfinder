@@ -17,6 +17,8 @@ struct Worker {
     bool stop = false;
 
     Worker(): thread([this] {
+        using namespace std::chrono_literals;
+        //std::this_thread::sleep_for(3s);
         while (true) {
             std::unique_lock lock(this->mutex);
             this->condition.wait(lock, [this] { return this->stop || static_cast<bool>(this->task); });
@@ -71,8 +73,8 @@ struct ParallelExecutor {
                         r = std::get<I>(args)();
 
                         // signal that we are finished
-                        wait.condition.notify_one();
                         wait.status = Signal::Status::READY;
+                        wait.condition.notify_one();
                     };
                 }
 
