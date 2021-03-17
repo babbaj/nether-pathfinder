@@ -47,7 +47,7 @@ void write(std::ofstream& out, T x) {
     out.write(buf, sizeof(buf));
 }
 
-void writeBreadCrumbFile(const char* fileName, const Path& path) {
+void writeBreadCrumbFile(const char* fileName, const Path3D& path) {
     std::ofstream out(fileName, std::ios::out | std::ios::binary);
     write(out, 1); // 1 trail
     {
@@ -62,7 +62,7 @@ void writeBreadCrumbFile(const char* fileName, const Path& path) {
     out.close();
 }
 
-double totalLength(const Path& path) {
+double totalLength(const Path3D& path) {
     const auto& blocks = path.blocks;
     double sumDist = 0;
     for (auto it = blocks.begin() + 1; it != blocks.end(); it++) {
@@ -74,10 +74,10 @@ double totalLength(const Path& path) {
     return sumDist;
 }
 
-void printSizes(const Path& path) {
+void printSizes(const Path3D& path) {
     int x16 = 0, x8 = 0, x4 = 0, x2 = 0, x1 = 0;
     for (const auto& nodePtr : path.nodes) {
-        const PathNode& node = *nodePtr;
+        const PathNode3D& node = *nodePtr;
         const Size size = node.pos.size;
 
         switch (size) {
@@ -94,7 +94,7 @@ void printSizes(const Path& path) {
     std::cout << "X4 = " << x4 << '\n';
     std::cout << "X2 = " << x2 << '\n';
     std::cout << "X1 = " << x1 << '\n';
-    const PathNode& last = *path.nodes.back();
+    const PathNode3D& last = *path.nodes.back();
     auto print = [](auto& node) {
         switch (node.pos.size) {
             case Size::X16: std::cout << "X16"; break;
@@ -130,7 +130,7 @@ int main(int argc, char** argv) {
     constexpr BlockPos ONE_HUNDRED_K = {100000, 50, 0};
     constexpr BlockPos TEN_K = {10000, 64, 0};
     constexpr BlockPos ONE_K = {1000, 64, 0};
-    std::optional<Path> path = findPath({0, 40, 0}, ONE_HUNDRED_K, generator);
+    std::optional<Path3D> path = findPath({0, 40, 0}, ONE_MIL, generator);
     auto t2 = std::chrono::steady_clock::now();
 
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();

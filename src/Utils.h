@@ -160,3 +160,18 @@ namespace std {
         }
     };
 }
+
+struct Pos2D {
+    int x, z;
+
+    [[nodiscard]] double distanceToSq(const Pos2D& pos) const {
+        const double dx = pos.x - this->x;
+        const double dz = pos.z - this->z;
+
+        return (dx * dx) + (dz * dz);
+    }
+
+    [[nodiscard]] double distanceTo(const Pos2D& pos) const {
+        return sqrt(this->distanceToSq(pos));
+    }
+};

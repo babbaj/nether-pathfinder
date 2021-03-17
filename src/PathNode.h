@@ -22,10 +22,10 @@ private:
 public:
     explicit NodePos(Size enumSize, const BlockPos& approxPosition): size(enumSize), pos(approxPosition >> shiftFor(enumSize)) { }
 
-    BlockPos absolutePosZero() const {
+    [[nodiscard]] BlockPos absolutePosZero() const {
         return this->pos << shiftFor(this->size);
     }
-    BlockPos absolutePosCenter() const {
+    [[nodiscard]] BlockPos absolutePosCenter() const {
         const auto sz = getSize(this->size);
         return (this->pos << shiftFor(this->size)) + (sz / 2);
     }
@@ -57,8 +57,6 @@ struct PathNode {
     static constexpr double COST_INF = 1000000.0; // probably don't need this
     static constexpr double COST_ONE = 1.0;
 
-    const NodePos pos;
-
     const double estimatedCostToGoal;
     double cost = COST_INF;
     double combinedCost = 0;
@@ -66,11 +64,20 @@ struct PathNode {
     PathNode* previous = nullptr;
     int heapPosition = -1;
 
-    explicit PathNode(const NodePos& pos, const BlockPos& goal): pos(pos), estimatedCostToGoal(heuristic(pos, goal)) {}
+protected:
+    explicit PathNode(double cost): estimatedCostToGoal(cost) {}
+public:
 
     [[nodiscard]] bool isOpen() const {
         return this->heapPosition != -1;
     }
+
+};
+
+struct PathNode3D : PathNode {
+    const NodePos pos;
+
+    explicit PathNode3D(const NodePos& posIn, const BlockPos& goal): PathNode(heuristic(posIn, goal)), pos(posIn) {}
 
 private:
     static int manhattan(const BlockPos& a, const BlockPos& b) {
@@ -80,5 +87,20 @@ private:
     static double heuristic(const NodePos& pos, const BlockPos& goal) {
         const auto bpos = pos.absolutePosCenter();
         return manhattan(bpos, goal) * 0.7 + bpos.distanceTo(goal) * 0.001 - (getSize(pos.size) * 4);
+    }
+};
+
+struct PathNode2D : PathNode {
+    const Pos2D pos;
+
+    explicit PathNode2D(const Pos2D& posIn, const Pos2D& goal): PathNode(heuristic(posIn, goal)), pos(posIn) {}
+
+private:
+    static int manhattan(const Pos2D& a, const Pos2D& b) {
+        return abs(a.x - b.x) + abs(a.z - b.z);
+    }
+
+    static double heuristic(const Pos2D& pos, const Pos2D& goal) {
+        return manhattan(pos, goal) * 0.7 + pos.distanceTo(goal) * 0.001 - (/*getSize(pos.size)*/1 * 4);
     }
 };

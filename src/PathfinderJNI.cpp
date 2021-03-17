@@ -1,11 +1,11 @@
 #include <algorithm>
 
-#include <jni.h>
+//#include <jni.h>
 
 #include "ChunkGeneratorHell.h"
 #include "PathFinder.h"
 
-jlong packBlockPos(const BlockPos& pos) {
+/*jlong packBlockPos(const BlockPos& pos) {
     constexpr jint NUM_X_BITS = 26;//1 + MathHelper.log2(MathHelper.smallestEncompassingPowerOfTwo(30000000));
     constexpr jint NUM_Z_BITS = NUM_X_BITS;
     constexpr jint NUM_Y_BITS = 64 - NUM_X_BITS - NUM_Z_BITS;
@@ -45,4 +45,4 @@ extern "C" {
             return nullptr;
         }
     }
-}
+}*/

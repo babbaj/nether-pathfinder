@@ -21,10 +21,10 @@ struct ChunkProvider {
 };
 
 // never returns null
-PathNode* getNodeAtPosition(map_t<NodePos, std::unique_ptr<PathNode>>& map, const NodePos& pos, const BlockPos& goal) {
+PathNode3D* getNodeAtPosition(map_t<NodePos, std::unique_ptr<PathNode3D>>& map, const NodePos& pos, const BlockPos& goal) {
     auto iter = map.find(pos);
     if (iter == map.end()) {
-        auto node = std::make_unique<PathNode>(pos, goal);
+        auto node = std::make_unique<PathNode3D>(pos, goal);
         auto it = map.emplace(pos, std::move(node));
         assert(it.second);
         return it.first->second.get();
@@ -34,16 +34,16 @@ PathNode* getNodeAtPosition(map_t<NodePos, std::unique_ptr<PathNode>>& map, cons
 }
 
 
-Path createPath(map_t<NodePos, std::unique_ptr<PathNode>>& map, const PathNode* start, const PathNode* end, const BlockPos& startPos, const BlockPos& goal, Path::Type pathType) {
-    std::vector<std::unique_ptr<PathNode>> tempNodes;
+Path3D createPath(map_t<NodePos, std::unique_ptr<PathNode3D>>& map, const PathNode3D* start, const PathNode3D* end, const BlockPos& startPos, const BlockPos& goal, Path3D::Type pathType) {
+    std::vector<std::unique_ptr<PathNode3D>> tempNodes;
     std::vector<BlockPos> tempPath;
 
-    const PathNode* current = end;
+    const PathNode3D* current = end;
     while (current) {
         auto& uniqueptr = map.at(current->pos);
         tempNodes.push_back(std::move(uniqueptr));
         tempPath.push_back(current->pos.absolutePosCenter());
-        current = current->previous;
+        current = static_cast<PathNode3D*>(current->previous);
     }
 
     //auto nodes = decltype(tempNodes)(tempPath.rbegin(), tempPath.rend());
@@ -53,7 +53,7 @@ Path createPath(map_t<NodePos, std::unique_ptr<PathNode>>& map, const PathNode* 
     auto path = decltype(tempPath){}; path.reserve(tempPath.size());
     std::move(tempPath.rbegin(), tempPath.rend(), std::back_inserter(path));
 
-    return Path {
+    return Path3D {
         pathType,
         startPos,
         goal,
@@ -221,11 +221,11 @@ void forEachNeighbor(ChunkProvider chunks, const NodePos& pos, auto callback) {
 
 constexpr double MIN_DIST_PATH = 5; // might want to increase this
 
-std::optional<Path> bestPathSoFar(map_t<NodePos, std::unique_ptr<PathNode>>& map, const PathNode* start, const PathNode* end, const BlockPos& startPos, const BlockPos& goal) {
+std::optional<Path3D> bestPathSoFar(map_t<NodePos, std::unique_ptr<PathNode3D>>& map, const PathNode3D* start, const PathNode3D* end, const BlockPos& startPos, const BlockPos& goal) {
     const double distSq = startPos.distanceToSq(end->pos.absolutePosCenter());
 
     if (distSq > MIN_DIST_PATH * MIN_DIST_PATH) {
-        return createPath(map, start, end, startPos, goal, Path::Type::SEGMENT);
+        return createPath(map, start, end, startPos, goal, Path3D::Type::SEGMENT);
     } else {
         std::cout << "Path took too long and got nowhere\n";
         auto [x, y, z] = end->pos.absolutePosCenter();
@@ -242,19 +242,19 @@ bool inGoal(const NodePos& node, const BlockPos& goal) {
     return node.absolutePosCenter().distanceToSq(goal) <= 16 * 16;
 }
 
-std::optional<Path> findPath0(const BlockPos& start, const BlockPos& goal, const ChunkGeneratorHell& gen, ParallelExecutor<3>& executor) {
+std::optional<Path3D> findPath0(const BlockPos& start, const BlockPos& goal, const ChunkGeneratorHell& gen, ParallelExecutor<3>& executor) {
     std::cout << "distance = " << start.distanceTo(goal) << '\n';
 
     map_t<ChunkPos, std::unique_ptr<Chunk>> chunkCache;
-    map_t<NodePos, std::unique_ptr<PathNode>> map;
+    map_t<NodePos, std::unique_ptr<PathNode3D>> map;
     BinaryHeapOpenSet openSet;
 
-    PathNode* const startNode = getNodeAtPosition(map, NodePos{Size::X1, start}, goal);
+    PathNode3D* const startNode = getNodeAtPosition(map, NodePos{Size::X1, start}, goal);
     startNode->cost = 0;
     startNode->combinedCost = startNode->estimatedCostToGoal;
     openSet.insert(startNode);
 
-    PathNode* bestSoFar = startNode;
+    PathNode3D* bestSoFar = startNode;
     double bestHeuristicSoFar = startNode->estimatedCostToGoal;
 
     using namespace std::chrono_literals;
@@ -274,7 +274,7 @@ std::optional<Path> findPath0(const BlockPos& start, const BlockPos& goal, const
             }
         }
 
-        PathNode* currentNode = openSet.removeLowest();
+        auto* currentNode = static_cast<PathNode3D*>(openSet.removeLowest());
 
         // TODO: get the right sub cube
         if (inGoal(currentNode->pos, goal)) {
@@ -282,11 +282,11 @@ std::optional<Path> findPath0(const BlockPos& start, const BlockPos& goal, const
             std::cout << "openSet size = " << openSet.getSize() << '\n';
             std::cout << "map size = " << map.size() << '\n';
             std::cout << '\n';
-            return createPath(map, startNode, currentNode, start, goal, Path::Type::FINISHED);
+            return createPath(map, startNode, currentNode, start, goal, Path3D::Type::FINISHED);
         }
 
         forEachNeighbor({chunkCache, gen, executor}, currentNode->pos, [&](const NodePos& neighborPos) {
-            PathNode* neighborNode = getNodeAtPosition(map, neighborPos, goal);
+            PathNode3D* neighborNode = getNodeAtPosition(map, neighborPos, goal);
             auto sqrtSize = [](Size sz) { return sqrt(getSize(sz)); };
             const double cost = 1;//sqrtSize(neighborNode->pos.size);//getSize(neighborNode->pos.size);
             const double tentativeCost = currentNode->cost + cost;
@@ -326,26 +326,26 @@ std::optional<Path> findPath0(const BlockPos& start, const BlockPos& goal, const
     return bestPathSoFar(map, startNode, bestSoFar, start, goal);
 }
 
-void appendPath(Path& path, Path&& segment) {
+void appendPath(Path3D& path, Path3D&& segment) {
     path.blocks.insert(path.blocks.end(), segment.blocks.begin(), segment.blocks.end());
     path.nodes.insert(path.nodes.end(), std::move_iterator{segment.nodes.begin()}, std::move_iterator{segment.nodes.end()});
 }
 
-Path splicePaths(std::vector<Path>&& paths) {
+Path3D splicePaths(std::vector<Path3D>&& paths) {
     Path path = std::move(paths.at(0));
 
-    std::for_each(paths.begin() + 1, paths.end(), [&path](Path& segment) {
+    std::for_each(paths.begin() + 1, paths.end(), [&path](Path3D& segment) {
         appendPath(path, std::move(segment));
     });
 
     return path;
 }
 
-std::optional<Path> findPath(const BlockPos& start, const BlockPos& goal, const ChunkGeneratorHell& gen) {
+std::optional<Path3D> findPath(const BlockPos& start, const BlockPos& goal, const ChunkGeneratorHell& gen) {
     if (!isInBounds(start)) throw "troll";
     ParallelExecutor<3> executor;
 
-    std::vector<Path> segments;
+    std::vector<Path3D> segments;
 
     while (true) {
         const BlockPos lastPathEnd = !segments.empty() ? segments.back().getEndPos() : start;
@@ -353,7 +353,7 @@ std::optional<Path> findPath(const BlockPos& start, const BlockPos& goal, const 
         if (!path.has_value()) {
             break;
         } else {
-            const bool finished = path->type == Path::Type::FINISHED;
+            const bool finished = path->type == Path3D::Type::FINISHED;
             segments.push_back(std::move(*path));
             if (finished) break;
         }
