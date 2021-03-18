@@ -10,24 +10,25 @@
 
 struct ChunkGeneratorHell {
 public:
-    // These must be declared in the right order
 
-    NoiseGeneratorOctaves<16> lperlinNoise1;
-    NoiseGeneratorOctaves<16> lperlinNoise2;
-    NoiseGeneratorOctaves<8>  perlinNoise1;
+    // These must be declared in the right order
+    const NoiseGeneratorOctaves<16> lperlinNoise1;
+    const NoiseGeneratorOctaves<16> lperlinNoise2;
+    const NoiseGeneratorOctaves<8>  perlinNoise1;
 
     // Unused
-    NoiseGeneratorOctaves<4> slowsandGravelNoiseGen;
-    NoiseGeneratorOctaves<4> netherrackExculsivityNoiseGen;
-    NoiseGeneratorOctaves<10> scaleNoise;
-    NoiseGeneratorOctaves<16> depthNoise;
+    const NoiseGeneratorOctaves<4> slowsandGravelNoiseGen;
+    const NoiseGeneratorOctaves<4> netherrackExculsivityNoiseGen;
+    const NoiseGeneratorOctaves<10> scaleNoise;
+    const NoiseGeneratorOctaves<16> depthNoise;
 
+    ParallelExecutor<3> executor{};
 
-    void prepareHeights(int x, int z, Chunk& primer, ParallelExecutor<3>& threadPool) const;
+    void prepareHeights(int x, int z, Chunk& primer);
 
     // buffer may be null
     template<int xSize, int ySize, int zSize>
-    std::array<double, xSize * ySize * zSize> getHeights(int xOffset, int yOffset, int zOffset, ParallelExecutor<3>& threadPool) const;
+    std::array<double, xSize * ySize * zSize> getHeights(int xOffset, int yOffset, int zOffset);
 public:
 
     static ChunkGeneratorHell fromSeed(uint64_t seed) {
@@ -44,13 +45,13 @@ public:
         };
     }
 
-    void generateChunk(int x, int z, Chunk& chunkPrimer, ParallelExecutor<3>& threadPool) const;
-    Chunk generateChunk(int x, int z, ParallelExecutor<3>& threadPool) const;
+    void generateChunk(int x, int z, Chunk& chunkPrimer);
+    [[nodiscard]] Chunk generateChunk(int x, int z);
 };
 
 // This is only instantiated once
 template<int xSize, int ySize, int zSize>
-std::array<double, xSize * ySize * zSize> ChunkGeneratorHell::getHeights(int xOffset, int yOffset, int zOffset, ParallelExecutor<3>& threadPool) const {
+std::array<double, xSize * ySize * zSize> ChunkGeneratorHell::getHeights(int xOffset, int yOffset, int zOffset) {
     std::array<double, xSize * ySize * zSize> buffer{};
 
     //auto noiseData4 = this->scaleNoise.generateNoiseOctaves<xSize,     1, zSize>(xOffset, yOffset, zOffset, 1.0, 0.0, 1.0);
@@ -59,7 +60,7 @@ std::array<double, xSize * ySize * zSize> ChunkGeneratorHell::getHeights(int xOf
     auto ar =      this->lperlinNoise1.generateNoiseOctaves<xSize, ySize, zSize>(xOffset, yOffset, zOffset, 684.412, 2053.236, 684.412); // 105us
     auto br =      this->lperlinNoise2.generateNoiseOctaves<xSize, ySize, zSize>(xOffset, yOffset, zOffset, 684.412, 2053.236, 684.412); // 105us*/
 
-    auto [pnr, ar, br] = threadPool.compute(
+    auto [pnr, ar, br] = this->executor.compute(
         [=, this] {
             return this->perlinNoise1.generateNoiseOctaves<xSize, ySize, zSize>(xOffset, yOffset, zOffset, 8.555150000000001, 34.2206, 8.555150000000001);
         },

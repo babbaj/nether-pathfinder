@@ -51,7 +51,10 @@ struct Signal {
 
 template<int Tasks>
 struct ParallelExecutor {
-    std::array<Worker, Tasks> workers;
+private:
+    static constexpr int Threads = Tasks - 1;
+public:
+    std::array<Worker, Threads> workers;
 
     template<typename... Fn> requires (sizeof...(Fn) == Tasks)
     auto compute(Fn&&... tasks) {
@@ -59,8 +62,9 @@ struct ParallelExecutor {
         std::tuple args = std::make_tuple(std::forward<Fn>(tasks)...);
 
         std::tuple<std::invoke_result_t<Fn>...> results;
-        std::array<Signal, Tasks> signals;
+        std::array<Signal, Threads> signals;
 
+        // invoke all but last task on separate threads
         [&]<size_t... I>(std::index_sequence<I...>) {
             ([&] {
                 Worker& worker = workers[I];
@@ -80,9 +84,11 @@ struct ParallelExecutor {
 
                 worker.condition.notify_one();
             }(), ...);
-        }(std::make_index_sequence<Tasks>{});
+        }(std::make_index_sequence<Threads>{});
 
-        for (int i = 0; i < Tasks; i++) {
+        std::get<Tasks - 1>(results) = std::get<Tasks - 1>(args)(); // invoke last task on same thread
+
+        for (int i = 0; i < Threads; i++) {
             std::unique_lock lock(workers[i].mutex);
             Signal& signal = signals[i];
             signal.condition.wait(lock, [&] { return signal.status == Signal::Status::READY; });

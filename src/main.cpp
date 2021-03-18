@@ -118,8 +118,6 @@ int main(int argc, char** argv) {
     constexpr auto seed = 146008555100680;
     auto generator = ChunkGeneratorHell::fromSeed(seed);
 
-    auto pool = ParallelExecutor<3>{};
-
     //auto chunk = generator.generateChunk(1, 0, pool);
     //std::cout << chunk.isSolid(12, 38, 4) << '\n';
     //writeChunk("testchunk", chunk);
@@ -130,7 +128,7 @@ int main(int argc, char** argv) {
     constexpr BlockPos ONE_HUNDRED_K = {100000, 50, 0};
     constexpr BlockPos TEN_K = {10000, 64, 0};
     constexpr BlockPos ONE_K = {1000, 64, 0};
-    std::optional<Path3D> path = findPath({0, 40, 0}, ONE_MIL, generator);
+    std::optional<Path3D> path = findPath<Path3D>({0, 40, 0}, ONE_MIL, generator);
     auto t2 = std::chrono::steady_clock::now();
 
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();

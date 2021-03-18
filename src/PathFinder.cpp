@@ -16,8 +16,7 @@ using map_t = absl::flat_hash_map<K, V>;
 
 struct ChunkProvider {
     map_t<ChunkPos, std::unique_ptr<Chunk>>& cache;
-    const ChunkGeneratorHell& generator;
-    ParallelExecutor<3>& executor;
+    ChunkGeneratorHell& generator;
 };
 
 // never returns null
@@ -34,7 +33,7 @@ PathNode3D* getNodeAtPosition(map_t<NodePos, std::unique_ptr<PathNode3D>>& map, 
 }
 
 
-Path3D createPath(map_t<NodePos, std::unique_ptr<PathNode3D>>& map, const PathNode3D* start, const PathNode3D* end, const BlockPos& startPos, const BlockPos& goal, Path3D::Type pathType) {
+Path3D createPath(map_t<NodePos, std::unique_ptr<PathNode3D>>& map, const PathNode3D* start, const PathNode3D* end, const BlockPos& startPos, const BlockPos& goal, PathTypeEnum pathType) {
     std::vector<std::unique_ptr<PathNode3D>> tempNodes;
     std::vector<BlockPos> tempPath;
 
@@ -64,14 +63,14 @@ Path3D createPath(map_t<NodePos, std::unique_ptr<PathNode3D>>& map, const PathNo
 
 
 // TODO: take a ChunkProvider
-Chunk& getOrGenChunk(map_t<ChunkPos, std::unique_ptr<Chunk>>& cache, const ChunkPos& pos, const ChunkGeneratorHell& generator, ParallelExecutor<3>& executor) {
+Chunk& getOrGenChunk(map_t<ChunkPos, std::unique_ptr<Chunk>>& cache, const ChunkPos& pos, ChunkGeneratorHell& generator) {
     auto it = cache.find(pos);
     if (it != cache.end()) {
         return *it->second;
     } else {
         std::unique_ptr ptr = std::make_unique<Chunk>();
         auto& chunk = *ptr;
-        generator.generateChunk(pos.x, pos.z, *ptr, executor);
+        generator.generateChunk(pos.x, pos.z, *ptr);
         cache.emplace(pos, std::move(ptr));
         return chunk;
     }
@@ -189,17 +188,13 @@ void growThenIterateOuter(const Chunk& chunk, const NodePos& pos, auto& callback
     #undef CASE
 }
 
-bool isInBounds(const BlockPos& pos) {
-    return pos.y >= 0 && pos.y < 128;
-}
-
 
 void forEachNeighbor(ChunkProvider chunks, const NodePos& pos, auto callback) {
     const auto size = pos.size;
     const auto bpos = pos.absolutePosZero();
 
     const ChunkPos cpos = bpos.toChunkPos();
-    const Chunk& currentChunk = getOrGenChunk(chunks.cache, cpos, chunks.generator, chunks.executor);
+    const Chunk& currentChunk = getOrGenChunk(chunks.cache, cpos, chunks.generator);
 
     [&]<size_t... I>(std::index_sequence<I...>) {
         ([&] {
@@ -211,7 +206,7 @@ void forEachNeighbor(ChunkProvider chunks, const NodePos& pos, auto callback) {
             }
             const ChunkPos neighborCpos = origin.toChunkPos();
             const Chunk& chunk = neighborCpos == cpos
-                ? currentChunk : getOrGenChunk(chunks.cache, neighborCpos, chunks.generator, chunks.executor);
+                ? currentChunk : getOrGenChunk(chunks.cache, neighborCpos, chunks.generator);
 
             growThenIterateOuter<face>(chunk, neighborNodePos, callback);
         }(), ...);
@@ -225,7 +220,7 @@ std::optional<Path3D> bestPathSoFar(map_t<NodePos, std::unique_ptr<PathNode3D>>&
     const double distSq = startPos.distanceToSq(end->pos.absolutePosCenter());
 
     if (distSq > MIN_DIST_PATH * MIN_DIST_PATH) {
-        return createPath(map, start, end, startPos, goal, Path3D::Type::SEGMENT);
+        return createPath(map, start, end, startPos, goal, PathTypeEnum::SEGMENT);
     } else {
         std::cout << "Path took too long and got nowhere\n";
         auto [x, y, z] = end->pos.absolutePosCenter();
@@ -242,7 +237,7 @@ bool inGoal(const NodePos& node, const BlockPos& goal) {
     return node.absolutePosCenter().distanceToSq(goal) <= 16 * 16;
 }
 
-std::optional<Path3D> findPath0(const BlockPos& start, const BlockPos& goal, const ChunkGeneratorHell& gen, ParallelExecutor<3>& executor) {
+std::optional<Path3D> findPath0(const BlockPos& start, const BlockPos& goal, ChunkGeneratorHell& gen) {
     std::cout << "distance = " << start.distanceTo(goal) << '\n';
 
     map_t<ChunkPos, std::unique_ptr<Chunk>> chunkCache;
@@ -282,10 +277,10 @@ std::optional<Path3D> findPath0(const BlockPos& start, const BlockPos& goal, con
             std::cout << "openSet size = " << openSet.getSize() << '\n';
             std::cout << "map size = " << map.size() << '\n';
             std::cout << '\n';
-            return createPath(map, startNode, currentNode, start, goal, Path3D::Type::FINISHED);
+            return createPath(map, startNode, currentNode, start, goal, PathTypeEnum::FINISHED);
         }
 
-        forEachNeighbor({chunkCache, gen, executor}, currentNode->pos, [&](const NodePos& neighborPos) {
+        forEachNeighbor({chunkCache, gen}, currentNode->pos, [&](const NodePos& neighborPos) {
             PathNode3D* neighborNode = getNodeAtPosition(map, neighborPos, goal);
             auto sqrtSize = [](Size sz) { return sqrt(getSize(sz)); };
             const double cost = 1;//sqrtSize(neighborNode->pos.size);//getSize(neighborNode->pos.size);
@@ -324,44 +319,4 @@ std::optional<Path3D> findPath0(const BlockPos& start, const BlockPos& goal, con
     std::cout << '\n';
 
     return bestPathSoFar(map, startNode, bestSoFar, start, goal);
-}
-
-void appendPath(Path3D& path, Path3D&& segment) {
-    path.blocks.insert(path.blocks.end(), segment.blocks.begin(), segment.blocks.end());
-    path.nodes.insert(path.nodes.end(), std::move_iterator{segment.nodes.begin()}, std::move_iterator{segment.nodes.end()});
-}
-
-Path3D splicePaths(std::vector<Path3D>&& paths) {
-    Path path = std::move(paths.at(0));
-
-    std::for_each(paths.begin() + 1, paths.end(), [&path](Path3D& segment) {
-        appendPath(path, std::move(segment));
-    });
-
-    return path;
-}
-
-std::optional<Path3D> findPath(const BlockPos& start, const BlockPos& goal, const ChunkGeneratorHell& gen) {
-    if (!isInBounds(start)) throw "troll";
-    ParallelExecutor<3> executor;
-
-    std::vector<Path3D> segments;
-
-    while (true) {
-        const BlockPos lastPathEnd = !segments.empty() ? segments.back().getEndPos() : start;
-        std::optional path = findPath0(lastPathEnd, goal, gen, executor);
-        if (!path.has_value()) {
-            break;
-        } else {
-            const bool finished = path->type == Path3D::Type::FINISHED;
-            segments.push_back(std::move(*path));
-            if (finished) break;
-        }
-    }
-
-    if (!segments.empty()) {
-        return splicePaths(std::move(segments));
-    } else {
-        return std::nullopt;
-    }
 }

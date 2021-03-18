@@ -4,21 +4,21 @@
 #include <cassert>
 #include <chrono>
 
-void ChunkGeneratorHell::generateChunk(int x, int z, Chunk& chunkprimer, ParallelExecutor<3>& threadPool) const {
-    prepareHeights(x, z, chunkprimer, threadPool);
+void ChunkGeneratorHell::generateChunk(int x, int z, Chunk& chunkprimer) {
+    prepareHeights(x, z, chunkprimer);
     chunkprimer.calcEmptyX16();
 }
 
-Chunk ChunkGeneratorHell::generateChunk(int x, int z, ParallelExecutor<3>& threadPool) const {
+Chunk ChunkGeneratorHell::generateChunk(int x, int z) {
     Chunk chunkprimer{};
-    prepareHeights(x, z, chunkprimer, threadPool);
+    prepareHeights(x, z, chunkprimer);
     chunkprimer.calcEmptyX16();
 
     return chunkprimer;
 }
 
-void ChunkGeneratorHell::prepareHeights(int x, int z, Chunk& primer, ParallelExecutor<3>& threadPool) const {
-    std::array buffer = this->getHeights<5, 17, 5>(x * 4, 0, z * 4, threadPool);
+void ChunkGeneratorHell::prepareHeights(int x, int z, Chunk& primer) {
+    std::array buffer = this->getHeights<5, 17, 5>(x * 4, 0, z * 4);
 
     constexpr auto j = 64 / 2 + 1; // 64 = sea level
 
@@ -61,9 +61,9 @@ void ChunkGeneratorHell::prepareHeights(int x, int z, Chunk& primer, ParallelExe
                             {
                                 iblockstate = true; // NETHERRACK
                             }
-                            int l2 = j2 + j1 * 4;
-                            int i3 = i2 + l1 * 8;
-                            int j3 = k2 + k1 * 4;
+                            const int l2 = j2 + j1 * 4;
+                            const int i3 = i2 + l1 * 8;
+                            const int j3 = k2 + k1 * 4;
                             // bitset defaults to air so writing 0 to it is pointless
                             if (iblockstate) primer.setBlock(l2, i3, j3, iblockstate);
                             d15 += d16;

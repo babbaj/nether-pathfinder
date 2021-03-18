@@ -174,4 +174,20 @@ struct Pos2D {
     [[nodiscard]] double distanceTo(const Pos2D& pos) const {
         return sqrt(this->distanceToSq(pos));
     }
+
+    [[nodiscard]] ChunkPos toChunkPos() const {
+        return {this->x >> 4, this->z >> 4};
+    }
 };
+
+namespace std {
+    template<>
+    struct hash<Pos2D> {
+        size_t operator()(const Pos2D& pos) const {
+            size_t hash = 3241;
+            hash = 3457689L * hash + pos.x;
+            hash = 8734625L * hash + pos.z;
+            return hash;
+        }
+    };
+}
