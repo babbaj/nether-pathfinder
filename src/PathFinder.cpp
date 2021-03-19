@@ -7,17 +7,15 @@
 #include <iostream>
 #include <algorithm>
 
-#include "absl/container/flat_hash_map.h"
 #include "absl/container/node_hash_map.h"
 
-
-template<typename K, typename V>
-using map_t = absl::flat_hash_map<K, V>;
+using namespace impl;
 
 struct ChunkProvider {
     map_t<ChunkPos, std::unique_ptr<Chunk>>& cache;
     ChunkGeneratorHell& generator;
 };
+
 
 // never returns null
 PathNode3D* getNodeAtPosition(map_t<NodePos, std::unique_ptr<PathNode3D>>& map, const NodePos& pos, const BlockPos& goal) {
@@ -31,7 +29,6 @@ PathNode3D* getNodeAtPosition(map_t<NodePos, std::unique_ptr<PathNode3D>>& map, 
         return iter->second.get();
     }
 }
-
 
 Path3D createPath(map_t<NodePos, std::unique_ptr<PathNode3D>>& map, const PathNode3D* start, const PathNode3D* end, const BlockPos& startPos, const BlockPos& goal, PathTypeEnum pathType) {
     std::vector<std::unique_ptr<PathNode3D>> tempNodes;
@@ -53,28 +50,14 @@ Path3D createPath(map_t<NodePos, std::unique_ptr<PathNode3D>>& map, const PathNo
     std::move(tempPath.rbegin(), tempPath.rend(), std::back_inserter(path));
 
     return Path3D {
-        pathType,
-        startPos,
-        goal,
-        std::move(path),
-        std::move(nodes)
+            pathType,
+            startPos,
+            goal,
+            std::move(path),
+            std::move(nodes)
     };
 }
 
-
-// TODO: take a ChunkProvider
-Chunk& getOrGenChunk(map_t<ChunkPos, std::unique_ptr<Chunk>>& cache, const ChunkPos& pos, ChunkGeneratorHell& generator) {
-    auto it = cache.find(pos);
-    if (it != cache.end()) {
-        return *it->second;
-    } else {
-        std::unique_ptr ptr = std::make_unique<Chunk>();
-        auto& chunk = *ptr;
-        generator.generateChunk(pos.x, pos.z, *ptr);
-        cache.emplace(pos, std::move(ptr));
-        return chunk;
-    }
-}
 
 // This is called inside of a big neighbor cube and returns the 4 sub cubes that are adjacent to the original cube.
 // The face argument is relative to the original cube.
@@ -270,6 +253,7 @@ std::optional<Path3D> findPath0(const BlockPos& start, const BlockPos& goal, Chu
         }
 
         auto* currentNode = static_cast<PathNode3D*>(openSet.removeLowest());
+        numNodes++;
 
         // TODO: get the right sub cube
         if (inGoal(currentNode->pos, goal)) {

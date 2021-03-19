@@ -54,7 +54,8 @@ public:
             val->heapPosition = parentIndex;
             parentNode->heapPosition = index;
             index = parentIndex;
-            parentIndex = unsignedRShift(index, 1);
+            //parentIndex = unsignedRShift(index, 1);
+            parentIndex /= 2;
             parentNode = this->vector[parentIndex];
         }
     }
@@ -94,7 +95,8 @@ public:
             val->heapPosition = smallerChild;
             smallerChildNode->heapPosition = index;
             index = smallerChild;
-        } while ((smallerChild <<= 1) <= this->size);
+        //} while ((smallerChild <<= 1) <= this->size);
+        } while ((smallerChild *= 2) <= this->size);
         return result;
     }
 

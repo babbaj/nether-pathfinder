@@ -8,9 +8,8 @@
 #include "ChunkGeneratorHell.h"
 #include "PathNode.h"
 
-namespace impl {
-    
-}
+#include "absl/container/flat_hash_map.h"
+
 
 template<typename>
 struct NodeTypeForBlockType;
@@ -30,16 +29,17 @@ enum class PathTypeEnum {
 
 template<typename BlockType>
 struct Path {
-    using block_type = BlockType;
+    using block_type = BlockType; // BlockPos/Pos2D
+    using node_type = typename NodeTypeForBlockType<BlockType>::type; // PathNode3D/PathNode2D
 
     PathTypeEnum type;
-    BlockPos start;
-    BlockPos goal; // where the path wants to go, not necessarily where it ends
+    BlockType start;
+    BlockType goal; // where the path wants to go, not necessarily where it ends
     std::vector<BlockType> blocks;
 
-    std::vector<std::unique_ptr<typename NodeTypeForBlockType<BlockType>::type>> nodes;
+    std::vector<std::unique_ptr<node_type>> nodes;
 
-    [[nodiscard]] const BlockPos& getEndPos() const {
+    [[nodiscard]] const BlockType& getEndPos() const {
         // This should basically never be empty
         return !blocks.empty() ? blocks.back() : this->start;
     }
@@ -82,10 +82,10 @@ std::optional<PathType> findPath(const typename PathType::block_type& start, con
         if (!isInBounds(start)) throw "troll";
     }
 
-    std::vector<Path3D> segments;
+    std::vector<PathType> segments;
 
     while (true) {
-        const BlockPos lastPathEnd = !segments.empty() ? segments.back().getEndPos() : start;
+        const auto lastPathEnd = !segments.empty() ? segments.back().getEndPos() : start;
         std::optional path = findPath0(lastPathEnd, goal, gen);
         if (!path.has_value()) {
             break;
@@ -100,5 +100,23 @@ std::optional<PathType> findPath(const typename PathType::block_type& start, con
         return splicePaths(std::move(segments));
     } else {
         return std::nullopt;
+    }
+}
+
+namespace impl {
+    template<typename K, typename V>
+    using map_t = absl::flat_hash_map<K, V>;
+
+    inline Chunk& getOrGenChunk(map_t<ChunkPos, std::unique_ptr<Chunk>>& cache, const ChunkPos& pos, ChunkGeneratorHell& generator) {
+        auto it = cache.find(pos);
+        if (it != cache.end()) {
+            return *it->second;
+        } else {
+            std::unique_ptr ptr = std::make_unique<Chunk>();
+            auto& chunk = *ptr;
+            generator.generateChunk(pos.x, pos.z, *ptr);
+            cache.emplace(pos, std::move(ptr));
+            return chunk;
+        }
     }
 }

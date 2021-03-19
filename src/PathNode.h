@@ -75,6 +75,7 @@ public:
 };
 
 struct PathNode3D : PathNode {
+    using pos_type = NodePos;
     const NodePos pos;
 
     explicit PathNode3D(const NodePos& posIn, const BlockPos& goal): PathNode(heuristic(posIn, goal)), pos(posIn) {}
@@ -91,6 +92,7 @@ private:
 };
 
 struct PathNode2D : PathNode {
+    using pos_type = Pos2D;
     const Pos2D pos;
 
     explicit PathNode2D(const Pos2D& posIn, const Pos2D& goal): PathNode(heuristic(posIn, goal)), pos(posIn) {}
@@ -101,6 +103,6 @@ private:
     }
 
     static double heuristic(const Pos2D& pos, const Pos2D& goal) {
-        return manhattan(pos, goal) * 0.7 + pos.distanceTo(goal) * 0.001 - (/*getSize(pos.size)*/1 * 4);
+        return manhattan(pos, goal) * 0.7 + pos.distanceTo(goal) * 0.001;
     }
 };

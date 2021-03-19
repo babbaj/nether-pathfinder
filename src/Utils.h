@@ -13,6 +13,7 @@ enum class Face {
     WEST
 };
 constexpr std::array<Face, 6> ALL_FACES {Face::UP, Face::DOWN, Face::NORTH, Face::SOUTH, Face::EAST, Face::WEST};
+constexpr std::array<Face, 4> HORIZONTAL_FACES {Face::NORTH, Face::SOUTH, Face::EAST, Face::WEST};
 
 enum class Size : int {
     X1,
@@ -178,7 +179,44 @@ struct Pos2D {
     [[nodiscard]] ChunkPos toChunkPos() const {
         return {this->x >> 4, this->z >> 4};
     }
+
+    [[nodiscard]] Pos2D offset(Face face, int n = 1) const {
+        switch (face) {
+            case Face::NORTH: return north(n);
+            case Face::SOUTH: return south(n);
+            case Face::EAST: return east(n);
+            case Face::WEST: return west(n);
+            case Face::UP:
+            case Face::DOWN:
+                throw "vertical face";
+        }
+        throw "troll enum";
+    }
+
+    [[nodiscard]] Pos2D east(int n = 1) const {
+        return {this->x + n, this->z};
+    }
+
+    [[nodiscard]] Pos2D west(int n = 1) const {
+        return {this->x - n, this->z};
+    }
+
+    [[nodiscard]] Pos2D north(int n = 1) const {
+        return {this->x, this->z - n};
+    }
+
+    [[nodiscard]] Pos2D south(int n = 1) const {
+        return {this->x, this->z + n};
+    }
 };
+
+constexpr bool operator==(const Pos2D& a, const Pos2D& b) {
+    return a.x == b.x && a.z == b.z;
+}
+
+constexpr bool operator!=(const Pos2D& a, const Pos2D& b) {
+    return !(a == b);
+}
 
 namespace std {
     template<>

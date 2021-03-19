@@ -128,7 +128,8 @@ int main(int argc, char** argv) {
     constexpr BlockPos ONE_HUNDRED_K = {100000, 50, 0};
     constexpr BlockPos TEN_K = {10000, 64, 0};
     constexpr BlockPos ONE_K = {1000, 64, 0};
-    std::optional<Path3D> path = findPath<Path3D>({0, 40, 0}, ONE_MIL, generator);
+    //std::optional<Path3D> path = findPath<Path3D>({0, 40, 0}, ONE_MIL, generator);
+    std::optional<Path2D> path = findPath<Path2D>({0, 0}, {100000, 0}, generator);
     auto t2 = std::chrono::steady_clock::now();
 
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
@@ -137,10 +138,11 @@ int main(int argc, char** argv) {
     if (path.has_value()) {
         std::cout << "Path has " << path->blocks.size() << " blocks and " << path->nodes.size() << " nodes\n";
         const auto& endPos = path->getEndPos();
-        std::cout << "start = " << "{" << path->start.x << ", " << path->start.y << ", " << path->start.z << "} end = " << "{" << endPos.x << ", " << endPos.y << ", " << endPos.z << "}\n";
+        //std::cout << "start = " << "{" << path->start.x << ", " << path->start.y << ", " << path->start.z << "} end = " << "{" << endPos.x << ", " << endPos.y << ", " << endPos.z << "}\n";
+        std::cout << "start = " << "{" << path->start.x << ", " << path->start.z << "} end = " << "{" << endPos.x << ", " << endPos.z << "}\n";
 
-        writeBreadCrumbFile("test", *path);
-        printSizes(*path);
+        //writeBreadCrumbFile("test", *path);
+        //printSizes(*path);
     } else {
         std::cout << "No path :-(\n";
     }
