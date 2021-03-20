@@ -103,6 +103,6 @@ private:
     }
 
     static double heuristic(const Pos2D& pos, const Pos2D& goal) {
-        return manhattan(pos, goal) * 0.7 + pos.distanceTo(goal) * 0.001;
+        return manhattan(pos, goal) * 1.1 + pos.distanceTo(goal) * 0.001;
     }
 };

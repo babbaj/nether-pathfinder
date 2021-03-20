@@ -1,5 +1,6 @@
 #include "PathFinder.h"
 #include "BinaryHeapOpenSet.h"
+#include "ChunkSlice.h"
 
 #include "absl/container/flat_hash_map.h"
 
@@ -75,7 +76,7 @@ void forEachNeighbor(ChunkProvider chunks, const Pos2D& pos, auto callback) {
 
     [&]<size_t... I>(std::index_sequence<I...>) {
         ([&] {
-            constexpr Face face = HORIZONAL_FACES[I];
+            constexpr Face face = HORIZONTAL_FACES[I];
             const Pos2D neighbor = pos.offset(face);
 
             const ChunkPos neighborCpos = neighbor.toChunkPos();
@@ -88,7 +89,7 @@ void forEachNeighbor(ChunkProvider chunks, const Pos2D& pos, auto callback) {
                 //std::cout << "Solid at {" << neighbor.x << ", " << neighbor.z << "}\n";
             }
         }(), ...);
-    }(std::make_index_sequence<HORIZONAL_FACES.size()>{});
+    }(std::make_index_sequence<HORIZONTAL_FACES.size()>{});
 }
 
 
@@ -121,14 +122,14 @@ std::optional<Path2D> findPath0(const Pos2D& start, const Pos2D& goal, ChunkGene
 
             if (now >= failureTimeout || (!failing && now >= primaryTimeoutTime)) {
                 break;
+                std::cout << "break;\n";
             }
         }
 
         auto* currentNode = static_cast<PathNode2D*>(openSet.removeLowest());
         numNodes++;
-        std::cout << "yay {" << currentNode->pos.x << ", " << currentNode->pos.z << "}\n";
+        //std::cout << "yay {" << currentNode->pos.x << ", " << currentNode->pos.z << "}\n";
 
-        // TODO: get the right sub cube
         if (currentNode->pos == goal) {
             std::cout << "chunkCache size = " << chunkCache.size() << '\n';
             std::cout << "openSet size = " << openSet.getSize() << '\n';
