@@ -104,19 +104,6 @@ std::optional<PathType> findPath(const typename PathType::block_type& start, con
 }
 
 namespace impl {
-    template<typename K, typename V>
-    using map_t = absl::flat_hash_map<K, V>;
 
-    inline Chunk& getOrGenChunk(map_t<ChunkPos, std::unique_ptr<Chunk>>& cache, const ChunkPos& pos, ChunkGeneratorHell& generator) {
-        auto it = cache.find(pos);
-        if (it != cache.end()) {
-            return *it->second;
-        } else {
-            std::unique_ptr ptr = std::make_unique<Chunk>();
-            auto& chunk = *ptr;
-            generator.generateChunk(pos.x, pos.z, *ptr);
-            cache.emplace(pos, std::move(ptr));
-            return chunk;
-        }
-    }
+
 }

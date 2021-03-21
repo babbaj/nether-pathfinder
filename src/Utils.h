@@ -218,6 +218,22 @@ constexpr bool operator!=(const Pos2D& a, const Pos2D& b) {
     return !(a == b);
 }
 
+constexpr Pos2D operator>>(const Pos2D& pos, int n) {
+    return {pos.x >> n, pos.z >> n};
+}
+
+constexpr Pos2D operator<<(const Pos2D& pos, int n) {
+    return {pos.x << n, pos.z << n};
+}
+
+constexpr Pos2D operator+(const Pos2D& pos, int n) {
+    return {pos.x + n, pos.z + n};
+}
+
+constexpr Pos2D operator-(const Pos2D& pos, int n) {
+    return {pos.x - n, pos.z - n};
+}
+
 namespace std {
     template<>
     struct hash<Pos2D> {

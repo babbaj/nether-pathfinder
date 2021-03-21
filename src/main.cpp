@@ -61,6 +61,20 @@ void writeBreadCrumbFile(const char* fileName, const Path3D& path) {
     }
     out.close();
 }
+void writeBreadCrumbFile(const char* fileName, const Path2D& path) {
+    std::ofstream out(fileName, std::ios::out | std::ios::binary);
+    write(out, 1); // 1 trail
+    {
+        write(out, -1);
+        write(out, (int)path.blocks.size());
+        for (const Pos2D& pos : path.blocks) {
+            write(out, (double)pos.x);
+            write(out, (double)32);
+            write(out, (double)pos.z);
+        }
+    }
+    out.close();
+}
 
 double totalLength(const Path3D& path) {
     const auto& blocks = path.blocks;
@@ -129,7 +143,7 @@ int main(int argc, char** argv) {
     constexpr BlockPos TEN_K = {10000, 64, 0};
     constexpr BlockPos ONE_K = {1000, 64, 0};
     //std::optional<Path3D> path = findPath<Path3D>({0, 40, 0}, ONE_MIL, generator);
-    std::optional<Path2D> path = findPath<Path2D>({0, 0}, {100000, 0}, generator);
+    std::optional<Path2D> path = findPath<Path2D>({0, 0}, {100000, 0}/*{85, -177}*/, generator);
     auto t2 = std::chrono::steady_clock::now();
 
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
@@ -141,7 +155,7 @@ int main(int argc, char** argv) {
         //std::cout << "start = " << "{" << path->start.x << ", " << path->start.y << ", " << path->start.z << "} end = " << "{" << endPos.x << ", " << endPos.y << ", " << endPos.z << "}\n";
         std::cout << "start = " << "{" << path->start.x << ", " << path->start.z << "} end = " << "{" << endPos.x << ", " << endPos.z << "}\n";
 
-        //writeBreadCrumbFile("test", *path);
+        writeBreadCrumbFile("test", *path);
         //printSizes(*path);
     } else {
         std::cout << "No path :-(\n";

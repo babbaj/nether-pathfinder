@@ -13,19 +13,20 @@ constexpr int getSize(Size sizeEnum) {
     return 1 << shiftFor(sizeEnum);
 }
 
+template<typename PosType>
 struct NodePos {
     friend struct std::hash<NodePos>;
 
     const Size size;
 private:
-    const BlockPos pos; // absolute pos / size
+    const PosType pos; // absolute pos / size
 public:
-    explicit NodePos(Size enumSize, const BlockPos& approxPosition): size(enumSize), pos(approxPosition >> shiftFor(enumSize)) { }
+    explicit NodePos(Size enumSize, const PosType& approxPosition): size(enumSize), pos(approxPosition >> shiftFor(enumSize)) { }
 
-    [[nodiscard]] BlockPos absolutePosZero() const {
+    [[nodiscard]] PosType absolutePosZero() const {
         return this->pos << shiftFor(this->size);
     }
-    [[nodiscard]] BlockPos absolutePosCenter() const {
+    [[nodiscard]] PosType absolutePosCenter() const {
         const auto sz = getSize(this->size);
         return (this->pos << shiftFor(this->size)) + (sz / 2);
     }
@@ -40,13 +41,25 @@ public:
 
 namespace std {
     template<>
-    struct hash<NodePos> {
-        size_t operator()(const NodePos& pos) const {
+    struct hash<NodePos<BlockPos>> {
+        size_t operator()(const NodePos<BlockPos>& pos) const {
             const auto& [x, y, z] = pos.pos;
             size_t hash = 3241;
             hash = 6406146L * hash + static_cast<int>(pos.size);
             hash = 3457689L * hash + x;
             hash = 8734625L * hash + y;
+            hash = 2873465L * hash + z;
+            return hash;
+        }
+    };
+
+    template<>
+    struct hash<NodePos<Pos2D>> {
+        size_t operator()(const NodePos<Pos2D>& pos) const {
+            const auto& [x, z] = pos.pos;
+            size_t hash = 3241;
+            hash = 6406146L * hash + static_cast<int>(pos.size);
+            hash = 3457689L * hash + x;
             hash = 2873465L * hash + z;
             return hash;
         }
@@ -75,34 +88,35 @@ public:
 };
 
 struct PathNode3D : PathNode {
-    using pos_type = NodePos;
-    const NodePos pos;
+    using pos_type = NodePos<BlockPos>;
+    const NodePos<BlockPos> pos;
 
-    explicit PathNode3D(const NodePos& posIn, const BlockPos& goal): PathNode(heuristic(posIn, goal)), pos(posIn) {}
+    explicit PathNode3D(const NodePos<BlockPos>& posIn, const BlockPos& goal): PathNode(heuristic(posIn, goal)), pos(posIn) {}
 
 private:
     static int manhattan(const BlockPos& a, const BlockPos& b) {
         return abs(a.x - b.x) + abs(a.z - b.z);
     }
 
-    static double heuristic(const NodePos& pos, const BlockPos& goal) {
+    static double heuristic(const NodePos<BlockPos>& pos, const BlockPos& goal) {
         const auto bpos = pos.absolutePosCenter();
         return manhattan(bpos, goal) * 0.7 + bpos.distanceTo(goal) * 0.001 - (getSize(pos.size) * 4);
     }
 };
 
 struct PathNode2D : PathNode {
-    using pos_type = Pos2D;
-    const Pos2D pos;
+    using pos_type = NodePos<Pos2D>;
+    const NodePos<Pos2D> pos;
 
-    explicit PathNode2D(const Pos2D& posIn, const Pos2D& goal): PathNode(heuristic(posIn, goal)), pos(posIn) {}
+    explicit PathNode2D(const NodePos<Pos2D>& posIn, const Pos2D& goal): PathNode(heuristic(posIn, goal)), pos(posIn) {}
 
 private:
     static int manhattan(const Pos2D& a, const Pos2D& b) {
         return abs(a.x - b.x) + abs(a.z - b.z);
     }
 
-    static double heuristic(const Pos2D& pos, const Pos2D& goal) {
-        return manhattan(pos, goal) * 1.1 + pos.distanceTo(goal) * 0.001;
+    static double heuristic(const NodePos<Pos2D>& pos, const Pos2D& goal) {
+        const auto center = pos.absolutePosCenter();
+        return manhattan(center, goal) * 1.1 + center.distanceTo(goal) * 0.001;
     }
 };
