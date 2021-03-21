@@ -76,22 +76,24 @@ void writeBreadCrumbFile(const char* fileName, const Path2D& path) {
     out.close();
 }
 
-double totalLength(const Path3D& path) {
+template<typename PathType>
+double totalLength(const PathType& path) {
     const auto& blocks = path.blocks;
     double sumDist = 0;
     for (auto it = blocks.begin() + 1; it != blocks.end(); it++) {
-        const BlockPos& behind = *(it - 1);
-        const BlockPos& pos = *it;
+        const auto& behind = *(it - 1);
+        const auto& pos = *it;
         const double pythag = pos.distanceTo(behind);
         sumDist += pythag;
     }
     return sumDist;
 }
 
-void printSizes(const Path3D& path) {
+template<typename PathType>
+void printSizes(const PathType& path) {
     int x16 = 0, x8 = 0, x4 = 0, x2 = 0, x1 = 0;
     for (const auto& nodePtr : path.nodes) {
-        const PathNode3D& node = *nodePtr;
+        const auto& node = *nodePtr;
         const Size size = node.pos.size;
 
         switch (size) {
@@ -108,7 +110,7 @@ void printSizes(const Path3D& path) {
     std::cout << "X4 = " << x4 << '\n';
     std::cout << "X2 = " << x2 << '\n';
     std::cout << "X1 = " << x1 << '\n';
-    const PathNode3D& last = *path.nodes.back();
+    const auto& last = *path.nodes.back();
     auto print = [](auto& node) {
         switch (node.pos.size) {
             case Size::X16: std::cout << "X16"; break;
@@ -156,7 +158,7 @@ int main(int argc, char** argv) {
         std::cout << "start = " << "{" << path->start.x << ", " << path->start.z << "} end = " << "{" << endPos.x << ", " << endPos.z << "}\n";
 
         writeBreadCrumbFile("test", *path);
-        //printSizes(*path);
+        printSizes(*path);
     } else {
         std::cout << "No path :-(\n";
     }

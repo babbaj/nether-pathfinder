@@ -54,7 +54,8 @@ struct ChunkSlice {
 
     bool isFullyEmpty() const {
         const __m256i reg = _mm256_loadu_si256((__m256i*) this->data);
-        return _mm256_testz_si256(reg, reg) == 0;
+        auto result = _mm256_testz_si256(reg, reg);
+        return result == 1;
     }
 
     bool x8Empty(int x, int z) const {
