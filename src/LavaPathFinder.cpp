@@ -251,7 +251,7 @@ std::optional<Path2D> findPath0(const Pos2D& start, const Pos2D& goal, ChunkGene
     using namespace std::chrono_literals;
     const auto startTime = std::chrono::system_clock::now();
     const auto primaryTimeoutTime = startTime + 500ms;
-    const auto failureTimeout = startTime + 30s;
+    const auto failureTimeout = startTime + 6h;//5min;//30s;
 
     bool failing = true;
     int numNodes = 0;
@@ -280,7 +280,8 @@ std::optional<Path2D> findPath0(const Pos2D& start, const Pos2D& goal, ChunkGene
 
         forEachNeighbor({chunkCache, gen}, currentNode->pos, [&](const NodeP& neighborPos) {
             PathNode2D* neighborNode = getNodeAtPosition(map, neighborPos, goal);
-            constexpr double cost = 1;
+            //constexpr double cost = 1;
+            const double cost = neighborPos.absolutePosCenter().distanceTo(currentNode->pos.absolutePosCenter()) - 0.3;
             const double tentativeCost = currentNode->cost + cost;
             constexpr double MIN_IMPROVEMENT = 0.01;
             if (neighborNode->cost - tentativeCost > MIN_IMPROVEMENT) {
@@ -310,7 +311,7 @@ std::optional<Path2D> findPath0(const Pos2D& start, const Pos2D& goal, ChunkGene
     auto [x, z] = bestSoFar->pos.absolutePosCenter();
     std::cout << "Best position = {" << x << ", " << z << "}\n";
     std::cout << "failing = " << failing << '\n';
-    std::cout << "Open set getSize: " << openSet.getSize() << '\n';
+    std::cout << "Open set size: " << openSet.getSize() << '\n';
     std::cout << "PathNode map size: " << map.size() << '\n';
     std::cout << "chunk cache size: " << chunkCache.size() << '\n';
     std::cout << '\n';

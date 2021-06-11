@@ -117,6 +117,7 @@ private:
 
     static double heuristic(const NodePos<Pos2D>& pos, const Pos2D& goal) {
         const auto center = pos.absolutePosCenter();
-        return manhattan(center, goal) * 1.1 + center.distanceTo(goal) * 0.001;
+        ///return manhattan(center, goal) * 1.1 + center.distanceTo(goal) * 0.001;
+        return manhattan(center, goal) * 10 + center.distanceTo(goal) * 0.001 - (getSize(pos.size) * 4);
     }
 };

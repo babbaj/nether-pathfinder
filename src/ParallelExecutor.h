@@ -18,7 +18,7 @@ struct Worker {
 
     Worker(): thread([this] {
         using namespace std::chrono_literals;
-        //std::this_thread::sleep_for(3s);
+        std::this_thread::sleep_for(3s);
         while (true) {
             std::unique_lock lock(this->mutex);
             this->condition.wait(lock, [this] { return this->stop || static_cast<bool>(this->task); });

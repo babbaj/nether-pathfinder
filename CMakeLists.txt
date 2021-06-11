@@ -1,9 +1,9 @@
 cmake_minimum_required(VERSION 3.16)
 project(nether_pathfinder)
 
-find_package(JNI REQUIRED)
-include_directories(${JNI_INCLUDE_DIRS})
-link_libraries(${JNI_LIBRARIES})
+#find_package(JNI REQUIRED)
+#include_directories(${JNI_INCLUDE_DIRS})
+#link_libraries(${JNI_LIBRARIES})
 
 set(CMAKE_CXX_STANDARD 20)
 

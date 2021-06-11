@@ -144,8 +144,8 @@ int main(int argc, char** argv) {
     constexpr BlockPos ONE_HUNDRED_K = {100000, 50, 0};
     constexpr BlockPos TEN_K = {10000, 64, 0};
     constexpr BlockPos ONE_K = {1000, 64, 0};
-    //std::optional<Path3D> path = findPath<Path3D>({0, 40, 0}, ONE_MIL, generator);
-    std::optional<Path2D> path = findPath<Path2D>({0, 0}, {100000, 0}/*{85, -177}*/, generator);
+    std::optional<Path3D> path = findPath<Path3D>({0, 40, 0}, ONE_HUNDRED_K, generator);
+    //std::optional<Path2D> path = findPath<Path2D>({0, 0}, {100000, 0}/*{85, -177}*/, generator);
     auto t2 = std::chrono::steady_clock::now();
 
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
