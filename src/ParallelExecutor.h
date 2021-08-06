@@ -91,3 +91,5 @@ struct ParallelExecutor {
         return results;
     }
 };
+
+typedef ParallelExecutor<3> ParallelExec;

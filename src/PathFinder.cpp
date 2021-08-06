@@ -6,6 +6,7 @@
 #include <array>
 #include <iostream>
 #include <algorithm>
+#include <functional>
 
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/node_hash_map.h"
@@ -13,12 +14,6 @@
 
 template<typename K, typename V>
 using map_t = absl::flat_hash_map<K, V>;
-
-struct ChunkProvider {
-    map_t<ChunkPos, std::unique_ptr<Chunk>>& cache;
-    const ChunkGeneratorHell& generator;
-    ParallelExecutor<3>& executor;
-};
 
 // never returns null
 PathNode* getNodeAtPosition(map_t<NodePos, std::unique_ptr<PathNode>>& map, const NodePos& pos, const BlockPos& goal) {
@@ -34,7 +29,8 @@ PathNode* getNodeAtPosition(map_t<NodePos, std::unique_ptr<PathNode>>& map, cons
 }
 
 
-Path createPath(map_t<NodePos, std::unique_ptr<PathNode>>& map, const PathNode* start, const PathNode* end, const BlockPos& startPos, const BlockPos& goal, Path::Type pathType) {
+Path createPath(map_t<NodePos, std::unique_ptr<PathNode>>& map, const PathNode* start, const PathNode* end,
+                const BlockPos& startPos, const BlockPos& goal, Path::Type pathType) {
     std::vector<std::unique_ptr<PathNode>> tempNodes;
     std::vector<BlockPos> tempPath;
 
@@ -47,32 +43,39 @@ Path createPath(map_t<NodePos, std::unique_ptr<PathNode>>& map, const PathNode* 
     }
 
     //auto nodes = decltype(tempNodes)(tempPath.rbegin(), tempPath.rend());
-    auto nodes = decltype(tempNodes){}; nodes.reserve(tempNodes.size());
+    auto nodes = decltype(tempNodes){};
+    nodes.reserve(tempNodes.size());
     std::move(tempNodes.rbegin(), tempNodes.rend(), std::back_inserter(nodes));
 
-    auto path = decltype(tempPath){}; path.reserve(tempPath.size());
+    auto path = decltype(tempPath){};
+    path.reserve(tempPath.size());
     std::move(tempPath.rbegin(), tempPath.rend(), std::back_inserter(path));
 
-    return Path {
-        pathType,
-        startPos,
-        goal,
-        std::move(path),
-        std::move(nodes)
+    return Path{
+            pathType,
+            startPos,
+            goal,
+            std::move(path),
+            std::move(nodes)
     };
 }
 
-
-// TODO: take a ChunkProvider
-Chunk& getOrGenChunk(map_t<ChunkPos, std::unique_ptr<Chunk>>& cache, const ChunkPos& pos, const ChunkGeneratorHell& generator, ParallelExecutor<3>& executor) {
+Chunk&
+getOrGenChunk(map_t<ChunkPos, std::unique_ptr<Chunk>>& cache, const ChunkPos& pos, const ChunkGeneratorHell& generator,
+              ParallelExec& executor, std::mutex& chunkMut) {
+    chunkMut.lock();
     auto it = cache.find(pos);
     if (it != cache.end()) {
+        chunkMut.unlock();
         return *it->second;
     } else {
+        chunkMut.unlock();
         std::unique_ptr ptr = std::make_unique<Chunk>();
         auto& chunk = *ptr;
         generator.generateChunk(pos.x, pos.z, *ptr, executor);
+        chunkMut.lock();
         cache.emplace(pos, std::move(ptr));
+        chunkMut.unlock();
         return chunk;
     }
 }
@@ -155,30 +158,34 @@ void growThenIterateInner(const Chunk& chunk, const NodePos& pos, auto& callback
                 forEachNeighborInCube<face, Size::X1, originalSize != Size::X1>(chunk, pos, callback);
                 return;
             }
-        case Size::X2: 
+        case Size::X2:
             if (!chunk.isEmpty<Size::X4>(bpos.x, bpos.y, bpos.z)) {
-                forEachNeighborInCube<face, Size::X2, originalSize != Size::X2>(chunk, NodePos{Size::X2, bpos}, callback);
+                forEachNeighborInCube<face, Size::X2, originalSize != Size::X2>(chunk, NodePos{Size::X2, bpos},
+                                                                                callback);
                 return;
             }
         case Size::X4:
             if (!chunk.isEmpty<Size::X8>(bpos.x, bpos.y, bpos.z)) {
-                forEachNeighborInCube<face, Size::X4, originalSize != Size::X4>(chunk, NodePos{Size::X4, bpos}, callback);
+                forEachNeighborInCube<face, Size::X4, originalSize != Size::X4>(chunk, NodePos{Size::X4, bpos},
+                                                                                callback);
                 return;
             }
         case Size::X8:
             if (!chunk.isEmpty<Size::X16>(bpos.x, bpos.y, bpos.z)) {
-                forEachNeighborInCube<face, Size::X8, originalSize != Size::X8>(chunk, NodePos{Size::X8, bpos}, callback);
+                forEachNeighborInCube<face, Size::X8, originalSize != Size::X8>(chunk, NodePos{Size::X8, bpos},
+                                                                                callback);
                 return;
             }
         case Size::X16:
-            forEachNeighborInCube<face, Size::X16, originalSize != Size::X16>(chunk, NodePos{Size::X16, bpos}, callback);
+            forEachNeighborInCube<face, Size::X16, originalSize != Size::X16>(chunk, NodePos{Size::X16, bpos},
+                                                                              callback);
     }
 }
 
 
 template<Face face>
 void growThenIterateOuter(const Chunk& chunk, const NodePos& pos, auto& callback) {
-    #define CASE(sz) case sz: growThenIterateInner<face, sz>(chunk, pos, callback); return;
+#define CASE(sz) case sz: growThenIterateInner<face, sz>(chunk, pos, callback); return;
     switch (pos.size) {
         CASE(Size::X1)
         CASE(Size::X2)
@@ -186,49 +193,25 @@ void growThenIterateOuter(const Chunk& chunk, const NodePos& pos, auto& callback
         CASE(Size::X8)
         CASE(Size::X16)
     }
-    #undef CASE
+#undef CASE
 }
 
 bool isInBounds(const BlockPos& pos) {
     return pos.y >= 0 && pos.y < 128;
 }
 
-
-void forEachNeighbor(ChunkProvider chunks, const NodePos& pos, auto callback) {
-    const auto size = pos.size;
-    const auto bpos = pos.absolutePosZero();
-
-    const ChunkPos cpos = bpos.toChunkPos();
-    const Chunk& currentChunk = getOrGenChunk(chunks.cache, cpos, chunks.generator, chunks.executor);
-
-    [&]<size_t... I>(std::index_sequence<I...>) {
-        ([&] {
-            constexpr Face face = ALL_FACES[I];
-            const NodePos neighborNodePos {size, bpos.offset(face, getSize(size))};
-            const BlockPos origin = neighborNodePos.absolutePosZero();
-            if constexpr (face == Face::UP || face == Face::DOWN) {
-                if (!isInBounds(origin)) return;
-            }
-            const ChunkPos neighborCpos = origin.toChunkPos();
-            const Chunk& chunk = neighborCpos == cpos
-                ? currentChunk : getOrGenChunk(chunks.cache, neighborCpos, chunks.generator, chunks.executor);
-
-            growThenIterateOuter<face>(chunk, neighborNodePos, callback);
-        }(), ...);
-    }(std::make_index_sequence<ALL_FACES.size()>{});
-}
-
-
 constexpr double MIN_DIST_PATH = 5; // might want to increase this
 
-std::optional<Path> bestPathSoFar(map_t<NodePos, std::unique_ptr<PathNode>>& map, const PathNode* start, const PathNode* end, const BlockPos& startPos, const BlockPos& goal) {
+std::optional<Path>
+bestPathSoFar(map_t<NodePos, std::unique_ptr<PathNode>>& map, const PathNode* start, const PathNode* end,
+              const BlockPos& startPos, const BlockPos& goal) {
     const double distSq = startPos.distanceToSq(end->pos.absolutePosCenter());
 
     if (distSq > MIN_DIST_PATH * MIN_DIST_PATH) {
         return createPath(map, start, end, startPos, goal, Path::Type::SEGMENT);
     } else {
         std::cout << "Path took too long and got nowhere\n";
-        auto [x, y, z] = end->pos.absolutePosCenter();
+        auto[x, y, z] = end->pos.absolutePosCenter();
         std::cout << "(Path ended at {" << x << ", " << y << ", " << z << "})\n";
         return std::nullopt;
     }
@@ -242,17 +225,23 @@ bool inGoal(const NodePos& node, const BlockPos& goal) {
     return node.absolutePosCenter().distanceToSq(goal) <= 16 * 16;
 }
 
-std::optional<Path> findPath0(const BlockPos& start, const BlockPos& goal, const ChunkGeneratorHell& gen, ParallelExecutor<3>& executor) {
+std::optional<Path> findPath0(const BlockPos& start, const BlockPos& goal, const ChunkGeneratorHell& gen) {
     std::cout << "distance = " << start.distanceTo(goal) << '\n';
 
     map_t<ChunkPos, std::unique_ptr<Chunk>> chunkCache;
     map_t<NodePos, std::unique_ptr<PathNode>> map;
+    map_t<ChunkPos, bool> doneFull;
     BinaryHeapOpenSet openSet;
 
     PathNode* const startNode = getNodeAtPosition(map, NodePos{Size::X1, start}, goal);
     startNode->cost = 0;
     startNode->combinedCost = startNode->estimatedCostToGoal;
     openSet.insert(startNode);
+    std::mutex chunkMutRaw;
+    std::mutex& chunkMut = std::ref(chunkMutRaw);
+    ParallelExec executors[4];
+    ParallelExecutor<4> topExecutor;
+    getOrGenChunk(chunkCache, start.toChunkPos(), gen, executors[0], chunkMut);
 
     PathNode* bestSoFar = startNode;
     double bestHeuristicSoFar = startNode->estimatedCostToGoal;
@@ -284,8 +273,38 @@ std::optional<Path> findPath0(const BlockPos& start, const BlockPos& goal, const
             std::cout << '\n';
             return createPath(map, startNode, currentNode, start, goal, Path::Type::FINISHED);
         }
+        const auto pos = currentNode->pos;
+        const auto size = pos.size;
+        const auto bpos = pos.absolutePosZero();
+        const ChunkPos cpos = bpos.toChunkPos();
+        const Chunk& currentChunk = *chunkCache[cpos];
+        const ChunkPos cposNorth = bpos.north(16).toChunkPos();
+        const ChunkPos cposSouth = bpos.south(16).toChunkPos();
+        const ChunkPos cposEast = bpos.east(16).toChunkPos();
+        const ChunkPos cposWest = bpos.west(16).toChunkPos();
+        if (!doneFull.count(cpos)) {
+            topExecutor.compute(
+                    [&] {
+                        return getOrGenChunk(chunkCache, cposNorth, gen, executors[0], chunkMut);
+                    },
+                    [&] {
+                        return getOrGenChunk(chunkCache, cposSouth, gen, executors[1], chunkMut);
+                    },
+                    [&] {
+                        return getOrGenChunk(chunkCache, cposEast, gen, executors[2], chunkMut);
+                    },
+                    [&] {
+                        return getOrGenChunk(chunkCache, cposWest, gen, executors[3], chunkMut);
+                    }
+            );
+            doneFull.emplace(cpos, true);
+        }
+        const Chunk& north = *chunkCache[cposNorth];
+        const Chunk& south = *chunkCache[cposSouth];
+        const Chunk& east = *chunkCache[cposEast];
+        const Chunk& west = *chunkCache[cposWest];
 
-        forEachNeighbor({chunkCache, gen, executor}, currentNode->pos, [&](const NodePos& neighborPos) {
+        auto callback = [&](const NodePos& neighborPos) {
             PathNode* neighborNode = getNodeAtPosition(map, neighborPos, goal);
             auto sqrtSize = [](Size sz) { return sqrt(getSize(sz)); };
             const double cost = 1;//sqrtSize(neighborNode->pos.size);//getSize(neighborNode->pos.size);
@@ -307,15 +326,36 @@ std::optional<Path> findPath0(const BlockPos& start, const BlockPos& goal, const
                     bestHeuristicSoFar = heuristic;
                     bestSoFar = neighborNode;
 
-                    if (failing && start.distanceToSq(neighborPos.absolutePosCenter()) > MIN_DIST_PATH * MIN_DIST_PATH) {
+                    if (failing &&
+                        start.distanceToSq(neighborPos.absolutePosCenter()) > MIN_DIST_PATH * MIN_DIST_PATH) {
                         failing = false;
                     }
                 }
             }
-        });
+        };
+
+        [&]<size_t... I>(std::index_sequence<I...>) {
+            ([&] {
+                constexpr Face face = ALL_FACES[I];
+                const NodePos neighborNodePos{size, bpos.offset(face, getSize(size))};
+                const BlockPos origin = neighborNodePos.absolutePosZero();
+                if constexpr (face == Face::UP || face == Face::DOWN) {
+                    if (!isInBounds(origin)) return;
+                }
+                const ChunkPos neighborCpos = origin.toChunkPos();
+                const Chunk& chunk =
+                        face == Face::UP || face == Face::DOWN ? currentChunk :
+                        face == Face::NORTH ? neighborCpos == cpos ? currentChunk : north :
+                        face == Face::SOUTH ? neighborCpos == cpos ? currentChunk : south :
+                        face == Face::EAST ? neighborCpos == cpos ? currentChunk : east :
+                        /* face == Face::WEST */ neighborCpos == cpos ? currentChunk : west;
+
+                growThenIterateOuter<face>(chunk, neighborNodePos, callback);
+            }(), ...);
+        }(std::make_index_sequence<ALL_FACES.size()>{});
     }
 
-    auto [x, y, z] = bestSoFar->pos.absolutePosCenter();
+    auto[x, y, z] = bestSoFar->pos.absolutePosCenter();
     std::cout << "Best position = {" << x << ", " << y << ", " << z << "}\n";
     std::cout << "failing = " << failing << '\n';
     std::cout << "Open set getSize: " << openSet.getSize() << '\n';
@@ -328,7 +368,8 @@ std::optional<Path> findPath0(const BlockPos& start, const BlockPos& goal, const
 
 void appendPath(Path& path, Path&& segment) {
     path.blocks.insert(path.blocks.end(), segment.blocks.begin(), segment.blocks.end());
-    path.nodes.insert(path.nodes.end(), std::move_iterator{segment.nodes.begin()}, std::move_iterator{segment.nodes.end()});
+    path.nodes.insert(path.nodes.end(), std::move_iterator{segment.nodes.begin()},
+                      std::move_iterator{segment.nodes.end()});
 }
 
 Path splicePaths(std::vector<Path>&& paths) {
@@ -343,13 +384,12 @@ Path splicePaths(std::vector<Path>&& paths) {
 
 std::optional<Path> findPath(const BlockPos& start, const BlockPos& goal, const ChunkGeneratorHell& gen) {
     if (!isInBounds(start)) throw "troll";
-    ParallelExecutor<3> executor;
 
     std::vector<Path> segments;
 
     while (true) {
         const BlockPos lastPathEnd = !segments.empty() ? segments.back().getEndPos() : start;
-        std::optional path = findPath0(lastPathEnd, goal, gen, executor);
+        std::optional path = findPath0(lastPathEnd, goal, gen);
         if (!path.has_value()) {
             break;
         } else {

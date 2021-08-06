@@ -23,11 +23,11 @@ public:
     NoiseGeneratorOctaves<16> depthNoise;
 
 
-    void prepareHeights(int x, int z, Chunk& primer, ParallelExecutor<3>& threadPool) const;
+    void prepareHeights(int x, int z, Chunk& primer, ParallelExec& threadPool) const;
 
     // buffer may be null
     template<int xSize, int ySize, int zSize>
-    std::array<double, xSize * ySize * zSize> getHeights(int xOffset, int yOffset, int zOffset, ParallelExecutor<3>& threadPool) const;
+    std::array<double, xSize * ySize * zSize> getHeights(int xOffset, int yOffset, int zOffset, ParallelExec& threadPool) const;
 public:
 
     static ChunkGeneratorHell fromSeed(uint64_t seed) {
@@ -44,13 +44,13 @@ public:
         };
     }
 
-    void generateChunk(int x, int z, Chunk& chunkPrimer, ParallelExecutor<3>& threadPool) const;
-    Chunk generateChunk(int x, int z, ParallelExecutor<3>& threadPool) const;
+    void generateChunk(int x, int z, Chunk& chunkPrimer, ParallelExec& threadPool) const;
+    Chunk generateChunk(int x, int z, ParallelExec& threadPool) const;
 };
 
 // This is only instantiated once
 template<int xSize, int ySize, int zSize>
-std::array<double, xSize * ySize * zSize> ChunkGeneratorHell::getHeights(int xOffset, int yOffset, int zOffset, ParallelExecutor<3>& threadPool) const {
+std::array<double, xSize * ySize * zSize> ChunkGeneratorHell::getHeights(int xOffset, int yOffset, int zOffset, ParallelExec& threadPool) const {
     std::array<double, xSize * ySize * zSize> buffer{};
 
     //auto noiseData4 = this->scaleNoise.generateNoiseOctaves<xSize,     1, zSize>(xOffset, yOffset, zOffset, 1.0, 0.0, 1.0);
