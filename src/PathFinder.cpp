@@ -4,7 +4,6 @@
 #include <unordered_map>
 #include <memory>
 #include <array>
-#include <iostream>
 #include <algorithm>
 #include <functional>
 
@@ -210,9 +209,6 @@ bestPathSoFar(map_t<NodePos, std::unique_ptr<PathNode>>& map, const PathNode* st
     if (distSq > MIN_DIST_PATH * MIN_DIST_PATH) {
         return createPath(map, start, end, startPos, goal, Path::Type::SEGMENT);
     } else {
-        std::cout << "Path took too long and got nowhere\n";
-        auto[x, y, z] = end->pos.absolutePosCenter();
-        std::cout << "(Path ended at {" << x << ", " << y << ", " << z << "})\n";
         return std::nullopt;
     }
 
@@ -226,7 +222,6 @@ bool inGoal(const NodePos& node, const BlockPos& goal) {
 }
 
 std::optional<Path> findPath0(const BlockPos& start, const BlockPos& goal, const ChunkGeneratorHell& gen) {
-    std::cout << "distance = " << start.distanceTo(goal) << '\n';
 
     map_t<ChunkPos, std::unique_ptr<Chunk>> chunkCache;
     map_t<NodePos, std::unique_ptr<PathNode>> map;
@@ -267,10 +262,6 @@ std::optional<Path> findPath0(const BlockPos& start, const BlockPos& goal, const
 
         // TODO: get the right sub cube
         if (inGoal(currentNode->pos, goal)) {
-            std::cout << "chunkCache size = " << chunkCache.size() << '\n';
-            std::cout << "openSet size = " << openSet.getSize() << '\n';
-            std::cout << "map size = " << map.size() << '\n';
-            std::cout << '\n';
             return createPath(map, startNode, currentNode, start, goal, Path::Type::FINISHED);
         }
         const auto pos = currentNode->pos;
@@ -354,14 +345,6 @@ std::optional<Path> findPath0(const BlockPos& start, const BlockPos& goal, const
             }(), ...);
         }(std::make_index_sequence<ALL_FACES.size()>{});
     }
-
-    auto[x, y, z] = bestSoFar->pos.absolutePosCenter();
-    std::cout << "Best position = {" << x << ", " << y << ", " << z << "}\n";
-    std::cout << "failing = " << failing << '\n';
-    std::cout << "Open set getSize: " << openSet.getSize() << '\n';
-    std::cout << "PathNode map size: " << map.size() << '\n';
-    std::cout << "chunk cache size: " << chunkCache.size() << '\n';
-    std::cout << '\n';
 
     return bestPathSoFar(map, startNode, bestSoFar, start, goal);
 }

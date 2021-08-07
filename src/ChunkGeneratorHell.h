@@ -2,7 +2,6 @@
 
 #include <cmath>
 #include <chrono>
-#include <iostream>
 
 #include "NoiseGeneratorOctaves.h"
 #include "Chunk.h"
