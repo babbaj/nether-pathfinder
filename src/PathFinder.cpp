@@ -225,7 +225,12 @@ bool inGoal(const NodePos& node, const BlockPos& goal) {
     return node.absolutePosCenter().distanceToSq(goal) <= 16 * 16;
 }
 
-std::optional<Path> findPath0(const BlockPos& start, const BlockPos& goal, const ChunkGeneratorHell& gen) {
+struct PathOutcome {
+    std::optional<Path> path;
+    map_t<ChunkPos, std::unique_ptr<Chunk>> chunkCache;
+};
+
+PathOutcome findPath0(const BlockPos& start, const BlockPos& goal, const ChunkGeneratorHell& gen) {
     std::cout << "distance = " << start.distanceTo(goal) << '\n';
 
     map_t<ChunkPos, std::unique_ptr<Chunk>> chunkCache;
@@ -271,7 +276,7 @@ std::optional<Path> findPath0(const BlockPos& start, const BlockPos& goal, const
             std::cout << "openSet size = " << openSet.getSize() << '\n';
             std::cout << "map size = " << map.size() << '\n';
             std::cout << '\n';
-            return createPath(map, startNode, currentNode, start, goal, Path::Type::FINISHED);
+            return {createPath(map, startNode, currentNode, start, goal, Path::Type::FINISHED), std::move(chunkCache)};
         }
         const auto pos = currentNode->pos;
         const auto size = pos.size;
@@ -363,7 +368,7 @@ std::optional<Path> findPath0(const BlockPos& start, const BlockPos& goal, const
     std::cout << "chunk cache size: " << chunkCache.size() << '\n';
     std::cout << '\n';
 
-    return bestPathSoFar(map, startNode, bestSoFar, start, goal);
+    return {bestPathSoFar(map, startNode, bestSoFar, start, goal), std::move(chunkCache)};
 }
 
 void appendPath(Path& path, Path&& segment) {
@@ -389,12 +394,12 @@ std::optional<Path> findPath(const BlockPos& start, const BlockPos& goal, const 
 
     while (true) {
         const BlockPos lastPathEnd = !segments.empty() ? segments.back().getEndPos() : start;
-        std::optional path = findPath0(lastPathEnd, goal, gen);
-        if (!path.has_value()) {
+        PathOutcome path = findPath0(lastPathEnd, goal, gen);
+        if (!path.path.has_value()) {
             break;
         } else {
-            const bool finished = path->type == Path::Type::FINISHED;
-            segments.push_back(std::move(*path));
+            const bool finished = path.path->type == Path::Type::FINISHED;
+            segments.push_back(std::move(*path.path));
             if (finished) break;
         }
     }
