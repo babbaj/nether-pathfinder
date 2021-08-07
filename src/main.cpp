@@ -6,6 +6,7 @@
 
 #include "ChunkGeneratorHell.h"
 #include "PathFinder.h"
+#include "Refiner.h"
 
 template<size_t Bits>
 std::array<char, Bits / 8> bitsetToBytes(const std::bitset<Bits>& bitSet) {
