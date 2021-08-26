@@ -14,6 +14,7 @@ stdenv.mkDerivation {
     cmakeFlags = "-DSHARED_LIBRARY=1";
 
     installPhase = ''
+        mkdir -p $out/bin
         cp libnether_pathfinder.so $out/bin
     '';
 }
