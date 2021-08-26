@@ -3,14 +3,17 @@
 with pkgs;
 stdenv.mkDerivation {
     pname = "nether-pathfinder";
+    version = "master";
 
     src = ./.;
 
-    nativeBuilInputs = [ cmake ];
+    nativeBuildInputs = [ cmake ];
 
     buildInputs = [ jdk ];
 
+    cmakeFlags = "-DSHARED_LIBRARY=1";
+
     installPhase = ''
-        cp libnetherpathfinder.so $out/bin
+        cp libnether_pathfinder.so $out/bin
     '';
 }
