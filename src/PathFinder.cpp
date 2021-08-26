@@ -238,7 +238,7 @@ std::optional<Path> findPath0(const BlockPos& start, const BlockPos& goal, const
     startNode->combinedCost = startNode->estimatedCostToGoal;
     openSet.insert(startNode);
     std::mutex chunkMutRaw;
-    std::mutex& chunkMut = std::ref(chunkMutRaw);
+    std::mutex& chunkMut = chunkMutRaw;
     ParallelExec executors[4];
     ParallelExecutor<4> topExecutor;
     getOrGenChunk(chunkCache, start.toChunkPos(), gen, executors[0], chunkMut);

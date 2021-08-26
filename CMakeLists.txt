@@ -8,6 +8,8 @@ link_libraries(${JNI_LIBRARIES})
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native -pthread -std=c++20")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -g")
 
+message("${CMAKE_CXX_COMPILER_VERSION}")
+
 file(GLOB_RECURSE SRC src/*)
 
 add_subdirectory(abseil-cpp)
