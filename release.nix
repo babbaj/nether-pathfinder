@@ -7,9 +7,7 @@ stdenv.mkDerivation {
 
     src = ./.;
 
-    nativeBuildInputs = [ cmake ];
-
-    buildInputs = [ jdk ];
+    nativeBuildInputs = [ cmake jdk ];
 
     cmakeFlags = "-DSHARED_LIBRARY=1";
 

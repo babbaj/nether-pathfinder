@@ -3,11 +3,9 @@ project(nether_pathfinder)
 
 find_package(JNI REQUIRED)
 include_directories(${JNI_INCLUDE_DIRS})
-link_libraries(${JNI_LIBRARIES})
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native -pthread -std=c++20")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -g")
-
 message("${CMAKE_CXX_COMPILER_VERSION}")
 
 file(GLOB_RECURSE SRC src/*)
@@ -19,4 +17,6 @@ if (SHARED_LIBRARY)
 else()
     add_executable(nether_pathfinder ${SRC})
 endif()
-target_link_libraries(nether_pathfinder absl::base absl::flat_hash_map)
+
+target_link_options(nether_pathfinder PRIVATE "-static-libgcc" "-static-libstdc++")
+target_link_libraries(nether_pathfinder absl::flat_hash_map)
