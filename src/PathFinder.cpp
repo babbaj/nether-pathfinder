@@ -8,12 +8,17 @@
 #include <algorithm>
 #include <functional>
 
-#include "absl/container/flat_hash_map.h"
-#include "absl/container/node_hash_map.h"
-
+#if __has_include("absl/container/flat_hash_map.h")
+    #include "absl/container/flat_hash_map.h"
+    #include "absl/container/node_hash_map.h"
+#endif
 
 template<typename K, typename V>
+#if __has_include("absl/container/flat_hash_map.h")
 using map_t = absl::flat_hash_map<K, V>;
+#else
+using map_t = std::unordered_map<K, V>;
+#endif
 
 // never returns null
 PathNode* getNodeAtPosition(map_t<NodePos, std::unique_ptr<PathNode>>& map, const NodePos& pos, const BlockPos& goal) {
