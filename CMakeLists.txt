@@ -8,9 +8,10 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native -pthread -std=c++20")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -g")
 message("${CMAKE_CXX_COMPILER_VERSION}")
 
+message("${CMAKE_EXE_LINKER_FLAGS}")
+
 file(GLOB_RECURSE SRC src/*)
 
-add_subdirectory(abseil-cpp)
 
 if (SHARED_LIBRARY)
     add_library(nether_pathfinder SHARED ${SRC})
@@ -19,4 +20,7 @@ else()
 endif()
 
 #target_link_options(nether_pathfinder PRIVATE "-static-libgcc" "-static-libstdc++")
-target_link_libraries(nether_pathfinder absl::flat_hash_map)
+if (USE_ABSEIL)
+    add_subdirectory(abseil-cpp)
+    target_link_libraries(nether_pathfinder absl::flat_hash_map)
+endif()
