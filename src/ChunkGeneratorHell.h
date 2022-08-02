@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cmath>
+#include <numbers>
 #include <chrono>
 #include <iostream>
 
@@ -23,11 +24,11 @@ public:
     NoiseGeneratorOctaves<16> depthNoise;
 
 
-    void prepareHeights(int x, int z, Chunk& primer, ParallelExec& threadPool) const;
+    void prepareHeights(int x, int z, Chunk& primer, ChunkGenExec& threadPool) const;
 
     // buffer may be null
     template<int xSize, int ySize, int zSize>
-    std::array<double, xSize * ySize * zSize> getHeights(int xOffset, int yOffset, int zOffset, ParallelExec& threadPool) const;
+    std::array<double, xSize * ySize * zSize> getHeights(int xOffset, int yOffset, int zOffset, ChunkGenExec& threadPool) const;
 public:
 
     static ChunkGeneratorHell fromSeed(uint64_t seed) {
@@ -44,13 +45,13 @@ public:
         };
     }
 
-    void generateChunk(int x, int z, Chunk& chunkPrimer, ParallelExec& threadPool) const;
-    Chunk generateChunk(int x, int z, ParallelExec& threadPool) const;
+    void generateChunk(int x, int z, Chunk& chunkPrimer, ChunkGenExec& threadPool) const;
+    Chunk generateChunk(int x, int z, ChunkGenExec& threadPool) const;
 };
 
 // This is only instantiated once
 template<int xSize, int ySize, int zSize>
-std::array<double, xSize * ySize * zSize> ChunkGeneratorHell::getHeights(int xOffset, int yOffset, int zOffset, ParallelExec& threadPool) const {
+std::array<double, xSize * ySize * zSize> ChunkGeneratorHell::getHeights(int xOffset, int yOffset, int zOffset, ChunkGenExec& threadPool) const {
     std::array<double, xSize * ySize * zSize> buffer{};
 
     //auto noiseData4 = this->scaleNoise.generateNoiseOctaves<xSize,     1, zSize>(xOffset, yOffset, zOffset, 1.0, 0.0, 1.0);
@@ -76,7 +77,7 @@ std::array<double, xSize * ySize * zSize> ChunkGeneratorHell::getHeights(int xOf
 
     for (int j = 0; j < ySize; ++j)
     {
-        adouble[j] = std::cos((double)j * M_PI * 6.0 / (double)ySize) * 2.0;
+        adouble[j] = std::cos((double)j * std::numbers::pi * 6.0 / (double)ySize) * 2.0;
         double d2 = (double)j;
 
         if (j > ySize / 2)

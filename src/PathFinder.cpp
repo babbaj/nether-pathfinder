@@ -62,7 +62,7 @@ Path createPath(map_t<NodePos, std::unique_ptr<PathNode>>& map, const PathNode* 
 
 Chunk&
 getOrGenChunk(map_t<ChunkPos, std::unique_ptr<Chunk>>& cache, const ChunkPos& pos, const ChunkGeneratorHell& generator,
-              ParallelExec& executor, std::mutex& chunkMut) {
+              ChunkGenExec& executor, std::mutex& chunkMut) {
     chunkMut.lock();
     auto it = cache.find(pos);
     if (it != cache.end()) {
@@ -124,7 +124,7 @@ std::array<BlockPos, 4> neighborCubes(const BlockPos& origin) {
 
 
 // face is relative to the original cube
-template<Face face, Size size, bool sizeChange>
+template<Face face, Size size, bool sizeChange, Size minSize>
 void forEachNeighborInCube(const Chunk& chunk, const NodePos& neighborNode, auto& callback) {
     if constexpr (sizeChange) {
         callback(neighborNode);
@@ -139,53 +139,49 @@ void forEachNeighborInCube(const Chunk& chunk, const NodePos& neighborNode, auto
         constexpr auto nextSize = static_cast<Size>(static_cast<int>(size) - 1);
         // Don't shrink cubes to X1 because they suck and make the path try to squeeze through small areas
         // TODO: allow this to be configurable?
-        if constexpr (nextSize == Size::X1) return;
+        if constexpr (nextSize < minSize) return;
         const std::array subCubes = neighborCubes<face, nextSize>(pos);
         for (const BlockPos& subCube : subCubes) {
-            forEachNeighborInCube<face, nextSize, false>(chunk, NodePos{nextSize, subCube}, callback);
+            forEachNeighborInCube<face, nextSize, false, minSize>(chunk, NodePos{nextSize, subCube}, callback);
         }
     }
 }
 
 
-template<Face face, Size originalSize>
+template<Face face, Size originalSize, Size minSize>
 void growThenIterateInner(const Chunk& chunk, const NodePos& pos, auto& callback) {
     const auto bpos = pos.absolutePosZero();
 
     switch (originalSize) {
         case Size::X1:
             if (!chunk.isEmpty<Size::X2>(bpos.x, bpos.y, bpos.z)) {
-                forEachNeighborInCube<face, Size::X1, originalSize != Size::X1>(chunk, pos, callback);
+                forEachNeighborInCube<face, Size::X1, originalSize != Size::X1, minSize>(chunk, pos, callback);
                 return;
             }
         case Size::X2:
             if (!chunk.isEmpty<Size::X4>(bpos.x, bpos.y, bpos.z)) {
-                forEachNeighborInCube<face, Size::X2, originalSize != Size::X2>(chunk, NodePos{Size::X2, bpos},
-                                                                                callback);
+                forEachNeighborInCube<face, Size::X2, originalSize != Size::X2, minSize>(chunk, NodePos{Size::X2, bpos},callback);
                 return;
             }
         case Size::X4:
             if (!chunk.isEmpty<Size::X8>(bpos.x, bpos.y, bpos.z)) {
-                forEachNeighborInCube<face, Size::X4, originalSize != Size::X4>(chunk, NodePos{Size::X4, bpos},
-                                                                                callback);
+                forEachNeighborInCube<face, Size::X4, originalSize != Size::X4, minSize>(chunk, NodePos{Size::X4, bpos},callback);
                 return;
             }
         case Size::X8:
             if (!chunk.isEmpty<Size::X16>(bpos.x, bpos.y, bpos.z)) {
-                forEachNeighborInCube<face, Size::X8, originalSize != Size::X8>(chunk, NodePos{Size::X8, bpos},
-                                                                                callback);
+                forEachNeighborInCube<face, Size::X8, originalSize != Size::X8, minSize>(chunk, NodePos{Size::X8, bpos},callback);
                 return;
             }
         case Size::X16:
-            forEachNeighborInCube<face, Size::X16, originalSize != Size::X16>(chunk, NodePos{Size::X16, bpos},
-                                                                              callback);
+            forEachNeighborInCube<face, Size::X16, originalSize != Size::X16, minSize>(chunk, NodePos{Size::X16, bpos},callback);
     }
 }
 
 
-template<Face face>
+template<Face face, Size minSize>
 void growThenIterateOuter(const Chunk& chunk, const NodePos& pos, auto& callback) {
-#define CASE(sz) case sz: growThenIterateInner<face, sz>(chunk, pos, callback); return;
+#define CASE(sz) case sz: growThenIterateInner<face, sz, minSize>(chunk, pos, callback); return;
     switch (pos.size) {
         CASE(Size::X1)
         CASE(Size::X2)
@@ -225,7 +221,7 @@ bool inGoal(const NodePos& node, const BlockPos& goal) {
     return node.absolutePosCenter().distanceToSq(goal) <= 16 * 16;
 }
 
-std::optional<Path> findPath0(const BlockPos& start, const BlockPos& goal, const ChunkGeneratorHell& gen) {
+std::optional<Path> findPath0(const BlockPos& start, const BlockPos& goal, const ChunkGeneratorHell& gen, ParallelExecutor<4>& topExecutor, std::array<ChunkGenExec, 4>& executors, bool fine) {
     std::cout << "distance = " << start.distanceTo(goal) << '\n';
 
     map_t<ChunkPos, std::unique_ptr<Chunk>> chunkCache;
@@ -239,8 +235,6 @@ std::optional<Path> findPath0(const BlockPos& start, const BlockPos& goal, const
     openSet.insert(startNode);
     std::mutex chunkMutRaw;
     std::mutex& chunkMut = chunkMutRaw;
-    ParallelExec executors[4];
-    ParallelExecutor<4> topExecutor;
     getOrGenChunk(chunkCache, start.toChunkPos(), gen, executors[0], chunkMut);
 
     PathNode* bestSoFar = startNode;
@@ -350,7 +344,12 @@ std::optional<Path> findPath0(const BlockPos& start, const BlockPos& goal, const
                         face == Face::EAST ? neighborCpos == cpos ? currentChunk : east :
                         /* face == Face::WEST */ neighborCpos == cpos ? currentChunk : west;
 
-                growThenIterateOuter<face>(chunk, neighborNodePos, callback);
+                // if fine go down to x1 for refiner
+                if (fine) {
+                    growThenIterateOuter<face, Size::X1>(chunk, neighborNodePos, callback);
+                } else {
+                    growThenIterateOuter<face, Size::X2>(chunk, neighborNodePos, callback);
+                }
             }(), ...);
         }(std::make_index_sequence<ALL_FACES.size()>{});
     }
@@ -385,11 +384,13 @@ Path splicePaths(std::vector<Path>&& paths) {
 std::optional<Path> findPath(const BlockPos& start, const BlockPos& goal, const ChunkGeneratorHell& gen) {
     if (!isInBounds(start)) throw "troll";
 
+    ParallelExecutor<4> topExecutor;
+    std::array<ChunkGenExec, 4> executors;
     std::vector<Path> segments;
 
     while (true) {
         const BlockPos lastPathEnd = !segments.empty() ? segments.back().getEndPos() : start;
-        std::optional path = findPath0(lastPathEnd, goal, gen);
+        std::optional path = findPath0(lastPathEnd, goal, gen, topExecutor, executors, false);
         if (!path.has_value()) {
             break;
         } else {
@@ -403,5 +404,20 @@ std::optional<Path> findPath(const BlockPos& start, const BlockPos& goal, const 
         return splicePaths(std::move(segments));
     } else {
         return std::nullopt;
+    }
+}
+
+Path refine(const Path& coarse, const ChunkGeneratorHell& gen) {
+    if (coarse.type != Path::Type::SEGMENT) {
+        throw "expected segment";
+    }
+    ParallelExecutor<4> topExecutor;
+    std::array<ChunkGenExec, 4> executors;
+
+    std::optional fine = findPath0(coarse.start, coarse.getEndPos(), gen, topExecutor, executors, true);
+    if (fine) {
+        return std::move(fine).value();
+    } else {
+        throw std::runtime_error("failed to refine path");
     }
 }

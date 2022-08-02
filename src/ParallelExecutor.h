@@ -17,12 +17,11 @@ struct Worker {
     bool stop = false;
 
     Worker(): thread([this] {
-        using namespace std::chrono_literals;
-        //std::this_thread::sleep_for(3s);
         while (true) {
             std::unique_lock lock(this->mutex);
             this->condition.wait(lock, [this] { return this->stop || static_cast<bool>(this->task); });
-            if (this->stop && !this->task) return;
+
+            if (this->stop) return;
 
             this->task();
             this->task = nullptr;
@@ -41,17 +40,15 @@ struct Worker {
 };
 
 // promise/future is bloated
-struct Signal {
-    enum Status {
-        READY, NOT_READY
-    };
-    Status status = NOT_READY;
-    std::condition_variable condition;
+struct WorkTracker {
+    std::atomic_int counter = 0;
+    std::mutex mutex;
+    std::condition_variable cv;
 };
 
 template<int Tasks>
 struct ParallelExecutor {
-    std::array<Worker, Tasks> workers;
+    std::array<Worker, Tasks> workers{};
 
     template<typename... Fn> requires (sizeof...(Fn) == Tasks)
     auto compute(Fn&&... tasks) {
@@ -59,12 +56,11 @@ struct ParallelExecutor {
         std::tuple args = std::make_tuple(std::forward<Fn>(tasks)...);
 
         std::tuple<std::invoke_result_t<Fn>...> results;
-        std::array<Signal, Tasks> signals;
+        WorkTracker tracker{};
 
         [&]<size_t... I>(std::index_sequence<I...>) {
             ([&] {
                 Worker& worker = workers[I];
-                Signal& wait = signals[I];
 
                 auto& r = std::get<I>(results);
                 {
@@ -73,23 +69,31 @@ struct ParallelExecutor {
                         r = std::get<I>(args)();
 
                         // signal that we are finished
-                        wait.status = Signal::Status::READY;
-                        wait.condition.notify_one();
+                        {
+                            //std::unique_lock lock(tracker.mutex);
+                            tracker.counter++;
+                        }
+                        tracker.cv.notify_one();
                     };
                 }
 
+                // wake up babe we have more work for you!
                 worker.condition.notify_one();
             }(), ...);
         }(std::make_index_sequence<Tasks>{});
 
-        for (int i = 0; i < Tasks; i++) {
-            std::unique_lock lock(workers[i].mutex);
-            Signal& signal = signals[i];
-            signal.condition.wait(lock, [&] { return signal.status == Signal::Status::READY; });
+        // for some time this is just randomly freezing
+        //{
+        //    std::unique_lock lock(tracker.mutex);
+        //    tracker.cv.wait(lock, [&] { return tracker.counter == Tasks; });
+        //}
+        while (true) {
+            //std::unique_lock lock(tracker.mutex);
+            if (tracker.counter == Tasks) break;
         }
 
         return results;
     }
 };
 
-typedef ParallelExecutor<3> ParallelExec;
+using ChunkGenExec = ParallelExecutor<3>;
