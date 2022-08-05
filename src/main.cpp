@@ -125,6 +125,10 @@ int main(int argc, char** argv) {
     //writeChunk("testchunk", chunk);
     //return 0;
 
+    //auto air = findAir({22, 120, -67}, generator);
+    //std::cout << "air = " << air.x << ", " << air.y << ", " << air.z << std::endl;
+    //exit(0);
+
     auto t1 = std::chrono::steady_clock::now();
     constexpr BlockPos ONE_MIL = {1000072, 64, -121};
     constexpr BlockPos ONE_HUNDRED_K = {100000, 50, 0};

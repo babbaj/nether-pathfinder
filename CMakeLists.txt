@@ -12,7 +12,6 @@ message("${CMAKE_EXE_LINKER_FLAGS}")
 
 file(GLOB_RECURSE SRC src/*)
 
-
 if (SHARED_LIBRARY)
     add_library(nether_pathfinder SHARED ${SRC})
 else()

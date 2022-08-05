@@ -7,6 +7,8 @@
 #include <iostream>
 #include <algorithm>
 #include <functional>
+#include <queue>
+#include <unordered_set>
 
 #if __has_include("absl/container/flat_hash_map.h")
     #include "absl/container/flat_hash_map.h"
@@ -370,6 +372,54 @@ std::optional<Path> findPath0(const BlockPos& start, const BlockPos& goal, const
     return bestPathSoFar(map, startNode, bestSoFar, start, goal);
 }
 
+bool isSolid(const BlockPos& pos, const ChunkGeneratorHell& gen, ChunkGenExec& exec, map_t<ChunkPos, std::unique_ptr<Chunk>>& cache) {
+    const ChunkPos chunkPos = pos.toChunkPos();
+    auto it = cache.find(chunkPos);
+    if (it != cache.end()) {
+        Chunk& chunk = *it->second;
+        return chunk.isSolid(pos.toChunkLocal());
+    } else {
+        std::unique_ptr ptr = std::make_unique<Chunk>();
+        auto& chunk = *ptr;
+        gen.generateChunk(chunkPos.x, chunkPos.z, *ptr, exec);
+        cache.emplace(chunkPos, std::move(ptr));
+        return chunk.isSolid(pos.toChunkLocal());
+    }
+}
+
+BlockPos findAir(const BlockPos& pos, const ChunkGeneratorHell& gen) {
+    ChunkGenExec exec{};
+    map_t<ChunkPos, std::unique_ptr<Chunk>> chunkCache;
+    auto queue = std::queue<BlockPos>{};
+    auto visited = std::unordered_set<BlockPos>{};
+    queue.push(pos);
+    visited.insert(pos);
+    if (!isInBounds(pos)) goto retard;
+
+    while (!queue.empty()) {
+        const BlockPos node = queue.front();
+        queue.pop();
+        if (isInBounds(node)) {
+            if (!isSolid(node, gen, exec, chunkCache)) {
+                return node;
+            }
+            auto push = [&](BlockPos pos) {
+                if (visited.emplace(pos).second) queue.push(pos);
+            };
+            push(node.west());
+            push(node.east());
+            push(node.north());
+            push(node.south());
+            push(node.up());
+            push(node.down());
+        }
+    }
+    // shouldn't be possible to exit the while loop
+    retard:
+    std::cerr << "retard" << std::endl;
+    exit(1);
+}
+
 void appendPath(Path& path, Path&& segment) {
     path.blocks.insert(path.blocks.end(), segment.blocks.begin(), segment.blocks.end());
     path.nodes.insert(path.nodes.end(), std::move_iterator{segment.nodes.begin()},
@@ -393,9 +443,13 @@ std::optional<Path> findPath(const BlockPos& start, const BlockPos& goal, const 
     std::array<ChunkGenExec, 4> executors;
     std::vector<Path> segments;
 
+    // we can't pathfind through solid blocks
+    const auto realStart = findAir(start, gen);
+    const auto realGoal = findAir(goal, gen);
+
     while (true) {
-        const BlockPos lastPathEnd = !segments.empty() ? segments.back().getEndPos() : start;
-        std::optional path = findPath0(lastPathEnd, goal, gen, topExecutor, executors, false);
+        const BlockPos lastPathEnd = !segments.empty() ? segments.back().getEndPos() : realStart;
+        std::optional path = findPath0(lastPathEnd, realGoal, gen, topExecutor, executors, false);
         if (!path.has_value()) {
             break;
         } else {

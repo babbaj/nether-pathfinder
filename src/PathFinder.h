@@ -27,3 +27,5 @@ struct Path {
 
 
 std::optional<Path> findPath(const BlockPos& start, const BlockPos& goal, const ChunkGeneratorHell& gen);
+
+BlockPos findAir(const BlockPos& pos, const ChunkGeneratorHell& gen);
