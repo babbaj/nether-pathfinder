@@ -353,8 +353,9 @@ std::optional<Path> findPath0(const BlockPos& start, const BlockPos& goal, const
 
                 // 1x only for refiner
                 if (fine) {
-                    callback(neighborNodePos);
-                    //growThenIterateOuter<face, Size::X1>(chunk, neighborNodePos, callback);
+                    if (!chunk.isSolid(neighborNodePos.absolutePosZero())) {
+                        callback(neighborNodePos);
+                    }
                 } else {
                     growThenIterateOuter<face, Size::X2>(chunk, neighborNodePos, callback);
                 }
