@@ -134,7 +134,7 @@ int main(int argc, char** argv) {
     constexpr BlockPos ONE_HUNDRED_K = {100000, 50, 0};
     constexpr BlockPos TEN_K = {10000, 64, 0};
     constexpr BlockPos ONE_K = {1000, 64, 0};
-    std::optional<Path> path = findPath({0, 40, 0}, ONE_MIL, generator);
+    std::optional<Path> path = findPath({0, 40, 0}, ONE_K, generator, true);
     auto t2 = std::chrono::steady_clock::now();
 
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
