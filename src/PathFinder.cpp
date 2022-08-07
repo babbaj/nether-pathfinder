@@ -283,7 +283,7 @@ std::optional<Path> findPath0(const BlockPos& start, const BlockPos& goal, const
         const ChunkPos cposSouth = bpos.south(16).toChunkPos();
         const ChunkPos cposEast = bpos.east(16).toChunkPos();
         const ChunkPos cposWest = bpos.west(16).toChunkPos();
-        if (!doneFull.count(cpos)) {
+        if (!doneFull.contains(cpos)) {
             topExecutor.compute(
                     [&] {
                         return getOrGenChunk(chunkCache, cposNorth, gen, executors[0], chunkMut);
@@ -351,9 +351,10 @@ std::optional<Path> findPath0(const BlockPos& start, const BlockPos& goal, const
                         face == Face::EAST ? neighborCpos == cpos ? currentChunk : east :
                         /* face == Face::WEST */ neighborCpos == cpos ? currentChunk : west;
 
-                // if fine go down to x1 for refiner
+                // 1x only for refiner
                 if (fine) {
-                    growThenIterateOuter<face, Size::X1>(chunk, neighborNodePos, callback);
+                    callback(neighborNodePos);
+                    //growThenIterateOuter<face, Size::X1>(chunk, neighborNodePos, callback);
                 } else {
                     growThenIterateOuter<face, Size::X2>(chunk, neighborNodePos, callback);
                 }
@@ -436,7 +437,7 @@ Path splicePaths(std::vector<Path>&& paths) {
     return path;
 }
 
-std::optional<Path> findPath(const BlockPos& start, const BlockPos& goal, const ChunkGeneratorHell& gen) {
+std::optional<Path> findPath(const BlockPos& start, const BlockPos& goal, const ChunkGeneratorHell& gen, bool fine) {
     if (!isInBounds(start)) throw "troll";
 
     ParallelExecutor<4> topExecutor;
@@ -449,7 +450,7 @@ std::optional<Path> findPath(const BlockPos& start, const BlockPos& goal, const 
 
     while (true) {
         const BlockPos lastPathEnd = !segments.empty() ? segments.back().getEndPos() : realStart;
-        std::optional path = findPath0(lastPathEnd, realGoal, gen, topExecutor, executors, false);
+        std::optional path = findPath0(lastPathEnd, realGoal, gen, topExecutor, executors, fine);
         if (!path.has_value()) {
             break;
         } else {

@@ -23,12 +23,12 @@ bool inBounds(int y) {
 }
 
 extern "C" {
-    JNIEXPORT jlongArray JNICALL Java_com_babbaj_pathfinder_PathFinder_pathFind(JNIEnv* env, jclass clazz, jlong seed, jint x1, jint y1, jint z1, jint x2, jint y2, jint z2) {
+    JNIEXPORT jlongArray JNICALL Java_com_babbaj_pathfinder_PathFinder_pathFind(JNIEnv* env, jclass clazz, jlong seed, jboolean fine, jint x1, jint y1, jint z1, jint x2, jint y2, jint z2) {
         if (!inBounds(y1) || !inBounds(y2)) {
             return nullptr; // TODO: throw exception
         }
         auto generator = ChunkGeneratorHell::fromSeed(seed);
-        std::optional<Path> path = findPath({x1, y1, z1}, {x2, y2, z2}, generator);
+        std::optional<Path> path = findPath({x1, y1, z1}, {x2, y2, z2}, generator, fine);
 
         if (path) {
             const std::vector<BlockPos>& blocks = path->blocks;
