@@ -30,12 +30,6 @@ struct Worker {
     }) {}
 };
 
-// promise/future is bloated
-struct WorkTracker {
-    std::atomic_int counter = 0;
-    std::condition_variable cv;
-};
-
 template<int Tasks>
 struct ParallelExecutor {
     std::array<Worker, Tasks> workers{};
@@ -46,7 +40,7 @@ struct ParallelExecutor {
         std::tuple args = std::make_tuple(std::forward<Fn>(tasks)...);
 
         std::tuple<std::invoke_result_t<Fn>...> results;
-        WorkTracker tracker{};
+        std::atomic_int counter = 0;
 
         [&]<size_t... I>(std::index_sequence<I...>) {
             ([&] {
@@ -59,28 +53,19 @@ struct ParallelExecutor {
                         r = std::get<I>(args)();
 
                         // signal that we are finished
-                        {
-                            //std::unique_lock lock(tracker.mutex);
-                            tracker.counter++;
-                        }
-                        tracker.cv.notify_one();
+                        counter++;
                     };
                 }
 
                 // wake up babe we have more work for you!
                 worker.condition.notify_one();
             }(), ...);
-        }(std::make_index_sequence<Tasks>{});
+        }(std::make_index_sequence<Tasks - 1>{});
+        // take advantage of the calling tread
+        std::get<Tasks - 1>(results) = std::get<Tasks - 1>(args)();
+        counter++;
 
-        // for some time this is just randomly freezing
-        //{
-        //    std::unique_lock lock(tracker.mutex);
-        //    tracker.cv.wait(lock, [&] { return tracker.counter == Tasks; });
-        //}
-        while (true) {
-            //std::unique_lock lock(tracker.mutex);
-            if (tracker.counter == Tasks) break;
-        }
+        while (counter != Tasks); // wait
 
         return results;
     }
