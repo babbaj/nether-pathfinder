@@ -10,39 +10,29 @@
 #include <type_traits>
 
 struct Worker {
-    std::condition_variable condition;
+    std::condition_variable_any condition;
     std::function<void()> task;
     std::mutex mutex;
-    std::thread thread;
-    bool stop = false;
+    std::jthread thread;
 
-    Worker(): thread([this] {
+    Worker(): thread([this](std::stop_token stoken) {
+        std::stop_callback cb{stoken, [&] { condition.notify_one(); }};
+
         while (true) {
             std::unique_lock lock(this->mutex);
-            this->condition.wait(lock, [this] { return this->stop || static_cast<bool>(this->task); });
+            condition.wait(lock, stoken,[this, &stoken] { return stoken.stop_requested() || static_cast<bool>(this->task); });
 
-            if (this->stop) return;
+            if (stoken.stop_requested()) return;
 
             this->task();
             this->task = nullptr;
         }
     }) {}
-
-    // Stopping and joining sequentially isn't the most efficient but doesn't matter
-    ~Worker() {
-        {
-            std::lock_guard lock(mutex);
-            this->stop = true;
-        }
-        this->condition.notify_all();
-        this->thread.join();
-    }
 };
 
 // promise/future is bloated
 struct WorkTracker {
     std::atomic_int counter = 0;
-    std::mutex mutex;
     std::condition_variable cv;
 };
 
