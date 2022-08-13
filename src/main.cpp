@@ -6,6 +6,7 @@
 
 #include "ChunkGeneratorHell.h"
 #include "PathFinder.h"
+#include "Refiner.h"
 
 template<size_t Bits>
 std::array<char, Bits / 8> bitsetToBytes(const std::bitset<Bits>& bitSet) {
@@ -134,7 +135,7 @@ int main(int argc, char** argv) {
     constexpr BlockPos ONE_HUNDRED_K = {100000, 50, 0};
     constexpr BlockPos TEN_K = {10000, 64, 0};
     constexpr BlockPos ONE_K = {1000, 64, 0};
-    std::optional<Path> path = findPath({0, 40, 0}, ONE_K, generator, true);
+    std::optional<Path> path = findPath({0, 40, 0}, TEN_K, generator, false).value();
     auto t2 = std::chrono::steady_clock::now();
 
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
@@ -145,7 +146,12 @@ int main(int argc, char** argv) {
         const auto& endPos = path->getEndPos();
         std::cout << "start = " << "{" << path->start.x << ", " << path->start.y << ", " << path->start.z << "} end = " << "{" << endPos.x << ", " << endPos.y << ", " << endPos.z << "}\n";
 
-        writeBreadCrumbFile("test", *path);
+        std::cout<< "refining..." << std::endl;
+        cache_t cache; // this can potentially be carried over from the pathfinder
+        refine(path->blocks, generator, cache);
+        std::cout << "done refining" << std::endl;
+
+        //writeBreadCrumbFile("test", *path);
         printSizes(*path);
     } else {
         std::cout << "No path :-(\n";

@@ -5,14 +5,6 @@
 
 #include "Utils.h"
 
-constexpr int shiftFor(Size size) {
-    return static_cast<int>(size);
-}
-
-constexpr int getSize(Size sizeEnum) {
-    return 1 << shiftFor(sizeEnum);
-}
-
 struct NodePos {
     friend struct std::hash<NodePos>;
 
@@ -26,7 +18,7 @@ public:
         return this->pos << shiftFor(this->size);
     }
     BlockPos absolutePosCenter() const {
-        const auto sz = getSize(this->size);
+        const auto sz = width(this->size);
         return (this->pos << shiftFor(this->size)) + (sz / 2);
     }
 
@@ -79,6 +71,6 @@ private:
 
     static double heuristic(const NodePos& pos, const BlockPos& goal) {
         const auto bpos = pos.absolutePosCenter();
-        return manhattan(bpos, goal) * 0.7 + bpos.distanceTo(goal) * 0.001 - (getSize(pos.size) * 4);
+        return manhattan(bpos, goal) * 0.7 + bpos.distanceTo(goal) * 0.001 - (width(pos.size) * 4);
     }
 };

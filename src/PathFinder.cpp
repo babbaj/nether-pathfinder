@@ -94,7 +94,7 @@ getOrGenChunk(map_t<ChunkPos, std::unique_ptr<Chunk>>& cache, const ChunkPos& po
 template<Face face, Size sz>
 std::array<BlockPos, 4> neighborCubes(const BlockPos& origin) {
     // origin leans towards north/west/down
-    constexpr auto size = getSize(sz);
+    constexpr auto size = width(sz);
     switch (face) {
         case Face::UP: {
             const BlockPos& corner = origin;
@@ -165,21 +165,25 @@ void growThenIterateInner(const Chunk& chunk, const NodePos& pos, auto& callback
                 forEachNeighborInCube<face, Size::X1, originalSize != Size::X1, minSize>(chunk, pos, callback);
                 return;
             }
+            [[fallthrough]];
         case Size::X2:
             if (!chunk.isEmpty<Size::X4>(bpos.x, bpos.y, bpos.z)) {
                 forEachNeighborInCube<face, Size::X2, originalSize != Size::X2, minSize>(chunk, NodePos{Size::X2, bpos},callback);
                 return;
             }
+            [[fallthrough]];
         case Size::X4:
             if (!chunk.isEmpty<Size::X8>(bpos.x, bpos.y, bpos.z)) {
                 forEachNeighborInCube<face, Size::X4, originalSize != Size::X4, minSize>(chunk, NodePos{Size::X4, bpos},callback);
                 return;
             }
+            [[fallthrough]];
         case Size::X8:
             if (!chunk.isEmpty<Size::X16>(bpos.x, bpos.y, bpos.z)) {
                 forEachNeighborInCube<face, Size::X8, originalSize != Size::X8, minSize>(chunk, NodePos{Size::X8, bpos},callback);
                 return;
             }
+            [[fallthrough]];
         case Size::X16:
             forEachNeighborInCube<face, Size::X16, originalSize != Size::X16, minSize>(chunk, NodePos{Size::X16, bpos},callback);
     }
@@ -285,18 +289,18 @@ std::optional<Path> findPath0(const BlockPos& start, const BlockPos& goal, const
         const ChunkPos cposWest = bpos.west(16).toChunkPos();
         if (!doneFull.contains(cpos)) {
             topExecutor.compute(
-                    [&] {
-                        return getOrGenChunk(chunkCache, cposNorth, gen, executors[0], chunkMut);
-                    },
-                    [&] {
-                        return getOrGenChunk(chunkCache, cposSouth, gen, executors[1], chunkMut);
-                    },
-                    [&] {
-                        return getOrGenChunk(chunkCache, cposEast, gen, executors[2], chunkMut);
-                    },
-                    [&] {
-                        return getOrGenChunk(chunkCache, cposWest, gen, executors[3], chunkMut);
-                    }
+                [&] {
+                    return getOrGenChunk(chunkCache, cposNorth, gen, executors[0], chunkMut);
+                },
+                [&] {
+                    return getOrGenChunk(chunkCache, cposSouth, gen, executors[1], chunkMut);
+                },
+                [&] {
+                    return getOrGenChunk(chunkCache, cposEast, gen, executors[2], chunkMut);
+                },
+                [&] {
+                    return getOrGenChunk(chunkCache, cposWest, gen, executors[3], chunkMut);
+                }
             );
             doneFull.emplace(cpos, true);
         }
@@ -307,8 +311,8 @@ std::optional<Path> findPath0(const BlockPos& start, const BlockPos& goal, const
 
         auto callback = [&](const NodePos& neighborPos) {
             PathNode* neighborNode = getNodeAtPosition(map, neighborPos, goal);
-            auto sqrtSize = [](Size sz) { return sqrt(getSize(sz)); };
-            const double cost = 1;//sqrtSize(neighborNode->pos.size);//getSize(neighborNode->pos.size);
+            auto sqrtSize = [](Size sz) { return sqrt(width(sz)); };
+            const double cost = 1;//sqrtSize(neighborNode->pos.size);//width(neighborNode->pos.size);
             const double tentativeCost = currentNode->cost + cost;
             constexpr double MIN_IMPROVEMENT = 0.01;
             if (neighborNode->cost - tentativeCost > MIN_IMPROVEMENT) {
@@ -338,7 +342,7 @@ std::optional<Path> findPath0(const BlockPos& start, const BlockPos& goal, const
         [&]<size_t... I>(std::index_sequence<I...>) {
             ([&] {
                 constexpr Face face = ALL_FACES[I];
-                const NodePos neighborNodePos{size, bpos.offset(face, getSize(size))};
+                const NodePos neighborNodePos{size, bpos.offset(face, width(size))};
                 const BlockPos origin = neighborNodePos.absolutePosZero();
                 if constexpr (face == Face::UP || face == Face::DOWN) {
                     if (!isInBounds(origin)) return;
@@ -366,7 +370,7 @@ std::optional<Path> findPath0(const BlockPos& start, const BlockPos& goal, const
     auto[x, y, z] = bestSoFar->pos.absolutePosCenter();
     std::cout << "Best position = {" << x << ", " << y << ", " << z << "}\n";
     std::cout << "failing = " << failing << '\n';
-    std::cout << "Open set getSize: " << openSet.getSize() << '\n';
+    std::cout << "Open set width: " << openSet.getSize() << '\n';
     std::cout << "PathNode map size: " << map.size() << '\n';
     std::cout << "chunk cache size: " << chunkCache.size() << '\n';
     std::cout << '\n';

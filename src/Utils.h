@@ -3,6 +3,7 @@
 #include <cmath>
 #include <functional>
 #include <array>
+#include <memory>
 
 enum class Face {
     UP,
@@ -22,8 +23,20 @@ enum class Size : int {
     X16
 };
 
+constexpr int shiftFor(Size size) {
+    return static_cast<int>(size);
+}
+
+constexpr int width(Size sizeEnum) {
+    return 1 << shiftFor(sizeEnum);
+}
+
 struct ChunkPos {
     int x, z;
+};
+
+struct Vec3 {
+    double x, y, z;
 };
 
 struct BlockPos {
@@ -94,7 +107,21 @@ struct BlockPos {
         return {this->x, this->y, this->z + n};
     }
 
+    constexpr BlockPos& operator=(const BlockPos& newPos) = default;
 };
+
+constexpr int ifloor(double x) {
+    int i = static_cast<int>(x);
+    return x < i ? i - 1 : i;
+}
+
+constexpr BlockPos vecToBlockPos(const Vec3& vec) {
+    return {ifloor(vec.x), ifloor(vec.y), ifloor(vec.z)};
+}
+
+constexpr Vec3 blockPosToVec(const BlockPos& pos) {
+    return {static_cast<double>(pos.x), static_cast<double>(pos.y), static_cast<double>(pos.z)};
+}
 
 constexpr bool operator==(const BlockPos& a, const BlockPos& b) {
     return a.x == b.x && a.y == b.y && a.z == b.z;
