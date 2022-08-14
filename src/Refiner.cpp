@@ -114,11 +114,12 @@ struct Node : NodeBase<Node<sz>, sz> {
     Node<nextLowerSize(sz)> daughter(int i) const {
         // I hope this is actually how the chunk is actually organized
         // See figure 1
+        constexpr auto halfWidth = ::width(nextLowerSize(sz));
         return {
             {
-                this->x + (i & 4 ? ::width(sz) : 0), // 4,5,6,7
-                this->y + (i & 2 ? ::width(sz) : 0), // 2,3,6,7
-                this->z + (i & 1 ? ::width(sz) : 0)  // 1,3,5,7
+                this->x + (i & 4 ? halfWidth : 0), // 4,5,6,7
+                this->y + (i & 2 ? halfWidth : 0), // 2,3,6,7
+                this->z + (i & 1 ? halfWidth : 0)  // 1,3,5,7
             },
             getDaughter(*this->node, i)
         };
@@ -453,9 +454,9 @@ size_t lastVisibleNode(const std::vector<BlockPos>& path, size_t currentNode, co
     if (currentNode == path.size() - 1) return currentNode;
     const Vec3 from = blockPosToVec(path[currentNode]);
     size_t lastVisible = currentNode + 1; // can assume that the next node is always visible from the previous
-    // TODO: this + 1 is a hack
-    for (auto i = lastVisible + 1; i < path.size(); i++) {
-        if (!raytrace(from, blockPosToVec(path[i]), gen, exec, cache)) {
+    for (auto i = lastVisible; i < path.size(); i++) {
+        const auto& currentBlock = path[i];
+        if (!raytrace(from, blockPosToVec(currentBlock), gen, exec, cache)) {
             return lastVisible;
         }
         lastVisible = i;
