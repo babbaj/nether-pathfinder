@@ -4,6 +4,7 @@
 
 #include "ChunkGeneratorHell.h"
 #include "PathFinder.h"
+#include "Refiner.h"
 
 jlong packBlockPos(const BlockPos& pos) {
     constexpr jint NUM_X_BITS = 26;//1 + MathHelper.log2(MathHelper.smallestEncompassingPowerOfTwo(30000000));
@@ -31,7 +32,9 @@ extern "C" {
         std::optional<Path> path = findPath({x1, y1, z1}, {x2, y2, z2}, generator, fine);
 
         if (path) {
-            const std::vector<BlockPos>& blocks = path->blocks;
+            const std::vector<BlockPos>& ugly = path->blocks;
+            cache_t cache;
+            auto blocks = refine(ugly, generator, cache);
             std::vector<jlong> packed;
             packed.reserve(blocks.size());
             std::transform(blocks.begin(), blocks.end(), std::back_inserter(packed), packBlockPos);

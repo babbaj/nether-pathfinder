@@ -175,14 +175,13 @@ struct Miss {
 };
 using RaytraceResult = std::variant<Hit, Finished, Miss>;
 
-Plane exitPlane(double tx0, double ty0, double tz0) {
-    // see table 2
-    if (tx0 > ty0) {
-        if (tx0 > tz0) return Plane::YZ;
+Plane exitPlane(double tx1, double ty1, double tz1) {
+    if (tx1 < ty1) {
+        if (tx1 < tz1) return Plane::YZ;  // YZ plane
     } else {
-        if (ty0 > tz0) return Plane::XZ;
+        if (ty1 < tz1) return Plane::XZ;  // XZ plane
     }
-    return Plane::XY;
+    return Plane::XY; // XY plane;
 }
 
 int first_node(double tx0, double ty0, double tz0, double txm, double tym, double tzm) {
@@ -226,9 +225,14 @@ enum class SubtreeResult {
 template<Size Size>
 SubtreeResult proc_subtree(uint8_t a, double targetLen, double tx0, double ty0, double tz0, double tx1, double ty1, double tz1, const Node<Size>& node) {
     using enum SubtreeResult;
-    // if this node is behind us? this shouldn't happen
+    // if this node is behind us
     if (tx1 < 0.0 || ty1 < 0.0 || tz1 < 0.0) {
         return MISS;
+    }
+
+    // not sure if this is correct
+    if (tx0 >= targetLen || ty0 >= targetLen || tz0 >= targetLen) {
+        return FINISHED;
     }
 
     if constexpr (Size == Size::X1) { // leaf
@@ -303,7 +307,9 @@ std::optional<RaytraceResult> raytrace16x(uint8_t a, Ray ray, double targetLen, 
 
     using enum SubtreeResult;
     // condition 10
-    if (max(tx0, ty0, tz0) < min(tx1, ty1, tz1)) {
+    auto tmin = max(tx0, ty0, tz0);
+    auto tmax = min(tx1, ty1, tz1);
+    if (tmin <= tmax) {
         if (auto result = proc_subtree(a, targetLen, tx0, ty0, tz0, tx1, ty1, tz1, node); result != MISS) {
             if (result == HIT) {
                 return Hit{}; // we could return the point where the hit happened but it's not useful
@@ -311,10 +317,16 @@ std::optional<RaytraceResult> raytrace16x(uint8_t a, Ray ray, double targetLen, 
                 return Finished{};
             }
         } else {
-            return Miss{exitPlane(tx0, ty0, tz0)};
+            const Plane exit = exitPlane(tx1, ty1, tz1);
+            return Miss{exit};
         }
     } else {
-        return {}; // didn't intersect the node, this means we did something wrong
+        // didn't intersect the node, this means we did something wrong
+        if (tmin != tmax) {
+            assert(!"this shit broke");
+        }
+        // we hit the corner precisely
+        return {};
     }
 }
 
@@ -353,6 +365,21 @@ Chunk& getOrGenChunk(const BlockPos& pos, const ChunkGeneratorHell& gen, ChunkGe
     }
 }
 
+Plane exitPlaneFromRealRay(const Ray& ray, const Node<Size::X16>& node) {
+    // IEEE stability fix
+    const double divx = 1 / ray.dir.x;
+    const double divy = 1 / ray.dir.y;
+    const double divz = 1 / ray.dir.z;
+    const double tx0 = (node.minX() - ray.origin.x) * divx;
+    const double tx1 = (node.maxX() - ray.origin.x) * divx;
+    const double ty0 = (node.minY() - ray.origin.y) * divy;
+    const double ty1 = (node.maxY() - ray.origin.y) * divy;
+    const double tz0 = (node.minZ() - ray.origin.z) * divz;
+    const double tz1 = (node.maxZ() - ray.origin.z) * divz;
+
+    return exitPlane(tx1, ty1, tz1);
+}
+
 // returns true if there is line of sight
 bool raytrace(const Vec3& from, const Vec3& to, const ChunkGeneratorHell& gen, ChunkGenExec& exec, cache_t& cache) {
     auto [ray, targetLen] = computeRay(from, to);
@@ -375,15 +402,15 @@ bool raytrace(const Vec3& from, const Vec3& to, const ChunkGeneratorHell& gen, C
     }
     const BlockPos realOriginBlock = vecToBlockPos(from);
     auto first16x = getOrGenChunk(realOriginBlock, gen, exec, cache).getX16(realOriginBlock.y);
+    const BlockPos reflectedOriginBlock = vecToBlockPos(reflect(a, from, to));
     const auto firstNode = Node<Size::X16>{
         {
-            realOriginBlock.x & ~15,
-            realOriginBlock.y & ~15,
-            realOriginBlock.z & ~15
+            reflectedOriginBlock.x & ~15,
+            reflectedOriginBlock.y & ~15,
+            reflectedOriginBlock.z & ~15
         },
         &first16x
     };
-
 
     Node<Size::X16> currentNode = firstNode;
     while (true) {
@@ -401,17 +428,18 @@ bool raytrace(const Vec3& from, const Vec3& to, const ChunkGeneratorHell& gen, C
         BlockPos neighborPos = {currentNode.x, currentNode.y, currentNode.z};
         switch (plane) {
             case Plane::XY:
-                neighborPos.x += 16;
+                neighborPos.z += 16;
                 break;
             case Plane::XZ:
                 neighborPos.y += 16;
                 break;
             case Plane::YZ:
-                neighborPos.z += 16;
+                neighborPos.x += 16;
                 break;
         }
-        neighborPos = vecToBlockPos(reflect(a, blockPosToVec(neighborPos), to));
-        const x16_t& data = getOrGenChunk(neighborPos, gen, exec, cache).getX16(neighborPos.y);
+        // TODO: this reflection is wrong?
+        const BlockPos realNeighborPos = vecToBlockPos(reflect(a, blockPosToVec(neighborPos), to));
+        const x16_t& data = getOrGenChunk(realNeighborPos, gen, exec, cache).getX16(realNeighborPos.y);
         currentNode = Node<Size::X16>{
             neighborPos.x & ~15,
             neighborPos.y & ~15,
@@ -423,10 +451,11 @@ bool raytrace(const Vec3& from, const Vec3& to, const ChunkGeneratorHell& gen, C
 
 size_t lastVisibleNode(const std::vector<BlockPos>& path, size_t currentNode, const ChunkGeneratorHell& gen, ChunkGenExec& exec, cache_t& cache) {
     if (currentNode == path.size() - 1) return currentNode;
-    const BlockPos pos = path[currentNode];
+    const Vec3 from = blockPosToVec(path[currentNode]);
     size_t lastVisible = currentNode + 1; // can assume that the next node is always visible from the previous
-    for (auto i = lastVisible; i < path.size(); i++) {
-        if (!raytrace(blockPosToVec(pos), blockPosToVec(path[i]), gen, exec, cache)) {
+    // TODO: this + 1 is a hack
+    for (auto i = lastVisible + 1; i < path.size(); i++) {
+        if (!raytrace(from, blockPosToVec(path[i]), gen, exec, cache)) {
             return lastVisible;
         }
         lastVisible = i;
@@ -437,7 +466,7 @@ size_t lastVisibleNode(const std::vector<BlockPos>& path, size_t currentNode, co
 std::vector<BlockPos> refine(const std::vector<BlockPos>& path, const ChunkGeneratorHell& gen, cache_t& cache) {
     ChunkGenExec exec;
     std::vector<BlockPos> out;
-    for (size_t i = 0; i < path.size(); i = lastVisibleNode(path, i, gen, exec, cache)) {
+    for (size_t i = 0; i < path.size() - 1; i = lastVisibleNode(path, i, gen, exec, cache)) {
         out.push_back(path[i]);
     }
     return out;
