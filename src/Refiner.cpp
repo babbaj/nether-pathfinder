@@ -84,7 +84,7 @@ struct NodeBase {
     }
 
     constexpr bool empty() const {
-        return isZero(static_cast<const Self*>(this)->node);
+        return isZero(*static_cast<const Self*>(this)->node);
     }
 
     double minX() const {

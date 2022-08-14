@@ -40,11 +40,11 @@ public:
     }
 
     static constexpr int x8Index(int x, int y, int z) {
-        return ((x & 8) >> 3) | ((y & 8) >> 2) | ((z & 8) >> 1);
+        return ((x & 8) >> 1) | ((y & 8) >> 2) | ((z & 8) >> 3);
     }
 
     static constexpr int x4Index(int x, int y, int z) {
-        return ((x & 4) >> 2) | ((y & 4) >> 1) | ((z & 4));
+        return ((x & 4)) | ((y & 4) >> 1) | ((z & 4) >> 2);
     }
 
     static constexpr int x2Index(int x, int y, int z) {
