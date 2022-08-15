@@ -451,10 +451,12 @@ bool raytrace(const Vec3& from, const Vec3& to, const ChunkGeneratorHell& gen, C
 
 size_t lastVisibleNode(const std::vector<BlockPos>& path, size_t currentNode, const ChunkGeneratorHell& gen, ChunkGenExec& exec, cache_t& cache) {
     if (currentNode == path.size() - 1) return currentNode;
-    const Vec3 from = blockPosToVec(path[currentNode]);
+    const BlockPos fromBlock = path[currentNode];
+    const Vec3 from = blockPosToVec(fromBlock);
     size_t lastVisible = currentNode + 1; // can assume that the next node is always visible from the previous
     for (auto i = lastVisible; i < path.size(); i++) {
         const auto& currentBlock = path[i];
+        if (fromBlock == currentBlock) continue; // apparently the pathfinder can produce 2 consecutive equal points and that breaks the raytracer
         const bool result = raytrace(from, blockPosToVec(currentBlock), gen, exec, cache);
         if (!result) {
             return lastVisible;
