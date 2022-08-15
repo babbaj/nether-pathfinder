@@ -232,21 +232,21 @@ SubtreeResult proc_subtree(uint8_t a, const Vec3& origin, double targetLen, doub
             return MISS;
         }
 
-        auto m = [&](double a, double b) {
+        auto m = [&](double originxyz, double a, double b) {
             constexpr double inf = std::numeric_limits<double>::infinity();
             if (a == inf || b == inf) {
                 // 3.3
                 const auto center = (node.minX() + node.maxX()) / 2;
-                if (origin.x < center) return std::numeric_limits<double>::infinity();
+                if (originxyz < center) return std::numeric_limits<double>::infinity();
                 return -std::numeric_limits<double>::infinity();
             } else {
                 return 0.5 * (a + b);
             }
 
         };
-        const double txm = m(tx0, tx1);
-        const double tym = m(ty0, ty1);
-        const double tzm = m(tz0, tz1);
+        const double txm = m(origin.x, tx0, tx1);
+        const double tym = m(origin.y, ty0, ty1);
+        const double tzm = m(origin.z, tz0, tz1);
 
         // shouldn't be necessary to go in order
 
@@ -438,7 +438,8 @@ bool raytrace(const Vec3& from, const Vec3& to, const ChunkGeneratorHell& gen, C
                 break;
         }
         // TODO: this reflection is wrong?
-        const BlockPos realNeighborPos = neighborPos;//vecToBlockPos(reflect(a, blockPosToVec(neighborPos), to));
+        // TODO: unreflecting can be done by calculating tx1/ty1/tz1 from the real ray on the currentNode and getting the exit plane from that
+        const BlockPos realNeighborPos = vecToBlockPos(reflect(a, blockPosToVec(neighborPos), to));
         const x16_t& data = getOrGenChunk(realNeighborPos, gen, exec, cache).getX16(realNeighborPos.y);
         currentNode = Node<Size::X16>{
             neighborPos.x & ~15,
@@ -454,7 +455,7 @@ size_t lastVisibleNode(const std::vector<BlockPos>& path, size_t currentNode, co
     const BlockPos fromBlock = path[currentNode];
     const Vec3 from = blockPosToVec(fromBlock);
     size_t lastVisible = currentNode + 1; // can assume that the next node is always visible from the previous
-    for (auto i = lastVisible; i < path.size(); i++) {
+    for (auto i = lastVisible + 1; i < path.size(); i++) {
         const auto& currentBlock = path[i];
         if (fromBlock == currentBlock) continue; // apparently the pathfinder can produce 2 consecutive equal points and that breaks the raytracer
         const bool result = raytrace(from, blockPosToVec(currentBlock), gen, exec, cache);
