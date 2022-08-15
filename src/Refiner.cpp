@@ -441,8 +441,9 @@ size_t lastVisibleNode(const std::vector<BlockPos>& path, size_t currentNode, co
 std::vector<BlockPos> refine(const std::vector<BlockPos>& path, const ChunkGeneratorHell& gen, cache_t& cache) {
     ChunkGenExec exec;
     std::vector<BlockPos> out;
-    for (size_t i = 0; i < path.size() - 1; i = lastVisibleNode(path, i, gen, exec, cache)) {
+    for (size_t i = 0; i < path.size(); i = lastVisibleNode(path, i, gen, exec, cache)) {
         out.push_back(path[i]);
+        if (i == path.size() - 1) break;
     }
     return out;
 }
