@@ -131,19 +131,6 @@ struct Node<Size::X1> : NodeBase<Node<Size::X1>, Size::X1> {
     bool node;
 };
 
-constexpr double chunkXMin(ChunkPos pos) {
-    return static_cast<double>(pos.x);
-}
-constexpr double chunkXMax(ChunkPos pos) {
-    return static_cast<double>(pos.x + 16);
-}
-constexpr double chunkZMin(ChunkPos pos) {
-    return static_cast<double>(pos.z);
-}
-constexpr double chunkZMax(ChunkPos pos) {
-    return static_cast<double>(pos.z + 16);
-}
-
 double max(double x, double y, double z) {
     return std::max(std::max(x, y), z);
 }
@@ -224,7 +211,7 @@ enum class SubtreeResult {
 };
 
 template<Size Size>
-SubtreeResult proc_subtree(uint8_t a, double targetLen, double tx0, double ty0, double tz0, double tx1, double ty1, double tz1, const Node<Size>& node) {
+SubtreeResult proc_subtree(uint8_t a, const Vec3& origin, double targetLen, double tx0, double ty0, double tz0, double tx1, double ty1, double tz1, const Node<Size>& node) {
     using enum SubtreeResult;
     // if this node is behind us
     if (tx1 < 0.0 || ty1 < 0.0 || tz1 < 0.0) {
@@ -245,9 +232,21 @@ SubtreeResult proc_subtree(uint8_t a, double targetLen, double tx0, double ty0, 
             return MISS;
         }
 
-        const double txm = 0.5 * (tx0 + tx1);
-        const double tym = 0.5 * (ty0 + ty1);
-        const double tzm = 0.5 * (tz0 + tz1);
+        auto m = [&](double a, double b) {
+            constexpr double inf = std::numeric_limits<double>::infinity();
+            if (a == inf || b == inf) {
+                // 3.3
+                const auto center = (node.minX() + node.maxX()) / 2;
+                if (origin.x < center) return std::numeric_limits<double>::infinity();
+                return -std::numeric_limits<double>::infinity();
+            } else {
+                return 0.5 * (a + b);
+            }
+
+        };
+        const double txm = m(tx0, tx1);
+        const double tym = m(ty0, ty1);
+        const double tzm = m(tz0, tz1);
 
         // shouldn't be necessary to go in order
 
@@ -255,35 +254,35 @@ SubtreeResult proc_subtree(uint8_t a, double targetLen, double tx0, double ty0, 
         do {
             switch (currNode) {
                 case 0:
-                    if (auto result = proc_subtree(a, targetLen, tx0, ty0, tz0, txm, tym, tzm, node.daughter(a)); result != MISS) return result;
+                    if (auto result = proc_subtree(a, origin, targetLen, tx0, ty0, tz0, txm, tym, tzm, node.daughter(a)); result != MISS) return result;
                     currNode = new_node(txm,4,tym,2,tzm,1);
                     break;
                 case 1:
-                    if (auto result = proc_subtree(a, targetLen, tx0, ty0, tzm, txm, tym, tz1, node.daughter(1 ^ a)); result != MISS) return result;
+                    if (auto result = proc_subtree(a, origin, targetLen, tx0, ty0, tzm, txm, tym, tz1, node.daughter(1 ^ a)); result != MISS) return result;
                     currNode = new_node(txm,5,tym,3,tz1,8);
                     break;
                 case 2:
-                    if (auto result = proc_subtree(a, targetLen, tx0, tym, tz0, txm, ty1, tzm, node.daughter(2 ^ a)); result != MISS) return result;
+                    if (auto result = proc_subtree(a, origin, targetLen, tx0, tym, tz0, txm, ty1, tzm, node.daughter(2 ^ a)); result != MISS) return result;
                     currNode = new_node(txm,6,ty1,8,tzm,3);
                     break;
                 case 3:
-                    if (auto result = proc_subtree(a, targetLen, tx0, tym, tzm, txm, ty1, tz1, node.daughter(3 ^ a)); result != MISS) return result;
+                    if (auto result = proc_subtree(a, origin, targetLen, tx0, tym, tzm, txm, ty1, tz1, node.daughter(3 ^ a)); result != MISS) return result;
                     currNode = new_node(txm,7,ty1,8,tz1,8);
                     break;
                 case 4:
-                    if (auto result = proc_subtree(a, targetLen, txm, ty0, tz0, tx1, tym, tzm, node.daughter(4 ^ a)); result != MISS) return result;
+                    if (auto result = proc_subtree(a, origin, targetLen, txm, ty0, tz0, tx1, tym, tzm, node.daughter(4 ^ a)); result != MISS) return result;
                     currNode = new_node(tx1,8,tym,6,tzm,5);
                     break;
                 case 5:
-                    if (auto result = proc_subtree(a, targetLen, txm, ty0, tzm, tx1, tym, tz1, node.daughter(5 ^ a)); result != MISS) return result;
+                    if (auto result = proc_subtree(a, origin, targetLen, txm, ty0, tzm, tx1, tym, tz1, node.daughter(5 ^ a)); result != MISS) return result;
                     currNode = new_node(tx1,8,tym,7,tz1,8);
                     break;
                 case 6:
-                    if (auto result = proc_subtree(a, targetLen, txm, tym, tz0, tx1, ty1, tzm, node.daughter(6 ^ a)); result != MISS) return result;
+                    if (auto result = proc_subtree(a, origin, targetLen, txm, tym, tz0, tx1, ty1, tzm, node.daughter(6 ^ a)); result != MISS) return result;
                     currNode = new_node(tx1,8,ty1,8,tzm,7);
                     break;
                 case 7:
-                    if (auto result = proc_subtree(a, targetLen, txm, tym, tzm, tx1, ty1, tz1, node.daughter(7 ^ a)); result != MISS) return result;
+                    if (auto result = proc_subtree(a, origin, targetLen, txm, tym, tzm, tx1, ty1, tz1, node.daughter(7 ^ a)); result != MISS) return result;
                     currNode = 8;
                     break;
             }
@@ -311,7 +310,7 @@ std::optional<RaytraceResult> raytrace16x(uint8_t a, Ray ray, double targetLen, 
     auto tmin = max(tx0, ty0, tz0);
     auto tmax = min(tx1, ty1, tz1);
     if (tmin <= tmax) {
-        if (auto result = proc_subtree(a, targetLen, tx0, ty0, tz0, tx1, ty1, tz1, node); result != MISS) {
+        if (auto result = proc_subtree(a, ray.origin, targetLen, tx0, ty0, tz0, tx1, ty1, tz1, node); result != MISS) {
             if (result == HIT) {
                 return Hit{}; // we could return the point where the hit happened but it's not useful
             } else {
@@ -456,7 +455,8 @@ size_t lastVisibleNode(const std::vector<BlockPos>& path, size_t currentNode, co
     size_t lastVisible = currentNode + 1; // can assume that the next node is always visible from the previous
     for (auto i = lastVisible; i < path.size(); i++) {
         const auto& currentBlock = path[i];
-        if (!raytrace(from, blockPosToVec(currentBlock), gen, exec, cache)) {
+        const bool result = raytrace(from, blockPosToVec(currentBlock), gen, exec, cache);
+        if (!result) {
             return lastVisible;
         }
         lastVisible = i;
