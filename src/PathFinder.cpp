@@ -1,7 +1,7 @@
 #include "PathFinder.h"
 #include "BinaryHeapOpenSet.h"
+#include "ChunkGen.h"
 
-#include <unordered_map>
 #include <memory>
 #include <array>
 #include <iostream>
@@ -10,17 +10,6 @@
 #include <queue>
 #include <unordered_set>
 
-#if __has_include("absl/container/flat_hash_map.h")
-    #include "absl/container/flat_hash_map.h"
-    #include "absl/container/node_hash_map.h"
-#endif
-
-template<typename K, typename V>
-#if __has_include("absl/container/flat_hash_map.h")
-using map_t = absl::flat_hash_map<K, V>;
-#else
-using map_t = std::unordered_map<K, V>;
-#endif
 
 // never returns null
 PathNode* getNodeAtPosition(map_t<NodePos, std::unique_ptr<PathNode>>& map, const NodePos& pos, const BlockPos& goal) {
@@ -68,7 +57,7 @@ Path createPath(map_t<NodePos, std::unique_ptr<PathNode>>& map, const PathNode* 
 }
 
 Chunk&
-getOrGenChunk(map_t<ChunkPos, std::unique_ptr<Chunk>>& cache, const ChunkPos& pos, const ChunkGeneratorHell& generator,
+getOrGenChunk(cache_t& cache, const ChunkPos& pos, const ChunkGeneratorHell& generator,
               ChunkGenExec& executor, std::mutex& chunkMut) {
     chunkMut.lock();
     auto it = cache.find(pos);
