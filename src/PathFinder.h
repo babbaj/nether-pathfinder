@@ -6,6 +6,7 @@
 #include "Utils.h"
 #include "ChunkGeneratorHell.h"
 #include "PathNode.h"
+#include "ChunkGen.h"
 
 struct Path {
     enum class Type {
@@ -18,6 +19,7 @@ struct Path {
     BlockPos goal; // where the path wants to go, not necessarily where it ends
     std::vector<BlockPos> blocks;
     std::vector<std::unique_ptr<PathNode>> nodes;
+    cache_t chunkCache;
 
     [[nodiscard]] const BlockPos& getEndPos() const {
         // This should basically never be empty

@@ -35,8 +35,7 @@ extern "C" {
             const std::vector<BlockPos>& ugly = path->blocks;
             std::vector<jlong> packed;
             if (raytrace) {
-                cache_t cache;
-                auto blocks = refine(ugly, generator, cache);
+                auto blocks = refine(ugly, generator, path->chunkCache);
                 packed.reserve(blocks.size());
                 std::transform(blocks.begin(), blocks.end(), std::back_inserter(packed), packBlockPos);
             } else {

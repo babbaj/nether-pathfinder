@@ -232,10 +232,9 @@ bool inGoal(const NodePos& node, const BlockPos& goal) {
     return node.absolutePosCenter().distanceToSq(goal) <= 16 * 16;
 }
 
-std::optional<Path> findPath0(const BlockPos& start, const BlockPos& goal, const ChunkGeneratorHell& gen, ParallelExecutor<4>& topExecutor, std::array<ChunkGenExec, 4>& executors, bool fine) {
+std::optional<Path> findPath0(const BlockPos& start, const BlockPos& goal, const ChunkGeneratorHell& gen, cache_t& chunkCache, ParallelExecutor<4>& topExecutor, std::array<ChunkGenExec, 4>& executors, bool fine) {
     std::cout << "distance = " << start.distanceTo(goal) << '\n';
 
-    map_t<ChunkPos, std::unique_ptr<Chunk>> chunkCache;
     map_t<NodePos, std::unique_ptr<PathNode>> map;
     map_t<ChunkPos, bool> doneFull;
     BinaryHeapOpenSet openSet;
@@ -448,6 +447,7 @@ std::optional<Path> findPath(const BlockPos& start, const BlockPos& goal, const 
     ParallelExecutor<4> topExecutor;
     std::array<ChunkGenExec, 4> executors;
     std::vector<Path> segments;
+    cache_t chunkCache;
 
     // we can't pathfind through solid blocks
     const auto realStart = findAir(start, gen);
@@ -455,7 +455,7 @@ std::optional<Path> findPath(const BlockPos& start, const BlockPos& goal, const 
 
     while (true) {
         const BlockPos lastPathEnd = !segments.empty() ? segments.back().getEndPos() : realStart;
-        std::optional path = findPath0(lastPathEnd, realGoal, gen, topExecutor, executors, fine);
+        std::optional path = findPath0(lastPathEnd, realGoal, gen, chunkCache, topExecutor, executors, fine);
         if (!path.has_value()) {
             break;
         } else {
@@ -466,23 +466,10 @@ std::optional<Path> findPath(const BlockPos& start, const BlockPos& goal, const 
     }
 
     if (!segments.empty()) {
-        return splicePaths(std::move(segments));
+        auto out = splicePaths(std::move(segments));
+        out.chunkCache = std::move(chunkCache);
+        return out;
     } else {
         return std::nullopt;
-    }
-}
-
-Path refine(const Path& coarse, const ChunkGeneratorHell& gen) {
-    if (coarse.type != Path::Type::SEGMENT) {
-        throw "expected segment";
-    }
-    ParallelExecutor<4> topExecutor;
-    std::array<ChunkGenExec, 4> executors;
-
-    std::optional fine = findPath0(coarse.start, coarse.getEndPos(), gen, topExecutor, executors, true);
-    if (fine) {
-        return std::move(fine).value();
-    } else {
-        throw std::runtime_error("failed to refine path");
     }
 }
