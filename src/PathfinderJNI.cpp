@@ -24,7 +24,7 @@ bool inBounds(int y) {
 }
 
 extern "C" {
-    JNIEXPORT jlongArray JNICALL Java_com_babbaj_pathfinder_PathFinder_pathFind(JNIEnv* env, jclass clazz, jlong seed, jboolean fine, jint x1, jint y1, jint z1, jint x2, jint y2, jint z2) {
+    JNIEXPORT jlongArray JNICALL Java_com_babbaj_pathfinder_PathFinder_pathFind(JNIEnv* env, jclass clazz, jlong seed, jboolean fine, jboolean raytrace, jint x1, jint y1, jint z1, jint x2, jint y2, jint z2) {
         if (!inBounds(y1) || !inBounds(y2)) {
             return nullptr; // TODO: throw exception
         }
@@ -33,11 +33,16 @@ extern "C" {
 
         if (path) {
             const std::vector<BlockPos>& ugly = path->blocks;
-            cache_t cache;
-            auto blocks = refine(ugly, generator, cache);
             std::vector<jlong> packed;
-            packed.reserve(blocks.size());
-            std::transform(blocks.begin(), blocks.end(), std::back_inserter(packed), packBlockPos);
+            if (raytrace) {
+                cache_t cache;
+                auto blocks = refine(ugly, generator, cache);
+                packed.reserve(blocks.size());
+                std::transform(blocks.begin(), blocks.end(), std::back_inserter(packed), packBlockPos);
+            } else {
+                packed.reserve(ugly.size());
+                std::transform(ugly.begin(), ugly.end(), std::back_inserter(packed), packBlockPos);
+            }
 
             const auto len = packed.size();
             jlongArray array = env->NewLongArray(len);
