@@ -124,6 +124,14 @@ struct Node : NodeBase<Node<sz>, sz> {
             getDaughter(*this->node, i)
         };
     }
+
+    Vec3 center() {
+        return {
+                static_cast<double>(this->x + this->width() / 2),
+                static_cast<double>(this->y + this->width() / 2),
+                static_cast<double>(this->z + this->width() / 2)
+        };
+    }
 };
 
 template<>
@@ -137,14 +145,6 @@ double max(double x, double y, double z) {
 
 double min(double x, double y, double z) {
     return std::min(std::min(x, y), z);
-}
-
-Vec3 r(const Ray& ray, double t) {
-    return {
-        ray.origin.x + t * ray.dir.x,
-        ray.origin.y + t * ray.dir.y,
-        ray.origin.z + t * ray.dir.z
-    };
 }
 
 enum class Plane {
@@ -365,16 +365,13 @@ Chunk& getOrGenChunk(const BlockPos& pos, const ChunkGeneratorHell& gen, ChunkGe
     }
 }
 
-Plane exitPlaneFromRealRay(const Ray& ray, const Node<Size::X16>& node) {
+Plane exitPlaneFromRay(const Ray& ray, const Node<Size::X16>& node) {
     // IEEE stability fix
     const double divx = 1 / ray.dir.x;
     const double divy = 1 / ray.dir.y;
     const double divz = 1 / ray.dir.z;
-    const double tx0 = (node.minX() - ray.origin.x) * divx;
     const double tx1 = (node.maxX() - ray.origin.x) * divx;
-    const double ty0 = (node.minY() - ray.origin.y) * divy;
     const double ty1 = (node.maxY() - ray.origin.y) * divy;
-    const double tz0 = (node.minZ() - ray.origin.z) * divz;
     const double tz1 = (node.maxZ() - ray.origin.z) * divz;
 
     return exitPlane(tx1, ty1, tz1);
@@ -382,9 +379,10 @@ Plane exitPlaneFromRealRay(const Ray& ray, const Node<Size::X16>& node) {
 
 // returns true if there is line of sight
 bool raytrace(const Vec3& from, const Vec3& to, const ChunkGeneratorHell& gen, ChunkGenExec& exec, cache_t& cache) {
-    auto [ray, targetLen] = computeRay(from, to);
+    const auto [realRay, targetLen] = computeRay(from, to);
     // the algorithm only works in positive directions so we need to reflect around the target point
     uint8_t a = 0;
+    Ray ray = realRay;
     if (ray.dir.x < 0.0) {
         ray.origin.x = reflect(ray.origin.x, to.x);
         ray.dir.x = -ray.dir.x;
@@ -424,6 +422,8 @@ bool raytrace(const Vec3& from, const Vec3& to, const ChunkGeneratorHell& gen, C
         if (std::holds_alternative<Finished>(result.value())) {
             return true;
         }
+
+        //const Plane realExitPlane = exitPlaneFromRay(realRay, currentNode);
         const Plane plane = std::get<Miss>(result.value()).exitPlane;
         BlockPos neighborPos = {currentNode.x, currentNode.y, currentNode.z};
         switch (plane) {
@@ -439,7 +439,7 @@ bool raytrace(const Vec3& from, const Vec3& to, const ChunkGeneratorHell& gen, C
         }
         // TODO: this reflection is wrong?
         // TODO: unreflecting can be done by calculating tx1/ty1/tz1 from the real ray on the currentNode and getting the exit plane from that
-        const BlockPos realNeighborPos = vecToBlockPos(reflect(a, blockPosToVec(neighborPos), to));
+        const BlockPos realNeighborPos = vecToBlockPos(reflect(a, blockPosToVec(neighborPos), currentNode.center()/*to*/));
         const x16_t& data = getOrGenChunk(realNeighborPos, gen, exec, cache).getX16(realNeighborPos.y);
         currentNode = Node<Size::X16>{
             neighborPos.x & ~15,
