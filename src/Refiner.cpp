@@ -438,7 +438,7 @@ bool raytrace(const Vec3& from, const Vec3& to, const ChunkGeneratorHell& gen, C
                 break;
         }
         // TODO: this reflection is wrong?
-        const BlockPos realNeighborPos = vecToBlockPos(reflect(a, blockPosToVec(neighborPos), to));
+        const BlockPos realNeighborPos = neighborPos;//vecToBlockPos(reflect(a, blockPosToVec(neighborPos), to));
         const x16_t& data = getOrGenChunk(realNeighborPos, gen, exec, cache).getX16(realNeighborPos.y);
         currentNode = Node<Size::X16>{
             neighborPos.x & ~15,
