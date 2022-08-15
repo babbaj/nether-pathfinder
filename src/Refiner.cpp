@@ -43,9 +43,6 @@ using NodeType = decltype([] {
     if constexpr (size == Size::X2) {
         return x2_t{};
     }
-    //if constexpr (size == Size::X1) {
-    //    return std::declval<bool>();
-    //}
 }());
 
 constexpr Size nextLowerSize(Size size) {
@@ -53,7 +50,7 @@ constexpr Size nextLowerSize(Size size) {
 }
 
 template<typename Node>
-constexpr decltype(auto) getDaughter(const Node& node, int i) {
+constexpr auto getDaughter(const Node& node, int i) {
     if constexpr (std::is_same_v<Node, x2_t>) {
         // im pretty confident the lower bits are closer to the origin
         return (node >> i) != 0;
@@ -112,7 +109,6 @@ struct Node : NodeBase<Node<sz>, sz> {
     const NodeType<sz>* node;
 
     Node<nextLowerSize(sz)> daughter(int i) const {
-        // I hope this is actually how the chunk is actually organized
         // See figure 1
         constexpr auto halfWidth = ::width(nextLowerSize(sz));
         return {
@@ -218,7 +214,6 @@ SubtreeResult proc_subtree(uint8_t a, const Vec3& origin, double targetLen, doub
         return MISS;
     }
 
-    // not sure if this is correct
     if (tx0 >= targetLen || ty0 >= targetLen || tz0 >= targetLen) {
         return FINISHED;
     }
@@ -232,11 +227,11 @@ SubtreeResult proc_subtree(uint8_t a, const Vec3& origin, double targetLen, doub
             return MISS;
         }
 
-        auto m = [](double originxyz, double nodeMin, double nodeMax, double a, double b) {
+        auto m = [](double originxyz, int nodeMin, int nodeMax, double a, double b) {
             constexpr double inf = std::numeric_limits<double>::infinity();
             if (a == inf || b == inf) {
                 // 3.3
-                const auto center = (nodeMin + nodeMax) / 2;
+                const int center = (nodeMin + nodeMax) / 2;
                 if (originxyz < center) return std::numeric_limits<double>::infinity();
                 return -std::numeric_limits<double>::infinity();
             } else {
@@ -247,8 +242,6 @@ SubtreeResult proc_subtree(uint8_t a, const Vec3& origin, double targetLen, doub
         const double txm = m(origin.x, node.minX(), node.maxX(), tx0, tx1);
         const double tym = m(origin.y, node.minY(), node.maxY(), ty0, ty1);
         const double tzm = m(origin.z, node.minZ(), node.maxZ(), tz0, tz1);
-
-        // shouldn't be necessary to go in order
 
         int currNode = first_node(tx0, ty0, tz0, txm, tym, tzm);
         do {
@@ -293,6 +286,7 @@ SubtreeResult proc_subtree(uint8_t a, const Vec3& origin, double targetLen, doub
 
 // returns none if we didn't intersect at all
 std::optional<RaytraceResult> raytrace16x(uint8_t a, Ray ray, double targetLen, const Node<Size::X16>& node) {
+    // idk I copy/pasted this from stackoverflow
     // IEEE stability fix
     const double divx = 1 / ray.dir.x;
     const double divy = 1 / ray.dir.y;
@@ -330,24 +324,8 @@ std::optional<RaytraceResult> raytrace16x(uint8_t a, Ray ray, double targetLen, 
     }
 }
 
-template<typename T>
-T reflect(T x, T target) {
+double reflect(double x, double target) {
     return target - (x - target);
-}
-
-template<typename Vec>
-Vec reflect(uint8_t a, const Vec& vec, const Vec& target) {
-    Vec out = vec;
-    if (a & 4) {
-        out.x = reflect(out.x, target.x);
-    }
-    if (a & 2) {
-        out.y = reflect(out.y, target.y);
-    }
-    if (a & 1) {
-        out.z = reflect(out.z, target.z);
-    }
-    return out;
 }
 
 // 3rd time I've copy/pasted this
@@ -397,7 +375,6 @@ bool raytrace(const Vec3& from, const Vec3& to, const ChunkGeneratorHell& gen, C
     }
     const BlockPos realOriginBlock = vecToBlockPos(from);
     auto first16x = getOrGenChunk(realOriginBlock, gen, exec, cache).getX16(realOriginBlock.y);
-    //const BlockPos reflectedOriginBlock = vecToBlockPos(reflect(a, from, to));
     const auto firstNode = Node<Size::X16>{
         {
             realOriginBlock.x & ~15,
@@ -421,7 +398,6 @@ bool raytrace(const Vec3& from, const Vec3& to, const ChunkGeneratorHell& gen, C
             return true;
         }
 
-        //const Plane realExitPlane = exitPlaneFromRay(realRay, currentNode);
         const Plane plane = std::get<Miss>(result.value()).exitPlane;
         BlockPos neighborPos = {currentNode.x, currentNode.y, currentNode.z};
         switch (plane) {
@@ -437,9 +413,9 @@ bool raytrace(const Vec3& from, const Vec3& to, const ChunkGeneratorHell& gen, C
         }
         const x16_t& data = getOrGenChunk(neighborPos, gen, exec, cache).getX16(neighborPos.y);
         currentNode = Node<Size::X16>{
-            neighborPos.x & ~15,
-            neighborPos.y & ~15,
-            neighborPos.z & ~15,
+            neighborPos.x,
+            neighborPos.y,
+            neighborPos.z,
             &data
         };
     }
