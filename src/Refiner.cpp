@@ -232,11 +232,11 @@ SubtreeResult proc_subtree(uint8_t a, const Vec3& origin, double targetLen, doub
             return MISS;
         }
 
-        auto m = [&](double originxyz, double a, double b) {
+        auto m = [](double originxyz, double nodeMin, double nodeMax, double a, double b) {
             constexpr double inf = std::numeric_limits<double>::infinity();
             if (a == inf || b == inf) {
                 // 3.3
-                const auto center = (node.minX() + node.maxX()) / 2;
+                const auto center = (nodeMin + nodeMax) / 2;
                 if (originxyz < center) return std::numeric_limits<double>::infinity();
                 return -std::numeric_limits<double>::infinity();
             } else {
@@ -244,9 +244,9 @@ SubtreeResult proc_subtree(uint8_t a, const Vec3& origin, double targetLen, doub
             }
 
         };
-        const double txm = m(origin.x, tx0, tx1);
-        const double tym = m(origin.y, ty0, ty1);
-        const double tzm = m(origin.z, tz0, tz1);
+        const double txm = m(origin.x, node.minX(), node.maxX(), tx0, tx1);
+        const double tym = m(origin.y, node.minY(), node.maxY(), ty0, ty1);
+        const double tzm = m(origin.z, node.minZ(), node.maxZ(), tz0, tz1);
 
         // shouldn't be necessary to go in order
 
