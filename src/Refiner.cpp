@@ -72,15 +72,15 @@ template<typename Self, Size sz>
 struct NodeBase {
     int x, y, z;
 
-    constexpr int width() const {
+    int width() const {
         return ::width(sz);
     }
 
-    constexpr enum Size size() const {
+    Size size() const {
         return sz;
     }
 
-    constexpr bool empty() const {
+    bool empty() const {
         return isZero(*static_cast<const Self*>(this)->node);
     }
 
@@ -107,33 +107,46 @@ struct NodeBase {
 template<Size sz>
 struct Node : NodeBase<Node<sz>, sz> {
     const NodeType<sz>* node;
-
-    Node<nextLowerSize(sz)> daughter(int i) const {
-        // See figure 1
-        constexpr auto halfWidth = ::width(nextLowerSize(sz));
-        return {
-            {
-                this->x + (i & 4 ? halfWidth : 0), // 4,5,6,7
-                this->y + (i & 2 ? halfWidth : 0), // 2,3,6,7
-                this->z + (i & 1 ? halfWidth : 0)  // 1,3,5,7
-            },
-            getDaughter(*this->node, i)
-        };
-    }
-
-    Vec3 center() {
-        return {
-                static_cast<double>(this->x + (this->width() / 2)),
-                static_cast<double>(this->y + (this->width() / 2)),
-                static_cast<double>(this->z + (this->width() / 2))
-        };
-    }
 };
 
 template<>
 struct Node<Size::X1> : NodeBase<Node<Size::X1>, Size::X1> {
     bool node;
 };
+
+template<>
+struct Node<Size::X16> : NodeBase<Node<Size::X16>, Size::X16> {
+    const x16_t* node;
+    bool cachedEmpty;
+
+    constexpr bool empty() const {
+        return this->cachedEmpty;
+    }
+};
+
+
+Vec3 center(const Node<Size::X16>& node) {
+    constexpr int halfWidth = (::width(Size::X16) / 2);
+    return {
+        static_cast<double>(node.x + halfWidth),
+        static_cast<double>(node.y + halfWidth),
+        static_cast<double>(node.z + halfWidth)
+    };
+}
+
+template<Size sz> requires (sz > Size::X1)
+Node<nextLowerSize(sz)> daughter(const Node<sz>& node, int i) {
+    // See figure 1
+    constexpr auto halfWidth = ::width(nextLowerSize(sz));
+    return {
+        {
+            node.x + (i & 4 ? halfWidth : 0), // 4,5,6,7
+            node.y + (i & 2 ? halfWidth : 0), // 2,3,6,7
+            node.z + (i & 1 ? halfWidth : 0)  // 1,3,5,7
+        },
+        getDaughter(*node.node, i)
+    };
+}
 
 double max(double x, double y, double z) {
     return std::max(std::max(x, y), z);
@@ -191,13 +204,16 @@ int first_node(double tx0, double ty0, double tz0, double txm, double tym, doubl
     return (int) answer;
 }
 
+// clang makes this branchless
+// https://gcc.godbolt.org/z/5Th7GYb4j
 int new_node(double txm, int x, double tym, int y, double tzm, int z) {
+    int out = z; // XY plane
     if (txm < tym) {
-        if (txm < tzm) return x;  // YZ plane
+        out = txm < tzm ? x : out; // YZ plane
     } else {
-        if (tym < tzm) return y;  // XZ plane
+        out = tym < tzm ? y : out; // XZ plane
     }
-    return z; // XY plane;
+    return out;
 }
 
 enum class SubtreeResult {
@@ -221,21 +237,19 @@ SubtreeResult proc_subtree(uint8_t a, const Vec3& origin, double targetLen, doub
     if constexpr (Size == Size::X1) { // leaf
         return node.node ? HIT : MISS;
     } else {
-        // TODO: should be possible to find all of the empty children at once so we can skip some children in the case it's not full or empty
         if (node.empty()) {
             // we know that all the leafs are empty
             return MISS;
         }
 
-        auto m = [](double originxyz, int nodeMin, int nodeMax, double a, double b) {
+        auto m = [](double origin, int nodeMin, int nodeMax, double t0, double t1) {
             constexpr double inf = std::numeric_limits<double>::infinity();
-            if (a == inf || b == inf) {
+            if (t0 == inf | t1 == inf) {
                 // 3.3
                 const int center = (nodeMin + nodeMax) / 2;
-                if (originxyz < center) return std::numeric_limits<double>::infinity();
-                return -std::numeric_limits<double>::infinity();
+                return origin < center ? inf : -inf;
             } else {
-                return 0.5 * (a + b);
+                return 0.5 * (t0 + t1);
             }
 
         };
@@ -247,37 +261,36 @@ SubtreeResult proc_subtree(uint8_t a, const Vec3& origin, double targetLen, doub
         do {
             switch (currNode) {
                 case 0:
-                    if (auto result = proc_subtree(a, origin, targetLen, tx0, ty0, tz0, txm, tym, tzm, node.daughter(a)); result != MISS) return result;
+                    if (auto result = proc_subtree(a, origin, targetLen, tx0, ty0, tz0, txm, tym, tzm, daughter(node, a)); result != MISS) return result;
                     currNode = new_node(txm,4,tym,2,tzm,1);
                     break;
                 case 1:
-                    if (auto result = proc_subtree(a, origin, targetLen, tx0, ty0, tzm, txm, tym, tz1, node.daughter(1 ^ a)); result != MISS) return result;
+                    if (auto result = proc_subtree(a, origin, targetLen, tx0, ty0, tzm, txm, tym, tz1, daughter(node, 1 ^ a)); result != MISS) return result;
                     currNode = new_node(txm,5,tym,3,tz1,8);
                     break;
                 case 2:
-                    if (auto result = proc_subtree(a, origin, targetLen, tx0, tym, tz0, txm, ty1, tzm, node.daughter(2 ^ a)); result != MISS) return result;
+                    if (auto result = proc_subtree(a, origin, targetLen, tx0, tym, tz0, txm, ty1, tzm, daughter(node, 2 ^ a)); result != MISS) return result;
                     currNode = new_node(txm,6,ty1,8,tzm,3);
                     break;
                 case 3:
-                    if (auto result = proc_subtree(a, origin, targetLen, tx0, tym, tzm, txm, ty1, tz1, node.daughter(3 ^ a)); result != MISS) return result;
+                    if (auto result = proc_subtree(a, origin, targetLen, tx0, tym, tzm, txm, ty1, tz1, daughter(node, 3 ^ a)); result != MISS) return result;
                     currNode = new_node(txm,7,ty1,8,tz1,8);
                     break;
                 case 4:
-                    if (auto result = proc_subtree(a, origin, targetLen, txm, ty0, tz0, tx1, tym, tzm, node.daughter(4 ^ a)); result != MISS) return result;
+                    if (auto result = proc_subtree(a, origin, targetLen, txm, ty0, tz0, tx1, tym, tzm, daughter(node, 4 ^ a)); result != MISS) return result;
                     currNode = new_node(tx1,8,tym,6,tzm,5);
                     break;
                 case 5:
-                    if (auto result = proc_subtree(a, origin, targetLen, txm, ty0, tzm, tx1, tym, tz1, node.daughter(5 ^ a)); result != MISS) return result;
+                    if (auto result = proc_subtree(a, origin, targetLen, txm, ty0, tzm, tx1, tym, tz1, daughter(node, 5 ^ a)); result != MISS) return result;
                     currNode = new_node(tx1,8,tym,7,tz1,8);
                     break;
                 case 6:
-                    if (auto result = proc_subtree(a, origin, targetLen, txm, tym, tz0, tx1, ty1, tzm, node.daughter(6 ^ a)); result != MISS) return result;
+                    if (auto result = proc_subtree(a, origin, targetLen, txm, tym, tz0, tx1, ty1, tzm, daughter(node, 6 ^ a)); result != MISS) return result;
                     currNode = new_node(tx1,8,ty1,8,tzm,7);
                     break;
                 case 7:
-                    if (auto result = proc_subtree(a, origin, targetLen, txm, tym, tzm, tx1, ty1, tz1, node.daughter(7 ^ a)); result != MISS) return result;
-                    currNode = 8;
-                    break;
+                    if (auto result = proc_subtree(a, origin, targetLen, txm, tym, tzm, tx1, ty1, tz1, daughter(node, 7 ^ a)); result != MISS) return result;
+                    return MISS;
             }
         } while (currNode < 8);
         return MISS;
@@ -301,8 +314,8 @@ std::optional<RaytraceResult> raytrace16x(uint8_t a, Ray ray, double targetLen, 
 
     using enum SubtreeResult;
     // condition 10
-    auto tmin = max(tx0, ty0, tz0);
-    auto tmax = min(tx1, ty1, tz1);
+    const auto tmin = max(tx0, ty0, tz0);
+    const auto tmax = min(tx1, ty1, tz1);
     if (tmin <= tmax) {
         if (auto result = proc_subtree(a, ray.origin, targetLen, tx0, ty0, tz0, tx1, ty1, tz1, node); result != MISS) {
             if (result == HIT) {
@@ -359,6 +372,18 @@ Ray reflectRay(Ray ray, const Vec3& center, uint8_t a) {
     return ray;
 }
 
+Node<Size::X16> x16Node(const Chunk& chunk, const BlockPos& pos) {
+    return {
+        {
+            .x = pos.x & ~15,
+            .y = pos.y & ~15,
+            .z = pos.z & ~15
+        },
+        &chunk.getX16(pos.y),
+        chunk.isEmpty<Size::X16>(0, pos.y, 0)
+    };
+}
+
 // returns true if there is line of sight
 bool raytrace(const Vec3& from, const Vec3& to, const ChunkGeneratorHell& gen, ChunkGenExec& exec, cache_t& cache) {
     const auto [ray, targetLen] = computeRay(from, to);
@@ -374,19 +399,11 @@ bool raytrace(const Vec3& from, const Vec3& to, const ChunkGeneratorHell& gen, C
         a |= 1;
     }
     const BlockPos realOriginBlock = vecToBlockPos(from);
-    auto first16x = getOrGenChunk(realOriginBlock, gen, exec, cache).getX16(realOriginBlock.y);
-    const auto firstNode = Node<Size::X16>{
-        {
-            realOriginBlock.x & ~15,
-            realOriginBlock.y & ~15,
-            realOriginBlock.z & ~15
-        },
-        &first16x
-    };
+    auto firstNode = x16Node(getOrGenChunk(realOriginBlock, gen, exec, cache), realOriginBlock);
 
     Node<Size::X16> currentNode = firstNode;
     while (true) {
-        Ray reflectedRay = reflectRay(ray, currentNode.center(), a);
+        Ray reflectedRay = reflectRay(ray, center(currentNode), a);
         auto result = raytrace16x(a, reflectedRay, targetLen, currentNode);
         if (!result) {
             std::cerr << "raytrace whiffed" << std::endl;
@@ -411,13 +428,7 @@ bool raytrace(const Vec3& from, const Vec3& to, const ChunkGeneratorHell& gen, C
                 neighborPos.x += (a & 4) ? -16 : 16;
                 break;
         }
-        const x16_t& data = getOrGenChunk(neighborPos, gen, exec, cache).getX16(neighborPos.y);
-        currentNode = Node<Size::X16>{
-            neighborPos.x,
-            neighborPos.y,
-            neighborPos.z,
-            &data
-        };
+        currentNode = x16Node(getOrGenChunk(neighborPos, gen, exec, cache), neighborPos);
     }
 }
 
