@@ -9,6 +9,7 @@
 #include <mutex>
 #include <type_traits>
 
+#ifndef _LIBCPP_VERSION
 struct Worker {
     std::condition_variable_any condition;
     std::function<void()> task;
@@ -70,5 +71,14 @@ struct ParallelExecutor {
         return results;
     }
 };
+#else
+  template<int Tasks>
+  struct ParallelExecutor {
+      template<typename... Fn>
+      auto compute(Fn&&... tasks) {
+          return std::make_tuple(tasks()...);
+      }
+  };
+#endif
 
 using ChunkGenExec = ParallelExecutor<3>;
