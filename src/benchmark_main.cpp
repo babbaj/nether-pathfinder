@@ -113,7 +113,7 @@ static void BM_testPathFind(benchmark::State& state) {
 
     for (auto _ : state) {
         cache_t cache;
-        auto path = findPath({0, 40, 0}, {(int)state.range(0), 64, (int)state.range(0)}, generator, cache, false);
+        auto path = findPath({0, 40, 0}, {(int)state.range(0), 64, (int)state.range(0)}, generator, false);
         benchmark::DoNotOptimize(path);
     }
 }
