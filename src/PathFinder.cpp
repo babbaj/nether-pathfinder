@@ -10,6 +10,7 @@
 #include <queue>
 #include <unordered_set>
 
+constexpr bool VERBOSE = false;
 
 // never returns null
 PathNode* getNodeAtPosition(map_t<NodePos, std::unique_ptr<PathNode>>& map, const NodePos& pos, const BlockPos& goal) {
@@ -127,7 +128,8 @@ void forEachNeighborInCube(const Chunk& chunk, const NodePos& neighborNode, auto
         return;
     }
     const auto pos = neighborNode.absolutePosZero();
-    if (chunk.isEmpty<size>(pos.x, pos.y, pos.z)) {
+    const auto chunkLocal = pos.toChunkLocal();
+    if (chunk.isEmpty<size>(chunkLocal.x, chunkLocal.y, chunkLocal.z)) {
         callback(neighborNode);
         return;
     }
@@ -147,28 +149,29 @@ void forEachNeighborInCube(const Chunk& chunk, const NodePos& neighborNode, auto
 template<Face face, Size originalSize, Size minSize>
 void growThenIterateInner(const Chunk& chunk, const NodePos& pos, auto& callback) {
     const auto bpos = pos.absolutePosZero();
+    const auto chunkLocal = bpos.toChunkLocal();
 
     switch (originalSize) {
         case Size::X1:
-            if (!chunk.isEmpty<Size::X2>(bpos.x, bpos.y, bpos.z)) {
+            if (!chunk.isEmpty<Size::X2>(chunkLocal.x, chunkLocal.y, chunkLocal.z)) {
                 forEachNeighborInCube<face, Size::X1, originalSize != Size::X1, minSize>(chunk, pos, callback);
                 return;
             }
             [[fallthrough]];
         case Size::X2:
-            if (!chunk.isEmpty<Size::X4>(bpos.x, bpos.y, bpos.z)) {
+            if (!chunk.isEmpty<Size::X4>(chunkLocal.x, chunkLocal.y, chunkLocal.z)) {
                 forEachNeighborInCube<face, Size::X2, originalSize != Size::X2, minSize>(chunk, NodePos{Size::X2, bpos},callback);
                 return;
             }
             [[fallthrough]];
         case Size::X4:
-            if (!chunk.isEmpty<Size::X8>(bpos.x, bpos.y, bpos.z)) {
+            if (!chunk.isEmpty<Size::X8>(chunkLocal.x, chunkLocal.y, chunkLocal.z)) {
                 forEachNeighborInCube<face, Size::X4, originalSize != Size::X4, minSize>(chunk, NodePos{Size::X4, bpos},callback);
                 return;
             }
             [[fallthrough]];
         case Size::X8:
-            if (!chunk.isEmpty<Size::X16>(bpos.x, bpos.y, bpos.z)) {
+            if (!chunk.isEmpty<Size::X16>(chunkLocal.x, chunkLocal.y, chunkLocal.z)) {
                 forEachNeighborInCube<face, Size::X8, originalSize != Size::X8, minSize>(chunk, NodePos{Size::X8, bpos},callback);
                 return;
             }
@@ -206,9 +209,9 @@ bestPathSoFar(map_t<NodePos, std::unique_ptr<PathNode>>& map, const PathNode* st
     if (distSq > MIN_DIST_PATH * MIN_DIST_PATH) {
         return createPath(map, start, end, startPos, goal, Path::Type::SEGMENT);
     } else {
-        std::cout << "Path took too long and got nowhere\n";
+        if (VERBOSE) std::cout << "Path took too long and got nowhere\n";
         auto[x, y, z] = end->pos.absolutePosCenter();
-        std::cout << "(Path ended at {" << x << ", " << y << ", " << z << "})\n";
+        if (VERBOSE) std::cout << "(Path ended at {" << x << ", " << y << ", " << z << "})\n";
         return std::nullopt;
     }
 
@@ -222,7 +225,7 @@ bool inGoal(const NodePos& node, const BlockPos& goal) {
 }
 
 std::optional<Path> findPath0(const BlockPos& start, const BlockPos& goal, const ChunkGeneratorHell& gen, cache_t& chunkCache, ParallelExecutor<4>& topExecutor, std::array<ChunkGenExec, 4>& executors, bool fine) {
-    std::cout << "distance = " << start.distanceTo(goal) << '\n';
+    if (VERBOSE) std::cout << "distance = " << start.distanceTo(goal) << '\n';
 
     map_t<NodePos, std::unique_ptr<PathNode>> map;
     map_t<ChunkPos, bool> doneFull;
@@ -260,10 +263,12 @@ std::optional<Path> findPath0(const BlockPos& start, const BlockPos& goal, const
 
         // TODO: get the right sub cube
         if (inGoal(currentNode->pos, goal)) {
-            std::cout << "chunkCache size = " << chunkCache.size() << '\n';
-            std::cout << "openSet size = " << openSet.getSize() << '\n';
-            std::cout << "map size = " << map.size() << '\n';
-            std::cout << '\n';
+            if (VERBOSE) {
+                std::cout << "chunkCache size = " << chunkCache.size() << '\n';
+                std::cout << "openSet size = " << openSet.getSize() << '\n';
+                std::cout << "map size = " << map.size() << '\n';
+                std::cout << '\n';
+            }
             return createPath(map, startNode, currentNode, start, goal, Path::Type::FINISHED);
         }
         const auto pos = currentNode->pos;
@@ -356,12 +361,14 @@ std::optional<Path> findPath0(const BlockPos& start, const BlockPos& goal, const
     }
 
     auto[x, y, z] = bestSoFar->pos.absolutePosCenter();
-    std::cout << "Best position = {" << x << ", " << y << ", " << z << "}\n";
-    std::cout << "failing = " << failing << '\n';
-    std::cout << "Open set width: " << openSet.getSize() << '\n';
-    std::cout << "PathNode map size: " << map.size() << '\n';
-    std::cout << "chunk cache size: " << chunkCache.size() << '\n';
-    std::cout << '\n';
+    if (VERBOSE) {
+        std::cout << "Best position = {" << x << ", " << y << ", " << z << "}\n";
+        std::cout << "failing = " << failing << '\n';
+        std::cout << "Open set width: " << openSet.getSize() << '\n';
+        std::cout << "PathNode map size: " << map.size() << '\n';
+        std::cout << "chunk cache size: " << chunkCache.size() << '\n';
+        std::cout << '\n';
+    }
 
     return bestPathSoFar(map, startNode, bestSoFar, start, goal);
 }

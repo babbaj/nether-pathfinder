@@ -33,6 +33,7 @@ struct Worker {
 
 template<int Tasks>
 struct ParallelExecutor {
+    static constexpr bool IsActuallyParallel = true;
     std::array<Worker, Tasks> workers{};
 
     template<typename... Fn> requires (sizeof...(Fn) == Tasks)
@@ -74,6 +75,8 @@ struct ParallelExecutor {
 #else
   template<int Tasks>
   struct ParallelExecutor {
+      static constexpr bool IsActuallyParallel = false;
+
       template<typename... Fn>
       auto compute(Fn&&... tasks) {
           return std::make_tuple(tasks()...);

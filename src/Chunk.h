@@ -10,15 +10,68 @@ using x4_t = std::array<x2_t, 8>;
 using x8_t = std::array<x4_t, 8>;
 using x16_t = std::array<x8_t, 8>;
 
-template<typename T> requires (sizeof(T) >= sizeof(int64_t))
+static constexpr int x16Index(int y) {
+    return y >> 4;
+}
+
+static constexpr int x8Index(int x, int y, int z) {
+    return ((x & 8) >> 1) | ((y & 8) >> 2) | ((z & 8) >> 3);
+}
+
+static constexpr int x4Index(int x, int y, int z) {
+    return ((x & 4)) | ((y & 4) >> 1) | ((z & 4) >> 2);
+}
+
+static constexpr int x2Index(int x, int y, int z) {
+    return ((x & 2) << 1) | ((y & 2)) | ((z & 2) >> 1);
+}
+
+static constexpr int bitIndex(int x, int y, int z) {
+    return ((x & 1) << 2) | ((y & 1) << 1) | ((z & 1));
+}
+
+constexpr auto makeX2Index() {
+    std::array<std::array<std::array<uint16_t, 64>, 8>, 8> out{};
+
+    for (int x = 0; x < 16; x += 2) {
+        for (int z = 0; z < 16; z += 2) {
+            for (int y = 0; y < 128; y+= 2) {
+                const auto idx = (x16Index(y) * sizeof(x16_t))
+                        + (x8Index(x, y, z) * sizeof(x8_t))
+                        + (x4Index(x, y, z) * sizeof(x4_t))
+                        + (x2Index(x, y, z) * sizeof(x2_t));
+                out[x / 2][z / 2][y / 2] = idx;
+            }
+        }
+    }
+    return out;
+}
+constexpr auto X2_INDEX = makeX2Index();
+
+template<typename T> requires (sizeof(T) >= sizeof(int64_t) && sizeof(T) <= 32 && sizeof(T) % sizeof(int64_t) == 0)
 inline bool isEmpty(const T& input) {
     constexpr auto arrSize = sizeof(T) / sizeof(int64_t);
-    int64_t nums[arrSize];
-    memcpy(&nums[0], &input, sizeof(nums));
+    auto* nums = reinterpret_cast<const int64_t*>(&input);
 
-    return [&nums]<size_t... I>(std::index_sequence<I...>) {
-        return (nums[I] | ...) == 0;
-    }(std::make_index_sequence<arrSize>{});
+    int64_t out = 0;
+    for (int i = 0; i < arrSize; i++) {
+        out |= nums[i];
+    }
+    return out == 0;
+}
+
+// https://gcc.godbolt.org/z/nsvzefd6r
+template<typename T> requires (sizeof(T) > 32 && sizeof(T) % 32 == 0)
+inline bool isEmpty(const T& input) {
+    using block = std::array<std::byte, 32>; // size of avx2 register (256 bits)
+    constexpr auto arrSize = sizeof(T) / sizeof(block);
+    auto* blocks = reinterpret_cast<const block*>(&input);
+
+    for (int i = 0; i < arrSize; i++) {
+        block data = blocks[i];
+        if (!isEmpty(data)) return false;
+    }
+    return true;
 }
 
 struct Chunk {
@@ -33,43 +86,11 @@ private:
     [x4Index(x, y, z)]  /* x4 */                \
     [x2Index(x, y, z)]; /* x2 */                \
     uint8_t bit = bitIndex(x, y, z); /* bit */
-
-public:
-    static constexpr int x16Index(int y) {
-        return y >> 4;
-    }
-
-    static constexpr int x8Index(int x, int y, int z) {
-        return ((x & 8) >> 1) | ((y & 8) >> 2) | ((z & 8) >> 3);
-    }
-
-    static constexpr int x4Index(int x, int y, int z) {
-        return ((x & 4)) | ((y & 4) >> 1) | ((z & 4) >> 2);
-    }
-
-    static constexpr int x2Index(int x, int y, int z) {
-        return ((x & 2) << 1) | ((y & 2)) | ((z & 2) >> 1);
-    }
-
-    static constexpr int bitIndex(int x, int y, int z) {
-        return ((x & 1) << 2) | ((y & 1) << 1) | ((z & 1));
-    }
-
 private:
     bool getBit(int x, int y, int z) const {
         CHUNK_GETBIT(x, y, z);
 
         return (x2 >> bit) & 1;
-    }
-
-    void setBit(int x, int y, int z, bool b) {
-        CHUNK_GETBIT(x, y, z);
-
-         if (b) {
-             x2 |= (1u << bit);
-         } else {
-             x2 &= ~(1u << bit);
-         }
     }
 
 #undef CHUNK_GETBIT
@@ -94,14 +115,41 @@ public:
     }
 
     const x2_t& getX2(int x, int y, int z) const {
+        auto x2Idx = X2_INDEX[x/2][z/2][y/2];
+        auto* asX2Array = reinterpret_cast<const x2_t*>(this->data.data());
+        return asX2Array[x2Idx];
+    }
+
+    x2_t& getX2(int x, int y, int z) {
+        auto x2Idx = X2_INDEX[x/2][z/2][y/2];
+        auto* asX2Array = reinterpret_cast<x2_t*>(this->data.data());
+        return asX2Array[x2Idx];
+    }
+
+    // for benchmarking
+    const x2_t& getX2Old(int x, int y, int z) const {
         return getX4(x, y, z)[x2Index(x, y, z)];
     }
 
     template<Size>
     bool isEmpty(int x, int y, int z) const = delete;
 
+    // for benchmarking (this actually compiled to cmov)
+    void setBlockOld(int x, int y, int z, bool solid) {
+        auto& x2 = getX2(x, y, z);
+        const uint8_t bit = bitIndex(x, y, z);
+        if (solid) {
+            x2 |= (1u << bit);
+        } else {
+            x2 &= ~(1u << bit);
+        }
+    }
+
     void setBlock(int x, int y, int z, bool solid) {
-        setBit(x, y, z, solid);
+        auto& x2 = getX2(x, y, z);
+        const uint8_t bit = bitIndex(x, y, z);
+        // for some reason this compiled to a bit less code
+        x2 = solid ? (x2 | (1u << bit)) : (x2 & ~(1u << bit));
     }
 
     bool isSolid(const BlockPos& pos) const {

@@ -119,23 +119,22 @@ int main(int argc, char** argv) {
     constexpr auto seed = 146008555100680;
     auto generator = ChunkGeneratorHell::fromSeed(seed);
 
-    auto pool = ParallelExecutor<3>{};
-
-    //auto chunk = generator.generateChunk(1, 0, pool);
-    //std::cout << chunk.isSolid(12, 38, 4) << '\n';
-    //writeChunk("testchunk", chunk);
-    //return 0;
-
-    //auto air = findAir({22, 120, -67}, generator);
-    //std::cout << "air = " << air.x << ", " << air.y << ", " << air.z << std::endl;
-    //exit(0);
-
-    auto t1 = std::chrono::steady_clock::now();
     constexpr BlockPos ONE_MIL = {1000072, 64, -121};
     constexpr BlockPos ONE_HUNDRED_K = {100000, 50, 0};
     constexpr BlockPos TEN_K = {10000, 64, 0};
     constexpr BlockPos ONE_K = {1000, 64, 0};
-    std::optional<Path> path = findPath({0, 40, 0}, ONE_MIL, generator, false).value();
+    cache_t cache;
+    //findPath({0, 40, 0}, ONE_HUNDRED_K, generator, cache/*firstIteration->chunkCache*/, false);
+    //return 0;
+
+    /*auto uwu = std::chrono::steady_clock::now();
+    auto firstIteration =  findPath({0, 40, 0}, ONE_MIL, generator, cache, false); // fill the cache
+    auto owo = std::chrono::steady_clock::now();
+    auto nyaa = std::chrono::duration_cast<std::chrono::milliseconds>(owo - uwu).count();
+    std::cout << "first iteration took " << nyaa / 1000.0 << "s " << std::endl;*/
+
+    auto t1 = std::chrono::steady_clock::now();
+    std::optional<Path> path = findPath({0, 40, 0}, ONE_HUNDRED_K, generator, cache/*firstIteration->chunkCache*/, false).value();
     auto t2 = std::chrono::steady_clock::now();
 
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
