@@ -134,7 +134,7 @@ int main(int argc, char** argv) {
     std::cout << "first iteration took " << nyaa / 1000.0 << "s " << std::endl;*/
 
     auto t1 = std::chrono::steady_clock::now();
-    std::optional<Path> path = findPath({0, 40, 0}, ONE_HUNDRED_K, generator, cache/*firstIteration->chunkCache*/, false).value();
+    std::optional<Path> path = findPath({0, 40, 0}, ONE_HUNDRED_K, generator, false).value();
     auto t2 = std::chrono::steady_clock::now();
 
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
