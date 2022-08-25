@@ -93,7 +93,7 @@ std::array<BlockPos, 4> neighborCubes(const BlockPos& origin) {
         }
         case Face::DOWN: {
             const BlockPos corner = origin.up(size);
-            const BlockPos oppositeCorner = origin.east(size).south(size);
+            const BlockPos oppositeCorner = corner.east(size).south(size);
             return {corner, corner.east(size), corner.south(size), oppositeCorner};
         }
         case Face::NORTH: {
@@ -209,9 +209,11 @@ bestPathSoFar(map_t<NodePos, std::unique_ptr<PathNode>>& map, const PathNode* st
     if (distSq > MIN_DIST_PATH * MIN_DIST_PATH) {
         return createPath(map, start, end, startPos, goal, Path::Type::SEGMENT);
     } else {
-        if (VERBOSE) std::cout << "Path took too long and got nowhere\n";
-        auto[x, y, z] = end->pos.absolutePosCenter();
-        if (VERBOSE) std::cout << "(Path ended at {" << x << ", " << y << ", " << z << "})\n";
+        if (VERBOSE) {
+            std::cout << "Path took too long and got nowhere\n";
+            auto[x, y, z] = end->pos.absolutePosCenter();
+            std::cout << "(Path ended at {" << x << ", " << y << ", " << z << "})\n";
+        }
         return std::nullopt;
     }
 
