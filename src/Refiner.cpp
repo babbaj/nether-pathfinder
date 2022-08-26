@@ -158,10 +158,15 @@ double max(double x, double y, double z) {
     return max(max(x, y), z);
 }
 
-double min(double x, double y, double z) {
+double min(double x, double y) {
     if (std::isnan(y)) [[unlikely]] return x;
     return x < y ? x : y;
 }
+
+double min(double x, double y, double z) {
+    return min(min(x, y), z);
+}
+
 
 enum class Plane {
     YZ,
