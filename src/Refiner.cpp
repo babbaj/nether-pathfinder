@@ -148,12 +148,19 @@ Node<nextLowerSize(sz)> daughter(const Node<sz>& node, int i) {
     };
 }
 
+double max(double x, double y) {
+    // clang actually generates different code with the unlikely attribute, need to benchmark to see if its faster
+    if (std::isnan(y)) [[unlikely]] return x;
+    return x > y ? x : y;
+}
+
 double max(double x, double y, double z) {
-    return std::max(std::max(x, y), z);
+    return max(max(x, y), z);
 }
 
 double min(double x, double y, double z) {
-    return std::min(std::min(x, y), z);
+    if (std::isnan(y)) [[unlikely]] return x;
+    return x < y ? x : y;
 }
 
 enum class Plane {
