@@ -123,8 +123,7 @@ int main(int argc, char** argv) {
     constexpr BlockPos ONE_HUNDRED_K = {100000, 50, 0};
     constexpr BlockPos TEN_K = {10000, 64, 0};
     constexpr BlockPos ONE_K = {1000, 64, 0};
-    cache_t cache;
-    //findPath({0, 40, 0}, ONE_HUNDRED_K, generator, cache/*firstIteration->chunkCache*/, false);
+    //findPath({0, 40, 0}, ONE_HUNDRED_K, generator, false);
     //return 0;
 
     /*auto uwu = std::chrono::steady_clock::now();

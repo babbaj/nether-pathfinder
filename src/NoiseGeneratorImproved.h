@@ -8,7 +8,7 @@
 
 // This only effects the random number generator in the constructor
 struct NoiseGeneratorImproved {
-    std::array<int, 512> permutations{};
+    std::array<short, 512> permutations{};
     // must be declared in this order
     const double xCoord;
     const double yCoord;

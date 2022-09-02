@@ -8,21 +8,14 @@
 #include "NoiseGeneratorOctaves.h"
 #include "Chunk.h"
 #include "ParallelExecutor.h"
+#include "ChunkGen.h"
 
 struct ChunkGeneratorHell {
 public:
     // These must be declared in the right order
-
     NoiseGeneratorOctaves<16> lperlinNoise1;
     NoiseGeneratorOctaves<16> lperlinNoise2;
     NoiseGeneratorOctaves<8>  perlinNoise1;
-
-    // Unused
-    NoiseGeneratorOctaves<4> slowsandGravelNoiseGen;
-    NoiseGeneratorOctaves<4> netherrackExculsivityNoiseGen;
-    NoiseGeneratorOctaves<10> scaleNoise;
-    NoiseGeneratorOctaves<16> depthNoise;
-
 
     void prepareHeights(int x, int z, Chunk& primer, ChunkGenExec& threadPool) const;
 
@@ -37,11 +30,7 @@ public:
         return ChunkGeneratorHell {
             decltype(lperlinNoise1)(rand),
             decltype(lperlinNoise2)(rand),
-            decltype(perlinNoise1)(rand),
-            decltype(slowsandGravelNoiseGen)(rand),
-            decltype(netherrackExculsivityNoiseGen)(rand),
-            decltype(scaleNoise)(rand),
-            decltype(depthNoise)(rand),
+            decltype(perlinNoise1)(rand)
         };
     }
 

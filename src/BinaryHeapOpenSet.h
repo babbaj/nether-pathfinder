@@ -43,7 +43,7 @@ private:
     }
 public:
 
-    void update(PathNode* val) {
+    __attribute__((noinline)) void update(PathNode* val) {
         int index = val->heapPosition;
         int parentIndex = unsignedRShift(index, 1);
         const double cost = val->combinedCost;
@@ -59,7 +59,7 @@ public:
         }
     }
 
-    PathNode* removeLowest() {
+    __attribute__((noinline)) PathNode* removeLowest() {
         if (this->size == 0) throw "trolled";
 
         PathNode* result = vector[1];

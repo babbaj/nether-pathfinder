@@ -31,13 +31,12 @@ struct Worker {
     }) {}
 };
 
-template<int Tasks>
+template<int Threads>
 struct ParallelExecutor {
-    static constexpr bool IsActuallyParallel = true;
-    std::array<Worker, Tasks> workers{};
+    std::array<Worker, Threads - 1> workers{};
 
-    template<typename... Fn> requires (sizeof...(Fn) == Tasks)
-    auto compute(Fn&&... tasks) {
+    template<typename... Fn> requires (sizeof...(Fn) == Threads)
+    __attribute__((noinline)) auto compute(Fn&&... tasks) {
         // Indexing parameter packs is aids
         std::tuple args = std::make_tuple(std::forward<Fn>(tasks)...);
 
@@ -62,12 +61,12 @@ struct ParallelExecutor {
                 // wake up babe we have more work for you!
                 worker.condition.notify_one();
             }(), ...);
-        }(std::make_index_sequence<Tasks - 1>{});
+        }(std::make_index_sequence<Threads - 1>{});
         // take advantage of the calling tread
-        std::get<Tasks - 1>(results) = std::get<Tasks - 1>(args)();
+        std::get<Threads - 1>(results) = std::get<Threads - 1>(args)();
         counter++;
 
-        while (counter != Tasks); // wait
+        while (counter != Threads); // wait
 
         return results;
     }
@@ -83,5 +82,3 @@ struct ParallelExecutor {
       }
   };
 #endif
-
-using ChunkGenExec = ParallelExecutor<3>;

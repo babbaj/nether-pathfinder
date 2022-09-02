@@ -127,6 +127,7 @@ static void BM_testParallelExecutor(benchmark::State& state) {
     }
 }
 
+
 static void BM_testChunkisX16Empty(benchmark::State& state) {
     std::vector<Chunk> chunks;
     ChunkGenExec exec;
@@ -142,13 +143,28 @@ static void BM_testChunkisX16Empty(benchmark::State& state) {
     }
 }
 
-BENCHMARK(BM_testGetx2);
-BENCHMARK(BM_testOldGetx2);
-BENCHMARK(BM_testSetBlock);
-BENCHMARK(BM_testOldSetBlock);
-BENCHMARK(BM_testParallelExecutor);
-BENCHMARK(BM_testChunkisX16Empty);
+double randomDouble() {
+    static std::mt19937 gen{std::random_device{}()};
+    static auto distrib = [] { return std::uniform_real_distribution<double>(0, 10000)(gen); };
+    return distrib();
+}
+
+void BM_generateNoiseOctaves(benchmark::State& state) {
+    for (auto _ : state) {
+        generator.lperlinNoise1.generateNoiseOctaves<5, 17, 5>(0, 0, 0, 684.412, 2053.236, 684.412);
+    }
+}
+
+//BENCHMARK(BM_testGetx2);
+//BENCHMARK(BM_testOldGetx2);
+//BENCHMARK(BM_testSetBlock);
+//BENCHMARK(BM_testOldSetBlock);
+//BENCHMARK(BM_testParallelExecutor);
+//BENCHMARK(BM_testChunkisX16Empty);
+//BENCHMARK(BM_testMaxNoAttribute);
+//BENCHMARK(BM_testMax);
 //BENCHMARK(BM_testPathFind)->Range(1000, 128000)->RangeMultiplier(2)->Unit(benchmark::kSecond);
-//BENCHMARK(BM_testGenChunk)->Iterations(10)->Complexity()->Unit(benchmark::kMicrosecond);
+BENCHMARK(BM_testGenChunk)/*->Iterations(10)*/->Unit(benchmark::kMicrosecond);
+BENCHMARK(BM_generateNoiseOctaves)/*->Iterations(10)*/->Unit(benchmark::kMicrosecond);
 
 BENCHMARK_MAIN();

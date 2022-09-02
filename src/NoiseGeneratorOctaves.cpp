@@ -21,7 +21,7 @@ void NoiseGeneratorOctavesBase::generateNoiseOctaves0(double* noiseArray, int xO
         l = l % 16777216L;
         d0 = d0 + (double)k;
         d2 = d2 + (double)l;
-        this->generators[j].populateNoiseArray(&noiseArray[0], d0, d1, d2, xSize, ySize, zSize, xScale * d3, yScale * d3, zScale * d3, d3);
+        this->generators[j].populateNoiseArray(noiseArray, d0, d1, d2, xSize, ySize, zSize, xScale * d3, yScale * d3, zScale * d3, d3);
         d3 /= 2.0;
     }
 }

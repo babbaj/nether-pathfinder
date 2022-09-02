@@ -149,7 +149,7 @@ Node<nextLowerSize(sz)> daughter(const Node<sz>& node, int i) {
 }
 
 double max(double x, double y) {
-    // clang actually generates different code with the unlikely attribute, need to benchmark to see if its faster
+    // clang actually generates different code with the unlikely attribute but there doesnt seem to be any difference in performance
     if (std::isnan(y)) [[unlikely]] return x;
     return x > y ? x : y;
 }

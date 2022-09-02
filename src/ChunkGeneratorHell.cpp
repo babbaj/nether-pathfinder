@@ -18,7 +18,7 @@ Chunk ChunkGeneratorHell::generateChunk(int x, int z, ChunkGenExec& threadPool) 
 }
 
 void ChunkGeneratorHell::prepareHeights(int x, int z, Chunk& primer, ChunkGenExec& threadPool) const {
-    std::array buffer = this->getHeights<5, 17, 5>(x * 4, 0, z * 4, threadPool);
+    const std::array buffer = this->getHeights<5, 17, 5>(x * 4, 0, z * 4, threadPool);
 
     constexpr auto j = 64 / 2 + 1; // 64 = sea level
 
