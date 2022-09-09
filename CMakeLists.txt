@@ -12,9 +12,7 @@ endif()
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native -std=c++20 -Wall")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -g")
 SET(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -O0")
-message("${CMAKE_CXX_COMPILER_VERSION}")
-message("${CMAKE_EXE_LINKER_FLAGS}")
-
+message("${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}")
 
 file(GLOB_RECURSE SRC src/*)
 list(REMOVE_ITEM SRC "${CMAKE_CURRENT_SOURCE_DIR}/src/benchmark_main.cpp" "${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp")
@@ -30,7 +28,11 @@ else()
 endif()
 
 if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-    message(FATAL_ERROR "gcc is not supported")
+    message(WARNING "gcc is not recommended")
+elseif (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS 13.0)
+        message(FATAL_ERROR "requires clang at least clang 13")
+    endif()
 endif()
 
 #target_link_options(nether_pathfinder PRIVATE "-static-libgcc" "-static-libstdc++")

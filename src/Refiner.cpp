@@ -30,7 +30,7 @@ std::pair<Ray, double> computeRay(Vec3 a, Vec3 b) {
 }
 
 template<Size size>
-using NodeType = decltype([] {
+auto nodeType0() {
     if constexpr (size == Size::X16) {
         return x16_t{};
     }
@@ -43,7 +43,10 @@ using NodeType = decltype([] {
     if constexpr (size == Size::X2) {
         return x2_t{};
     }
-}());
+}
+
+template<Size size>
+using NodeType = decltype(nodeType0<size>());
 
 constexpr Size nextLowerSize(Size size) {
     return static_cast<Size>(static_cast<int>(size) - 1);

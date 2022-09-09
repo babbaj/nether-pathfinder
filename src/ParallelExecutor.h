@@ -17,11 +17,9 @@ struct Worker {
     std::jthread thread;
 
     Worker(): thread([this](std::stop_token stoken) {
-        std::stop_callback cb{stoken, [&] { condition.notify_one(); }};
-
         while (true) {
             std::unique_lock lock(this->mutex);
-            condition.wait(lock, stoken,[this, &stoken] { return stoken.stop_requested() || static_cast<bool>(this->task); });
+            condition.wait(lock, stoken, [this] { return static_cast<bool>(this->task); });
 
             if (stoken.stop_requested()) return;
 
