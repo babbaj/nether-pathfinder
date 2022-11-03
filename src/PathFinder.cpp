@@ -282,27 +282,36 @@ std::optional<Path> findPath0(const BlockPos& start, const BlockPos& goal, const
         const ChunkPos cposSouth = bpos.south(16).toChunkPos();
         const ChunkPos cposEast = bpos.east(16).toChunkPos();
         const ChunkPos cposWest = bpos.west(16).toChunkPos();
-        if (!doneFull.contains(cpos)) {
-            topExecutor.compute(
-                [&] {
-                    return getOrGenChunk(chunkCache, cposNorth, gen, executors[0], chunkMut);
-                },
-                [&] {
-                    return getOrGenChunk(chunkCache, cposSouth, gen, executors[1], chunkMut);
-                },
-                [&] {
-                    return getOrGenChunk(chunkCache, cposEast, gen, executors[2], chunkMut);
-                },
-                [&] {
-                    return getOrGenChunk(chunkCache, cposWest, gen, executors[3], chunkMut);
-                }
-            );
-            doneFull.emplace(cpos, true);
+        if constexpr (IsActuallyParallel) {
+            if (!doneFull.contains(cpos)) {
+                topExecutor.compute(
+                        [&] {
+                            return getOrGenChunk(chunkCache, cposNorth, gen, executors[0], chunkMut);
+                        },
+                        [&] {
+                            return getOrGenChunk(chunkCache, cposSouth, gen, executors[1], chunkMut);
+                        },
+                        [&] {
+                            return getOrGenChunk(chunkCache, cposEast, gen, executors[2], chunkMut);
+                        },
+                        [&] {
+                            return getOrGenChunk(chunkCache, cposWest, gen, executors[3], chunkMut);
+                        }
+                );
+                doneFull.emplace(cpos, true);
+            }
         }
-        const Chunk& north = *chunkCache[cposNorth];
-        const Chunk& south = *chunkCache[cposSouth];
-        const Chunk& east = *chunkCache[cposEast];
-        const Chunk& west = *chunkCache[cposWest];
+        const auto chunkGetter = [&](ChunkPos cpos) {
+            if constexpr (IsActuallyParallel) {
+                return [&, cpos] { return *chunkCache[cpos]; };
+            } else {
+                return [&, cpos] { return getOrGenChunk(chunkCache, cpos, gen, executors[0], chunkMut); };
+            }
+        };
+        const auto north = chunkGetter(cposNorth);
+        const auto south = chunkGetter(cposSouth);
+        const auto east = chunkGetter(cposEast);
+        const auto west = chunkGetter(cposWest);
 
         auto callback = [&](const NodePos& neighborPos) {
             PathNode* neighborNode = getNodeAtPosition(map, neighborPos, goal);
@@ -345,10 +354,10 @@ std::optional<Path> findPath0(const BlockPos& start, const BlockPos& goal, const
                 const ChunkPos neighborCpos = origin.toChunkPos();
                 const Chunk& chunk =
                         face == Face::UP || face == Face::DOWN ? currentChunk :
-                        face == Face::NORTH ? neighborCpos == cpos ? currentChunk : north :
-                        face == Face::SOUTH ? neighborCpos == cpos ? currentChunk : south :
-                        face == Face::EAST ? neighborCpos == cpos ? currentChunk : east :
-                        /* face == Face::WEST */ neighborCpos == cpos ? currentChunk : west;
+                        face == Face::NORTH ? neighborCpos == cpos ? currentChunk : north() :
+                        face == Face::SOUTH ? neighborCpos == cpos ? currentChunk : south() :
+                        face == Face::EAST ? neighborCpos == cpos ? currentChunk : east() :
+                        /* face == Face::WEST */ neighborCpos == cpos ? currentChunk : west();
 
                 // 1x only for refiner
                 if (fine) {

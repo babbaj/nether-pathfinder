@@ -29,6 +29,7 @@ struct Worker {
     }) {}
 };
 
+constexpr bool IsActuallyParallel = true;
 template<int Threads>
 struct ParallelExecutor {
     std::array<Worker, Threads - 1> workers{};
@@ -70,10 +71,9 @@ struct ParallelExecutor {
     }
 };
 #else
+  constexpr bool IsActuallyParallel = false;
   template<int Tasks>
   struct ParallelExecutor {
-      static constexpr bool IsActuallyParallel = false;
-
       template<typename... Fn>
       auto compute(Fn&&... tasks) {
           return std::make_tuple(tasks()...);
