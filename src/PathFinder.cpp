@@ -226,6 +226,8 @@ bool inGoal(const NodePos& node, const BlockPos& goal) {
     return node.absolutePosCenter().distanceToSq(goal) <= 16 * 16;
 }
 
+std::atomic_flag cancelFlag;
+
 std::optional<Path> findPath0(const BlockPos& start, const BlockPos& goal, const ChunkGeneratorHell& gen, cache_t& chunkCache, ParallelExecutor<4>& topExecutor, std::array<ChunkGenExec, 4>& executors, bool fine) {
     if (VERBOSE) std::cout << "distance = " << start.distanceTo(goal) << '\n';
 
@@ -258,6 +260,8 @@ std::optional<Path> findPath0(const BlockPos& start, const BlockPos& goal, const
 
             if (now >= failureTimeout || (!failing && now >= primaryTimeoutTime)) {
                 break;
+            } else if (cancelFlag.test()) {
+                return {};
             }
         }
 
@@ -464,7 +468,12 @@ std::optional<Path> findPath(const BlockPos& start, const BlockPos& goal, const 
         const BlockPos lastPathEnd = !segments.empty() ? segments.back().getEndPos() : realStart;
         std::optional path = findPath0(lastPathEnd, realGoal, gen, chunkCache, topExecutor, executors, fine);
         if (!path.has_value()) {
-            break;
+            if (cancelFlag.test()) {
+                cancelFlag.clear();
+                return std::nullopt;
+            } else {
+                break;
+            }
         } else {
             const bool finished = path->type == Path::Type::FINISHED;
             segments.push_back(std::move(*path));

@@ -52,4 +52,8 @@ extern "C" {
             return nullptr;
         }
     }
+
+    JNIEXPORT jboolean JNICALL Java_com_babbaj_pathfinder_PathFinder_cancel(JNIEnv* env, jclass clazz) {
+        return cancelFlag.test_and_set();
+    }
 }

@@ -27,6 +27,7 @@ struct Path {
     }
 };
 
+extern std::atomic_flag cancelFlag; // a bit of a hack
 
 std::optional<Path> findPath(const BlockPos& start, const BlockPos& goal, const ChunkGeneratorHell& gen, bool fine);
 
