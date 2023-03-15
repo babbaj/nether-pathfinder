@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.16)
 project(nether_pathfinder)
 
+set(CMAKE_OSX_ARCHITECTURES "x86_64")
+
 find_package(JNI COMPONENTS JNI_INCLUDE_DIRS)
 include_directories(${JNI_INCLUDE_DIRS})
 
