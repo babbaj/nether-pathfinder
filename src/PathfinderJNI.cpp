@@ -28,6 +28,7 @@ extern "C" {
         if (!inBounds(y1) || !inBounds(y2)) {
             return nullptr; // TODO: throw exception
         }
+        cancelFlag.clear();
         auto generator = ChunkGeneratorHell::fromSeed(seed);
         std::optional<Path> path = findPath({x1, y1, z1}, {x2, y2, z2}, generator, fine);
 
