@@ -92,9 +92,9 @@ private:
     static double octile(const BlockPos& a, const BlockPos& b) {
         double D = 1;
         double D2 = M_SQRT2;
-        auto dx = (double) std::abs(b.x - a.x);
-        auto dy = (double) std::abs(b.y - a.y);
-        return D * (dx + dy) + (D2 - 2 * D) * std::min(dx, dy);
+        auto dx = (double) std::abs(a.x - b.x);
+        auto dz = (double) std::abs(a.z - b.z);
+        return D * (dx + dz) + (D2 - 2 * D) * std::min(dx, dz);
     }
 
     static double heuristic(const NodePos& pos, const BlockPos& goal) {
