@@ -81,7 +81,8 @@ private:
     [[maybe_unused]] static double octile(const BlockPos& a, const BlockPos& b) {
         auto dx = (double) std::abs(a.x - b.x);
         auto dz = (double) std::abs(a.z - b.z);
-        return (dx + dz) + (M_SQRT2 - 2) * std::min(dx, dz);
+        constexpr double sqrt2 = 1.41421356237309504880;
+        return (dx + dz) + (sqrt2 - 2) * std::min(dx, dz);
     }
 
     // https://rdrr.io/cran/LearnClust/src/R/octileDistance.details.R
