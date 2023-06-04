@@ -37,6 +37,16 @@ struct ChunkPos {
 
 struct Vec3 {
     double x, y, z;
+
+    [[nodiscard]] double distanceToSq(const Vec3& pos) const {
+        const double dx = pos.x - this->x;
+        const double dy = pos.y - this->y;
+        const double dz = pos.z - this->z;
+        return (dx * dx) + (dy * dy) + (dz * dz);
+    }
+    [[nodiscard]] double distanceTo(const Vec3& pos) const {
+        return sqrt(this->distanceToSq(pos));
+    }
 };
 
 struct BlockPos {

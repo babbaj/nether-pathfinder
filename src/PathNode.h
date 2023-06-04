@@ -19,10 +19,18 @@ public:
     }
     BlockPos absolutePosCenter() const {
         const auto sz = width(this->size);
-        return (this->pos << shiftFor(this->size)) + (sz / 2);
+        //return (this->pos << shiftFor(this->size)) + (sz / 2);
+        const auto zero = this->absolutePosZero();
+        int off_x = sz / 2;
+        int off_z = sz / 2;
+        if (zero.x < 0) {
+            off_x = -off_x;
+        }
+        if (zero.z < 0) {
+            off_z = -off_z;
+        }
+        return {zero.x + off_x, zero.y, zero.z + off_z};
     }
-
-    // TODO: function that returns the real center instead of block aligned center?
 
     constexpr friend bool operator==(const NodePos& a, const NodePos& b) {
         return a.pos == b.pos && a.size == b.size;
@@ -65,12 +73,23 @@ struct PathNode {
     }
 
 private:
-    static int manhattan(const BlockPos& a, const BlockPos& b) {
+    [[maybe_unused]] static int manhattan(const BlockPos& a, const BlockPos& b) {
         return abs(a.x - b.x) + abs(a.z - b.z);
     }
 
+    [[maybe_unused]] static double octile(const BlockPos& a, const BlockPos& b) {
+        auto dx = (double) std::abs(a.x - b.x);
+        auto dz = (double) std::abs(a.z - b.z);
+        return (dx + dz) + (M_SQRT2 - 2) * std::min(dx, dz);
+    }
+
+    // https://rdrr.io/cran/LearnClust/src/R/octileDistance.details.R
+    // seems to work as well euclidean but im sus
     static double heuristic(const NodePos& pos, const BlockPos& goal) {
-        const auto bpos = pos.absolutePosCenter();
-        return manhattan(bpos, goal) * 0.7 + bpos.distanceTo(goal) * 0.001 - (width(pos.size) * 4);
+        const auto center = pos.absolutePosCenter();
+        // the original heuristic (turns out it sucks)
+        //return manhattan(center, goal) * 0.7 + center.distanceTo(goal) * 0.001 - (width(pos.size) * 4);
+        //return octile(center, goal) - (width(pos.size) * 4);
+        return center.distanceTo(goal) - (width(pos.size) * 4);
     }
 };
