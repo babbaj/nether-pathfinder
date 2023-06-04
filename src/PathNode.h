@@ -19,10 +19,31 @@ public:
     }
     BlockPos absolutePosCenter() const {
         const auto sz = width(this->size);
-        return (this->pos << shiftFor(this->size)) + (sz / 2);
+        const auto zero = this->absolutePosZero();
+        // d normally stands for difference but im adding lol
+        int dx = sz / 2;
+        int dz = sz / 2;
+        if (zero.x < 0) {
+            dx = -dx;
+        }
+        if (zero.z < 0) {
+            dz = -dz;
+        }
+        return {zero.x + dx, zero.y, zero.z + dz};
     }
-
-    // TODO: function that returns the real center instead of block aligned center?
+    Vec3 absolutePosCenterPrecise() const {
+        const auto sz = (double) width(this->size);
+        const auto zero = this->absolutePosZero();
+        double dx = (sz / 2);
+        double dz = (sz / 2);
+        if (zero.x < 0) {
+            dx = -dx;
+        }
+        if (zero.z < 0) {
+            dz = -dz;
+        }
+        return {zero.x + dx, (double) zero.y, zero.z + dz};
+    }
 
     constexpr friend bool operator==(const NodePos& a, const NodePos& b) {
         return a.pos == b.pos && a.size == b.size;
@@ -68,9 +89,17 @@ private:
     static int manhattan(const BlockPos& a, const BlockPos& b) {
         return abs(a.x - b.x) + abs(a.z - b.z);
     }
+    static double octile(const BlockPos& a, const BlockPos& b) {
+        double D = 1;
+        double D2 = M_SQRT2;
+        auto dx = (double) std::abs(b.x - a.x);
+        auto dy = (double) std::abs(b.y - a.y);
+        return D * (dx + dy) + (D2 - 2 * D) * std::min(dx, dy);
+    }
 
     static double heuristic(const NodePos& pos, const BlockPos& goal) {
-        const auto bpos = pos.absolutePosCenter();
-        return manhattan(bpos, goal) * 0.7 + bpos.distanceTo(goal) * 0.001 - (width(pos.size) * 4);
+        const auto center = pos.absolutePosCenter();
+        ///return manhattan(center, goal) * 0.7 + center.distanceTo(goal) * 0.001 - (width(pos.size) * 4);
+        return octile(center, goal) - (width(pos.size) * 4);
     }
 };
