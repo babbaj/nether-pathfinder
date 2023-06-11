@@ -50,9 +50,9 @@ void write(std::ofstream& out, T x) {
 
 void writeBreadCrumbFile(const char* fileName, const Path& path) {
     std::ofstream out(fileName, std::ios::out | std::ios::binary);
-    write(out, 1); // 1 trail
+    //write(out, 1); // 1 trail
     {
-        write(out, -1);
+        //write(out, -1);
         write(out, (int)path.blocks.size());
         for (const BlockPos& pos : path.blocks) {
             write(out, (double)pos.x);
@@ -152,7 +152,7 @@ int main(int argc, char** argv) {
         std::cout << "refining took " << duration / 1000.0 << "s " << std::endl;
         std::cout << "done refining" << std::endl;
 
-        //writeBreadCrumbFile("test", *path);
+        writeBreadCrumbFile("test", *path);
         printSizes(*path);
     } else {
         std::cout << "No path :-(\n";
