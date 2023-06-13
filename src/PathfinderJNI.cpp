@@ -24,7 +24,7 @@ bool inBounds(int y) {
 }
 
 extern "C" {
-    JNIEXPORT jlongArray JNICALL Java_com_babbaj_pathfinder_PathFinder_pathFind(JNIEnv* env, jclass clazz, jlong seed, jboolean fine, jboolean raytrace, jint x1, jint y1, jint z1, jint x2, jint y2, jint z2) {
+    JNIEXPORT jlongArray JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_pathFind(JNIEnv* env, jclass clazz, jlong seed, jboolean fine, jboolean raytrace, jint x1, jint y1, jint z1, jint x2, jint y2, jint z2) {
         if (!inBounds(y1) || !inBounds(y2)) {
             return nullptr; // TODO: throw exception
         }
@@ -54,7 +54,7 @@ extern "C" {
         }
     }
 
-    JNIEXPORT jboolean JNICALL Java_com_babbaj_pathfinder_PathFinder_cancel(JNIEnv* env, jclass clazz) {
+    JNIEXPORT jboolean JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_cancel(JNIEnv* env, jclass clazz) {
         return cancelFlag.test_and_set();
     }
 }

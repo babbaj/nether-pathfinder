@@ -1,0 +1,41 @@
+plugins {
+    id 'java'
+}
+
+group = 'dev.babbaj'
+version = '1.0-SNAPSHOT'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+}
+
+private static java.nio.file.Path getResourceOutput(SourceSet sourceSet) {
+    return sourceSet.getOutput().getResourcesDir().toPath();
+}
+
+final String compileLibraryOutput = 'compilePathfinderLibrary';
+
+task buildNatives(type: Exec) {
+    final File outputDir = new File(project.getBuildDir(), compileLibraryOutput)
+    outputDir.mkdirs()
+
+    workingDir outputDir
+    commandLine new File(getProjectDir(), "multiplat_build.sh").absolutePath.toString(), getProjectDir().absolutePath.toString()
+}
+
+
+task moveLibraryToResources(type: Copy) {
+    dependsOn buildNatives
+
+    from (new File(project.getBuildDir(), compileLibraryOutput)) {
+        include '*.dll'
+        include '*.so'
+        include '*.dylib'
+    }
+    into getResourceOutput(sourceSets.main).resolve('native')
+}
+
+jar.dependsOn(moveLibraryToResources)
