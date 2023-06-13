@@ -9,22 +9,20 @@
 #include <mutex>
 #include <type_traits>
 
-//#ifndef _LIBCPP_VERSION
-#if 1
+
 struct Worker {
     std::condition_variable_any condition;
     std::function<void()> task;
     std::mutex mutex;
     std::thread thread;
-    std::stop_source stopSource;
+    std::atomic_bool stopRequest;
 
     Worker(): thread([this] {
-        auto stoken = stopSource.get_token();
         while (true) {
             std::unique_lock lock(this->mutex);
-            condition.wait(lock, stoken, [this] { return static_cast<bool>(this->task); });
+            condition.wait(lock, [this] { return stopRequest.load(std::memory_order_acquire) || static_cast<bool>(this->task); });
 
-            if (stoken.stop_requested()) return;
+            if (stopRequest.load(std::memory_order_acquire)) return;
 
             this->task();
             this->task = nullptr;
@@ -32,7 +30,8 @@ struct Worker {
     }) {}
 
     void stop() {
-        stopSource.request_stop();
+        stopRequest.store(true, std::memory_order_release);
+        condition.notify_one();
     }
 
     void join() {
@@ -90,13 +89,3 @@ struct ParallelExecutor {
         }
     }
 };
-#else
-  constexpr bool IsActuallyParallel = false;
-  template<int Tasks>
-  struct ParallelExecutor {
-      template<typename... Fn>
-      auto compute(Fn&&... tasks) {
-          return std::make_tuple(tasks()...);
-      }
-  };
-#endif
