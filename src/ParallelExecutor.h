@@ -9,7 +9,8 @@
 #include <mutex>
 #include <type_traits>
 
-#ifndef _LIBCPP_VERSION
+//#ifndef _LIBCPP_VERSION
+#if 1
 struct Worker {
     std::condition_variable_any condition;
     std::function<void()> task;
