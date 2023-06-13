@@ -14,9 +14,11 @@ struct Worker {
     std::condition_variable_any condition;
     std::function<void()> task;
     std::mutex mutex;
-    std::jthread thread;
+    std::thread thread;
+    std::stop_source stopSource;
 
-    Worker(): thread([this](std::stop_token stoken) {
+    Worker(): thread([this] {
+        auto stoken = stopSource.get_token();
         while (true) {
             std::unique_lock lock(this->mutex);
             condition.wait(lock, stoken, [this] { return static_cast<bool>(this->task); });
@@ -27,6 +29,14 @@ struct Worker {
             this->task = nullptr;
         }
     }) {}
+
+    void stop() {
+        stopSource.request_stop();
+    }
+
+    void join() {
+        thread.join();
+    }
 };
 
 constexpr bool IsActuallyParallel = true;
@@ -68,6 +78,15 @@ struct ParallelExecutor {
         while (counter != Threads); // wait
 
         return results;
+    }
+
+    ~ParallelExecutor() {
+        for (auto& w : workers) {
+            w.stop();
+        }
+        for (auto& w : workers) {
+            w.join();
+        }
     }
 };
 #else
