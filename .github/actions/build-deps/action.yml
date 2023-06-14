@@ -1,0 +1,21 @@
+name: 'Setup Environment'
+description: 'Sets up the required build tools and validates the Gradle wrapper'
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up JDK
+      uses: actions/setup-java@v3
+      with:
+        java-version: 8
+        distribution: 'temurin'
+    - name: Validate Gradle wrapper
+      uses: gradle/wrapper-validation-action@8d49e559aae34d3e0eb16cde532684bc9702762b
+    - name: Install cmake and ninja
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y cmake ninja-build
+    - name: install Zig
+      uses: goto-bus-stop/setup-zig@v2.0.2
+      with:
+        version: 0.9.1 # newest version, at least from nixpkgs, is buggy

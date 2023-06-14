@@ -1,0 +1,21 @@
+name: Publish package to GitHub Packages
+
+on:
+  release:
+    types: [ created ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
+      - name: Setup Gradle
+        uses: ./.github/actions/build-deps
+      - name: Publish package
+        run: cd java && ./gradlew publish
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
