@@ -11,6 +11,7 @@ jobs:
       - name: Setup Gradle
         uses: ./.github/actions/build-deps
       - name: Build with Gradle
+        working-directory: java
         uses: gradle/gradle-build-action@749f47bda3e44aa060e82d7b3ef7e40d953bd629
         with:
           arguments: build
