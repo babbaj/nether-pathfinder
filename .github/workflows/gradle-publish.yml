@@ -20,7 +20,9 @@ jobs:
           ACCESS_TOKEN: ${{ secrets.MAVEN_COMMIT_TOKEN }}
         uses: ./.github/actions/git-setup
       - name: Git clone maven repo
-        run: git clone https://github.com/babbaj/maven.git ~/maven
+        env:
+          ACCESS_TOKEN: ${{ secrets.MAVEN_COMMIT_TOKEN }}
+        run: git clone https://${ACCESS_TOKEN}@github.com/babbaj/maven.git ~/maven
       - name: Publish package
         run: cd java && ./gradlew publish
         env:
