@@ -1,0 +1,15 @@
+name: 'Setup Git'
+description: 'Sets up git for publishing to the maven git repo'
+runs:
+  using: 'composite'
+  steps:
+    - name: Install git
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y git
+    - name: Configure git identity
+      shell: bash
+      run: |
+        git config --global user.name 'Github Actions'
+        git config --global user.password ${{ secrets.MAVEN_COMMIT_TOKEN }}

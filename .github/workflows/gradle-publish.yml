@@ -6,7 +6,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04 # has maven 3.6.3
     permissions:
       contents: read
       packages: write
@@ -15,7 +15,16 @@ jobs:
         uses: actions/checkout@v3
       - name: Setup Gradle
         uses: ./.github/actions/build-deps
+      - name: Git clone maven repo
+        run: git clone https://github.com/babbaj/maven.git ~/maven
       - name: Publish package
         run: cd java && ./gradlew publish
         env:
+          MAVEN_REPO: ~/maven
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Commit git changes
+        run: |
+          cd ~/maven
+          git add .
+          git commit -m "publish"
+          git push
