@@ -1,5 +1,6 @@
 plugins {
     id 'java'
+    id 'maven-publish'
 }
 
 group = 'dev.babbaj'
@@ -10,6 +11,27 @@ repositories {
 }
 
 dependencies {
+}
+
+publishing {
+    publications {
+        maven(MavenPublication) {
+            groupId = 'dev.babbaj'
+            artifactId = 'nether-pathfinder'
+            from components.java
+        }
+    }
+
+    repositories {
+        maven {
+            name = "GithubPackages"
+            url = new URI("https://maven.pkg.github.com/Babbaj/nether-pathfinder")
+            credentials {
+                username = System.getenv("GITHUB_ACTOR")
+                password = System.getenv("GITHUB_TOKEN")
+            }
+        }
+    }
 }
 
 private static java.nio.file.Path getResourceOutput(SourceSet sourceSet) {
