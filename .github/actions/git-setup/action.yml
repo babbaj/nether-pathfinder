@@ -10,6 +10,8 @@ runs:
         sudo apt-get install -y git
     - name: Configure git identity
       shell: bash
+      env:
+        ACCESS_TOKEN: ${{ secrets.MAVEN_COMMIT_TOKEN }}
       run: |
         git config --global user.name 'Github Actions'
-        git config --global user.password ${{ secrets.MAVEN_COMMIT_TOKEN }}
+        git config --global user.password $ACCESS_TOKEN
