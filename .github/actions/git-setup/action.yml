@@ -11,5 +11,5 @@ runs:
     - name: Configure git identity
       shell: bash
       run: |
-        git config --global user.name 'Github Actions'
+        git config --global user.name babbaj
         git config --global user.password $ACCESS_TOKEN
