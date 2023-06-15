@@ -16,6 +16,8 @@ jobs:
       - name: Setup Gradle
         uses: ./.github/actions/build-deps
       - name: Setup git
+        env:
+          ACCESS_TOKEN: ${{ secrets.MAVEN_COMMIT_TOKEN }}
         uses: ./.github/actions/git-setup
       - name: Git clone maven repo
         run: git clone https://github.com/babbaj/maven.git ~/maven
