@@ -27,6 +27,10 @@ publishing {
 
     repositories {
         maven {
+            name = "FileSystem"
+            url = uri("file://" + System.getenv("MAVEN_DIR"))
+        }
+        maven {
             name = "GithubPackages"
             url = new URI("https://maven.pkg.github.com/Babbaj/nether-pathfinder")
             credentials {
