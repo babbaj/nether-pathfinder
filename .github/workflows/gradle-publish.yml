@@ -20,7 +20,7 @@ jobs:
       - name: Publish package
         run: cd java && ./gradlew publish
         env:
-          MAVEN_REPO: ~/maven
+          MAVEN_DIR: ~/maven
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Commit git changes
         run: |
