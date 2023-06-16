@@ -286,40 +286,27 @@ std::optional<Path> findPathSegment(Context& ctx, const BlockPos& start, const B
         const ChunkPos cposSouth = bpos.south(16).toChunkPos();
         const ChunkPos cposEast = bpos.east(16).toChunkPos();
         const ChunkPos cposWest = bpos.west(16).toChunkPos();
-        if constexpr (IsActuallyParallel) {
-            if (!doneFull.contains(cpos)) {
-                ctx.topExecutor.compute(
-                        [&] {
-                            return getOrGenChunk(ctx.chunkCache, cposNorth, ctx.generator, ctx.executors[0], chunkMut);
-                        },
-                        [&] {
-                            return getOrGenChunk(ctx.chunkCache, cposSouth, ctx.generator, ctx.executors[1], chunkMut);
-                        },
-                        [&] {
-                            return getOrGenChunk(ctx.chunkCache, cposEast, ctx.generator, ctx.executors[2], chunkMut);
-                        },
-                        [&] {
-                            return getOrGenChunk(ctx.chunkCache, cposWest, ctx.generator, ctx.executors[3], chunkMut);
-                        }
-                );
-                doneFull.emplace(cpos, true);
-            }
+        if (!doneFull.contains(cpos)) {
+            ctx.topExecutor.compute(
+                    [&] {
+                        return getOrGenChunk(ctx.chunkCache, cposNorth, ctx.generator, ctx.executors[0], chunkMut);
+                    },
+                    [&] {
+                        return getOrGenChunk(ctx.chunkCache, cposSouth, ctx.generator, ctx.executors[1], chunkMut);
+                    },
+                    [&] {
+                        return getOrGenChunk(ctx.chunkCache, cposEast, ctx.generator, ctx.executors[2], chunkMut);
+                    },
+                    [&] {
+                        return getOrGenChunk(ctx.chunkCache, cposWest, ctx.generator, ctx.executors[3], chunkMut);
+                    }
+            );
+            doneFull.emplace(cpos, true);
         }
-        const auto chunkGetter = [&](ChunkPos cpos) {
-            if constexpr (IsActuallyParallel) {
-                return [&, cpos] { return *ctx.chunkCache[cpos]; };
-            } else {
-                return [&, cpos] { return getOrGenChunk(ctx.chunkCache, cpos, ctx.generator, ctx.executors[0], chunkMut); };
-            }
-        };
-        const auto north = chunkGetter(cposNorth);
-        const auto south = chunkGetter(cposSouth);
-        const auto east = chunkGetter(cposEast);
-        const auto west = chunkGetter(cposWest);
 
         auto callback = [&](const NodePos& neighborPos) {
             PathNode* neighborNode = getNodeAtPosition(map, neighborPos, goal);
-            auto sqrtSize = [](Size sz) { return sqrt(width(sz)); };
+            //auto sqrtSize = [](Size sz) { return sqrt(width(sz)); };
             const double cost = 1;//sqrtSize(neighborNode->pos.size);//width(neighborNode->pos.size);
             const double tentativeCost = currentNode->cost + cost;
             constexpr double MIN_IMPROVEMENT = 0.01;
@@ -358,10 +345,10 @@ std::optional<Path> findPathSegment(Context& ctx, const BlockPos& start, const B
                 const ChunkPos neighborCpos = origin.toChunkPos();
                 const Chunk& chunk =
                         face == Face::UP || face == Face::DOWN ? currentChunk :
-                        face == Face::NORTH ? neighborCpos == cpos ? currentChunk : north() :
-                        face == Face::SOUTH ? neighborCpos == cpos ? currentChunk : south() :
-                        face == Face::EAST ? neighborCpos == cpos ? currentChunk : east() :
-                        /* face == Face::WEST */ neighborCpos == cpos ? currentChunk : west();
+                        face == Face::NORTH ? neighborCpos == cpos ? currentChunk : *ctx.chunkCache[cposNorth] :
+                        face == Face::SOUTH ? neighborCpos == cpos ? currentChunk : *ctx.chunkCache[cposSouth] :
+                        face == Face::EAST ? neighborCpos == cpos ? currentChunk : *ctx.chunkCache[cposEast] :
+                        /* face == Face::WEST */ neighborCpos == cpos ? currentChunk : *ctx.chunkCache[cposWest];
 
                 // 1x only
                 if (/*fine*/ false) {

@@ -39,7 +39,6 @@ struct Worker {
     }
 };
 
-constexpr bool IsActuallyParallel = true;
 template<int Threads>
 struct ParallelExecutor {
     std::array<Worker, Threads - 1> workers{};
