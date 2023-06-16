@@ -14,12 +14,13 @@ public class NetherPathfinder {
 
     public static native void insertChunkData(long context, int chunkX, int chunkZ, boolean[] data); // TODO: specify format
 
-    public static native PathSegment pathFind0(long context, int x1, int y1, int z1, int x2, int y2, int z2);
+    public static native PathSegment pathFind(long context, int x1, int y1, int z1, int x2, int y2, int z2);
 
     public static native long[] raytrace(long context, long[] blocks);
 
-    public static native long[] pathFind(long seed, boolean fine, boolean raytrace, int x1, int y1, int z1, int x2, int y2, int z2);
-    public static native boolean cancel();
+    public static native boolean cancel(long context);
+
+    // TODO: convenient function for computing a full path
 
     private static String getNativeLibName() {
         String osName = System.getProperty("os.name").toLowerCase();
