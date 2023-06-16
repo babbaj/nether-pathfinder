@@ -26,7 +26,9 @@ bool inBounds(int y) {
 extern "C" {
     JNIEXPORT jlongArray JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_pathFind(JNIEnv* env, jclass clazz, jlong seed, jboolean fine, jboolean raytrace, jint x1, jint y1, jint z1, jint x2, jint y2, jint z2) {
         if (!inBounds(y1) || !inBounds(y2)) {
-            return nullptr; // TODO: throw exception
+            jclass exception = env->FindClass("java/lang/IllegalArgumentException");
+            env->ThrowNew(exception, "Invalid y1 or y2");
+            return nullptr;
         }
         cancelFlag.clear();
         auto generator = ChunkGeneratorHell::fromSeed(seed);
