@@ -74,7 +74,7 @@ extern "C" {
         std::optional<Path> path = findPathSegment(*ctx, {x1, y1, z1}, {x2, y2, z2});
         if (!path) return nullptr;
         static jclass resultType = env->FindClass("dev/babbaj/pathfinder/PathSegment");
-        static jmethodID ctor = env->GetMethodID(resultType, "<init>", "(Z;[L)V");
+        static jmethodID ctor = env->GetMethodID(resultType, "<init>", "(Z[J)V");
 
         std::vector<jlong> packed;
         packed.reserve(path->blocks.size());
