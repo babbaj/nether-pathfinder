@@ -6,7 +6,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-22.04 # has maven 3.6.3
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
