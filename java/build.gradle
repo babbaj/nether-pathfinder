@@ -6,8 +6,12 @@ plugins {
 group = 'dev.babbaj'
 version = '0.1'
 
-sourceCompatibility = '1.8'
-targetCompatibility = '1.8'
+java {
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(8))
+    }
+    withSourcesJar()
+}
 
 repositories {
     mavenCentral()
