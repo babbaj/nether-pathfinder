@@ -228,7 +228,7 @@ bool inGoal(const NodePos& node, const BlockPos& goal) {
 
 std::atomic_flag cancelFlag;
 
-std::optional<Path> findPath0(const BlockPos& start, const BlockPos& goal, const ChunkGeneratorHell& gen, cache_t& chunkCache, ParallelExecutor<4>& topExecutor, std::array<ChunkGenExec, 4>& executors, bool fine) {
+std::optional<Path> findPathSegment(Context& ctx, const BlockPos& start, const BlockPos& goal) {
     if (VERBOSE) std::cout << "distance = " << start.distanceTo(goal) << '\n';
 
     map_t<NodePos, std::unique_ptr<PathNode>> map;
@@ -241,7 +241,7 @@ std::optional<Path> findPath0(const BlockPos& start, const BlockPos& goal, const
     openSet.insert(startNode);
     std::mutex chunkMutRaw;
     std::mutex& chunkMut = chunkMutRaw;
-    getOrGenChunk(chunkCache, start.toChunkPos(), gen, executors[0], chunkMut);
+    getOrGenChunk(ctx.chunkCache, start.toChunkPos(), ctx.generator, ctx.executors[0], chunkMut);
 
     PathNode* bestSoFar = startNode;
     double bestHeuristicSoFar = startNode->estimatedCostToGoal;
@@ -270,7 +270,7 @@ std::optional<Path> findPath0(const BlockPos& start, const BlockPos& goal, const
         // TODO: get the right sub cube
         if (inGoal(currentNode->pos, goal)) {
             if (VERBOSE) {
-                std::cout << "chunkCache size = " << chunkCache.size() << '\n';
+                std::cout << "chunkCache size = " << ctx.chunkCache.size() << '\n';
                 std::cout << "openSet size = " << openSet.getSize() << '\n';
                 std::cout << "map size = " << map.size() << '\n';
                 std::cout << '\n';
@@ -281,25 +281,25 @@ std::optional<Path> findPath0(const BlockPos& start, const BlockPos& goal, const
         const auto size = pos.size;
         const auto bpos = pos.absolutePosZero();
         const ChunkPos cpos = bpos.toChunkPos();
-        const Chunk& currentChunk = *chunkCache[cpos];
+        const Chunk& currentChunk = *ctx.chunkCache[cpos];
         const ChunkPos cposNorth = bpos.north(16).toChunkPos();
         const ChunkPos cposSouth = bpos.south(16).toChunkPos();
         const ChunkPos cposEast = bpos.east(16).toChunkPos();
         const ChunkPos cposWest = bpos.west(16).toChunkPos();
         if constexpr (IsActuallyParallel) {
             if (!doneFull.contains(cpos)) {
-                topExecutor.compute(
+                ctx.topExecutor.compute(
                         [&] {
-                            return getOrGenChunk(chunkCache, cposNorth, gen, executors[0], chunkMut);
+                            return getOrGenChunk(ctx.chunkCache, cposNorth, ctx.generator, ctx.executors[0], chunkMut);
                         },
                         [&] {
-                            return getOrGenChunk(chunkCache, cposSouth, gen, executors[1], chunkMut);
+                            return getOrGenChunk(ctx.chunkCache, cposSouth, ctx.generator, ctx.executors[1], chunkMut);
                         },
                         [&] {
-                            return getOrGenChunk(chunkCache, cposEast, gen, executors[2], chunkMut);
+                            return getOrGenChunk(ctx.chunkCache, cposEast, ctx.generator, ctx.executors[2], chunkMut);
                         },
                         [&] {
-                            return getOrGenChunk(chunkCache, cposWest, gen, executors[3], chunkMut);
+                            return getOrGenChunk(ctx.chunkCache, cposWest, ctx.generator, ctx.executors[3], chunkMut);
                         }
                 );
                 doneFull.emplace(cpos, true);
@@ -307,9 +307,9 @@ std::optional<Path> findPath0(const BlockPos& start, const BlockPos& goal, const
         }
         const auto chunkGetter = [&](ChunkPos cpos) {
             if constexpr (IsActuallyParallel) {
-                return [&, cpos] { return *chunkCache[cpos]; };
+                return [&, cpos] { return *ctx.chunkCache[cpos]; };
             } else {
-                return [&, cpos] { return getOrGenChunk(chunkCache, cpos, gen, executors[0], chunkMut); };
+                return [&, cpos] { return getOrGenChunk(ctx.chunkCache, cpos, ctx.generator, ctx.executors[0], chunkMut); };
             }
         };
         const auto north = chunkGetter(cposNorth);
@@ -363,8 +363,8 @@ std::optional<Path> findPath0(const BlockPos& start, const BlockPos& goal, const
                         face == Face::EAST ? neighborCpos == cpos ? currentChunk : east() :
                         /* face == Face::WEST */ neighborCpos == cpos ? currentChunk : west();
 
-                // 1x only for refiner
-                if (fine) {
+                // 1x only
+                if (/*fine*/ false) {
                     if (!chunk.isSolid(neighborNodePos.absolutePosZero())) {
                         callback(neighborNodePos);
                     }
@@ -381,7 +381,7 @@ std::optional<Path> findPath0(const BlockPos& start, const BlockPos& goal, const
         std::cout << "failing = " << failing << '\n';
         std::cout << "Open set width: " << openSet.getSize() << '\n';
         std::cout << "PathNode map size: " << map.size() << '\n';
-        std::cout << "chunk cache size: " << chunkCache.size() << '\n';
+        std::cout << "chunk cache size: " << ctx.chunkCache.size() << '\n';
         std::cout << '\n';
     }
 
@@ -452,21 +452,20 @@ Path splicePaths(std::vector<Path>&& paths) {
     return path;
 }
 
-std::optional<Path> findPath(const BlockPos& start, const BlockPos& goal, const ChunkGeneratorHell& gen, bool fine) {
+std::optional<Path> findPathFull(Context& ctx, const BlockPos& start, const BlockPos& goal) {
     if (!isInBounds(start)) throw "troll";
 
     ParallelExecutor<4> topExecutor;
     std::array<ChunkGenExec, 4> executors;
     std::vector<Path> segments;
-    cache_t chunkCache;
 
     // we can't pathfind through solid blocks
-    const auto realStart = findAir(start, gen);
-    const auto realGoal = findAir(goal, gen);
+    const auto realStart = findAir(start, ctx.generator);
+    const auto realGoal = findAir(goal, ctx.generator);
 
     while (true) {
         const BlockPos lastPathEnd = !segments.empty() ? segments.back().getEndPos() : realStart;
-        std::optional path = findPath0(lastPathEnd, realGoal, gen, chunkCache, topExecutor, executors, fine);
+        std::optional path = findPathSegment(ctx, lastPathEnd, realGoal);
         if (!path.has_value()) {
             if (cancelFlag.test()) {
                 cancelFlag.clear();
@@ -482,9 +481,7 @@ std::optional<Path> findPath(const BlockPos& start, const BlockPos& goal, const 
     }
 
     if (!segments.empty()) {
-        auto out = splicePaths(std::move(segments));
-        out.chunkCache = std::move(chunkCache);
-        return out;
+        return splicePaths(std::move(segments));
     } else {
         return std::nullopt;
     }

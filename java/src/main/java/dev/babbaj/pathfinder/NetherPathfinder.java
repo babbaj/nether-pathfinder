@@ -12,7 +12,17 @@ public class NetherPathfinder {
     public static native long newContext(long seed);
     public static native void freeContext(long pointer);
 
-    public static native void insertChunkData(long context, int chunkX, int chunkZ, boolean[] data); // TODO: specify format
+    /*
+    from BlockStateContainer
+    private static int getIndex(int x, int y, int z)
+    {
+        return y << 8 | z << 4 | x;
+    }
+
+    chunkX and chunkZ are chunk coords, not block coords.
+    This is currently not thread safe
+    */
+    public static native void insertChunkData(long context, int chunkX, int chunkZ, boolean[] data);
 
     public static native PathSegment pathFind(long context, int x1, int y1, int z1, int x2, int y2, int z2);
 

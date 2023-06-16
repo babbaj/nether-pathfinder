@@ -27,8 +27,17 @@ struct Path {
     }
 };
 
-extern std::atomic_flag cancelFlag; // a bit of a hack
+struct Context {
+    ChunkGeneratorHell generator;
+    cache_t chunkCache;
+    ParallelExecutor<4> topExecutor;
+    std::array<ChunkGenExec, 4> executors;
+    std::atomic_flag cancelFlag;
 
-std::optional<Path> findPath(const BlockPos& start, const BlockPos& goal, const ChunkGeneratorHell& gen, bool fine);
+    explicit Context(int64_t seed): generator(ChunkGeneratorHell::fromSeed(seed)) {}
+};
+
+std::optional<Path> findPathFull(Context& ctx, const BlockPos& start, const BlockPos& goal);
+std::optional<Path> findPathSegment(Context& ctx, const BlockPos& start, const BlockPos& goal);
 
 BlockPos findAir(const BlockPos& pos, const ChunkGeneratorHell& gen);

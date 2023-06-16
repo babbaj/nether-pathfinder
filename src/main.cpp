@@ -117,7 +117,6 @@ void printSizes(const Path& path) {
 
 int main(int argc, char** argv) {
     constexpr auto seed = 146008555100680;
-    auto generator = ChunkGeneratorHell::fromSeed(seed);
 
     constexpr BlockPos ONE_MIL = {1000072, 64, -121};
     constexpr BlockPos ONE_HUNDRED_K = {100000, 50, 0};
@@ -132,8 +131,9 @@ int main(int argc, char** argv) {
     auto nyaa = std::chrono::duration_cast<std::chrono::milliseconds>(owo - uwu).count();
     std::cout << "first iteration took " << nyaa / 1000.0 << "s " << std::endl;*/
 
+    Context ctx{seed};
     auto t1 = std::chrono::steady_clock::now();
-    std::optional<Path> path = findPath({0, 40, 0}, ONE_HUNDRED_K, generator, false).value();
+    std::optional<Path> path = findPathFull(ctx, {0, 40, 0}, ONE_HUNDRED_K).value();
     auto t2 = std::chrono::steady_clock::now();
 
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
@@ -146,7 +146,7 @@ int main(int argc, char** argv) {
 
         std::cout<< "refining..." << std::endl;
         auto t1 = std::chrono::steady_clock::now();
-        refine(path->blocks, generator, path->chunkCache);
+        refine(path->blocks, ctx.generator, path->chunkCache);
         auto t2 = std::chrono::steady_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
         std::cout << "refining took " << duration / 1000.0 << "s " << std::endl;
