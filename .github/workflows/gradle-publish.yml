@@ -22,15 +22,15 @@ jobs:
       - name: Git clone maven repo
         env:
           ACCESS_TOKEN: ${{ secrets.MAVEN_COMMIT_TOKEN }}
-        run: git clone https://${ACCESS_TOKEN}@github.com/babbaj/maven.git ~/maven
+        run: git clone https://${ACCESS_TOKEN}@github.com/babbaj/maven.git /tmp/maven
       - name: Publish package
         run: cd java && ./gradlew publish
         env:
-          MAVEN_DIR: ~/maven
+          MAVEN_DIR: /tmp/maven
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Commit git changes
         run: |
-          cd ~/maven
+          cd /tmp/maven
           git add .
-          git commit --author="Github Actions" -m "publish"
+          git commit --author="Github Actions <babbaj45@gmail.com>" -m "gradle publish from github actions"
           git push
