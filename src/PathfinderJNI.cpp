@@ -36,7 +36,44 @@ void throwException(JNIEnv* env, const char* msg) {
     env->ThrowNew(exception, msg);
 }
 
+struct State {
+    jclass      pathSegmentClass{};
+    jmethodID   pathSegmentCtor{};
+} state;
+
 extern "C" {
+
+    JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved) {
+        JNIEnv* env;
+        if (vm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_8) != JNI_OK) {
+            return JNI_EVERSION;
+        }
+
+        jclass cls = env->FindClass("dev/babbaj/pathfinder/PathSegment");
+        if (!cls) return JNI_ERR;
+
+        jmethodID ctor = env->GetMethodID(cls, "<init>", "(Z[J)V");
+        if (!ctor) return JNI_ERR;
+
+        state = {
+            .pathSegmentClass = (jclass) env->NewGlobalRef(cls),
+            .pathSegmentCtor  = ctor
+        };
+
+        return JNI_VERSION_1_8;
+    }
+
+    JNIEXPORT void JNICALL JNI_OnUnload(JavaVM* vm, void* reserved) {
+        JNIEnv* env;
+        if (vm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_8) != JNI_OK) {
+            return;
+        }
+
+        if (state.pathSegmentClass) {
+            env->DeleteGlobalRef(state.pathSegmentClass);
+        }
+    }
+
     JNIEXPORT jlong JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_newContext(JNIEnv* env, jclass, jlong seed) {
         return reinterpret_cast<jlong>(new Context{seed});
     }
@@ -73,17 +110,22 @@ extern "C" {
         ctx->cancelFlag.clear();
         std::optional<Path> path = findPathSegment(*ctx, {x1, y1, z1}, {x2, y2, z2});
         if (!path) return nullptr;
-        static jclass resultType = env->FindClass("dev/babbaj/pathfinder/PathSegment");
-        static jmethodID ctor = env->GetMethodID(resultType, "<init>", "(Z[J)V");
 
         std::vector<jlong> packed;
         packed.reserve(path->blocks.size());
         std::transform(path->blocks.begin(), path->blocks.end(), std::back_inserter(packed), packBlockPos);
+
         const auto len = (jint) packed.size();
         jlongArray array = env->NewLongArray(len);
         env->SetLongArrayRegion(array, 0, len, packed.data());
-        jobject object = env->NewObject(resultType, ctor, path->type == Path::Type::FINISHED, array);
 
+        jobject object = env->NewObject(
+            state.pathSegmentClass,
+            state.pathSegmentCtor,
+            // args
+            path->type == Path::Type::FINISHED,
+            array
+        );
         return object;
     }
 
