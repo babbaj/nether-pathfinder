@@ -8,7 +8,17 @@ import java.nio.file.StandardCopyOption;
 import java.util.Objects;
 
 public class NetherPathfinder {
-    public static native long[] pathFind(long seed, boolean fine, boolean raytrace, int x1, int y1, int z1, int x2, int y2, int z2) throws IllegalArgumentException;
+
+    public static native long newContext(long seed);
+    public static native void freeContext(long pointer);
+
+    public static native void insertChunkData(long context, int chunkX, int chunkZ, boolean[] data); // TODO: specify format
+
+    public static native PathSegment pathFind0(long context, int x1, int y1, int z1, int x2, int y2, int z2);
+
+    public static native long[] raytrace(long context, long[] blocks);
+
+    public static native long[] pathFind(long seed, boolean fine, boolean raytrace, int x1, int y1, int z1, int x2, int y2, int z2);
     public static native boolean cancel();
 
     private static String getNativeLibName() {
