@@ -228,6 +228,7 @@ bool inGoal(const NodePos& node, const BlockPos& goal) {
 
 std::atomic_flag cancelFlag;
 
+template<Size minSize>
 std::optional<Path> findPathSegment(Context& ctx, const BlockPos& start, const BlockPos& goal) {
     if (VERBOSE) std::cout << "distance = " << start.distanceTo(goal) << '\n';
 
@@ -356,7 +357,7 @@ std::optional<Path> findPathSegment(Context& ctx, const BlockPos& start, const B
                         callback(neighborNodePos);
                     }
                 } else {
-                    growThenIterateOuter<face, Size::X2>(chunk, neighborNodePos, callback);
+                    growThenIterateOuter<face, minSize>(chunk, neighborNodePos, callback);
                 }
             }(), ...);
         }(std::make_index_sequence<ALL_FACES.size()>{});
@@ -374,6 +375,9 @@ std::optional<Path> findPathSegment(Context& ctx, const BlockPos& start, const B
 
     return bestPathSoFar(map, startNode, bestSoFar, start, goal);
 }
+
+template std::optional<Path> findPathSegment<Size::X2>(Context& ctx, const BlockPos& start, const BlockPos& goal);
+template std::optional<Path> findPathSegment<Size::X4>(Context& ctx, const BlockPos& start, const BlockPos& goal);
 
 bool isSolid(const BlockPos& pos, const ChunkGeneratorHell& gen, ChunkGenExec& exec, map_t<ChunkPos, std::unique_ptr<Chunk>>& cache) {
     const ChunkPos chunkPos = pos.toChunkPos();
@@ -452,7 +456,7 @@ std::optional<Path> findPathFull(Context& ctx, const BlockPos& start, const Bloc
 
     while (true) {
         const BlockPos lastPathEnd = !segments.empty() ? segments.back().getEndPos() : realStart;
-        std::optional path = findPathSegment(ctx, lastPathEnd, realGoal);
+        std::optional path = findPathSegment<Size::X2>(ctx, lastPathEnd, realGoal);
         if (!path.has_value()) {
             if (cancelFlag.test()) {
                 cancelFlag.clear();

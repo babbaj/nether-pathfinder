@@ -114,13 +114,16 @@ extern "C" {
         ctx->chunkCache.insert_or_assign(ChunkPos{chunkX, chunkZ}, std::move(chunk_ptr));
     }
 
-    EXPORT jobject JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_pathFind(JNIEnv* env, jclass, Context* ctx, jint x1, jint y1, jint z1, jint x2, jint y2, jint z2) {
+    EXPORT jobject JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_pathFind(JNIEnv* env, jclass, Context* ctx, jint x1, jint y1, jint z1, jint x2, jint y2, jint z2, jboolean x4) {
         if (!inBounds(y1) || !inBounds(y2)) {
             throwException(env, "Invalid y1 or y2");
             return nullptr;
         }
         ctx->cancelFlag.clear();
-        std::optional<Path> path = findPathSegment(*ctx, {x1, y1, z1}, {x2, y2, z2});
+        std::optional<Path> path = x4
+            ? findPathSegment<Size::X4>(*ctx, {x1, y1, z1}, {x2, y2, z2})
+            : findPathSegment<Size::X2>(*ctx, {x1, y1, z1}, {x2, y2, z2});
+
         if (!path) return nullptr;
 
         std::vector<jlong> packed;
