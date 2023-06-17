@@ -19,18 +19,8 @@ public:
     }
     BlockPos absolutePosCenter() const {
         const auto sz = width(this->size);
-        return (this->pos << shiftFor(this->size)) + (sz / 2);
-        // this seems to make the line go through blocks, must be broken?
-        //const auto zero = this->absolutePosZero();
-        //int off_x = sz / 2;
-        //int off_z = sz / 2;
-        //if (zero.x < 0) {
-        //    off_x = -off_x;
-        //}
-        //if (zero.z < 0) {
-        //    off_z = -off_z;
-        //}
-        //return {zero.x + off_x, zero.y, zero.z + off_z};
+        const auto meow = this->absolutePosZero();
+        return {meow.x + sz / 2, meow.y, meow.z + sz / 2};
     }
 
     constexpr friend bool operator==(const NodePos& a, const NodePos& b) {
