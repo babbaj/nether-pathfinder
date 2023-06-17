@@ -390,9 +390,8 @@ bool isSolid(const BlockPos& pos, const ChunkGeneratorHell& gen, ChunkGenExec& e
     }
 }
 
-BlockPos findAir(const BlockPos& pos, const ChunkGeneratorHell& gen) {
+BlockPos findAir(Context& ctx, const BlockPos& pos, const ChunkGeneratorHell& gen) {
     ChunkGenExec exec{};
-    map_t<ChunkPos, std::unique_ptr<Chunk>> chunkCache;
     auto queue = std::queue<BlockPos>{};
     auto visited = std::unordered_set<BlockPos>{};
     queue.push(pos);
@@ -403,7 +402,7 @@ BlockPos findAir(const BlockPos& pos, const ChunkGeneratorHell& gen) {
         const BlockPos node = queue.front();
         queue.pop();
         if (isInBounds(node)) {
-            if (!isSolid(node, gen, exec, chunkCache)) {
+            if (!isSolid(node, gen, exec, ctx.chunkCache)) {
                 return node;
             }
             auto push = [&](BlockPos pos) {
@@ -447,8 +446,8 @@ std::optional<Path> findPathFull(Context& ctx, const BlockPos& start, const Bloc
     std::vector<Path> segments;
 
     // we can't pathfind through solid blocks
-    const auto realStart = findAir(start, ctx.generator);
-    const auto realGoal = findAir(goal, ctx.generator);
+    const auto realStart = findAir(ctx, start, ctx.generator);
+    const auto realGoal = findAir(ctx, goal, ctx.generator);
 
     while (true) {
         const BlockPos lastPathEnd = !segments.empty() ? segments.back().getEndPos() : realStart;
