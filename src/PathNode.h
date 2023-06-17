@@ -19,8 +19,7 @@ public:
     }
     BlockPos absolutePosCenter() const {
         const auto sz = width(this->size);
-        const auto meow = this->absolutePosZero();
-        return {meow.x + sz / 2, meow.y, meow.z + sz / 2};
+        return this->absolutePosZero() + + (sz / 2);
     }
 
     constexpr friend bool operator==(const NodePos& a, const NodePos& b) {
