@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <bit>
 
 #include <jni.h>
 
@@ -103,6 +104,12 @@ extern "C" {
             chunk_ptr->setBlock(x, y, z, data[i]);
         }
         env->ReleaseBooleanArrayElements(input, data, JNI_ABORT);
+        int bits = 0;
+        for (int i = 0; i < sizeof(Chunk); i++) {
+            auto byte = reinterpret_cast<uint8_t*>(chunk_ptr.get())[i];
+            bits += std::popcount(byte);
+        }
+        std::cout << "Chunk " << chunkX << ", " << chunkZ << " popcnt = " << bits << std::endl;
 
         ctx->chunkCache.insert_or_assign(ChunkPos{chunkX, chunkZ}, std::move(chunk_ptr));
     }
