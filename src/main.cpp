@@ -118,10 +118,10 @@ void printSizes(const Path& path) {
 int main(int argc, char** argv) {
     constexpr auto seed = 146008555100680;
 
-    constexpr BlockPos ONE_MIL = {1000072, 64, -121};
-    constexpr BlockPos ONE_HUNDRED_K = {100000, 50, 0};
-    constexpr BlockPos TEN_K = {10000, 64, 0};
-    constexpr BlockPos ONE_K = {1000, 64, 0};
+    [[maybe_unused]] constexpr BlockPos ONE_MIL = {1000072, 64, -121};
+    [[maybe_unused]] constexpr BlockPos ONE_HUNDRED_K = {100000, 50, 0};
+    [[maybe_unused]] constexpr BlockPos TEN_K = {10000, 64, 0};
+    [[maybe_unused]] constexpr BlockPos ONE_K = {1000, 64, 0};
     //findPath({0, 40, 0}, ONE_HUNDRED_K, generator, false);
     //return 0;
 

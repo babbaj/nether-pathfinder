@@ -12,7 +12,7 @@ constexpr static double lerp(double a, double b, double c)
     return b + a * (c - b);
 }
 
-constexpr static double grad2(int p_76309_1_, double p_76309_2_, double p_76309_4_)
+[[maybe_unused]] constexpr static double grad2(int p_76309_1_, double p_76309_2_, double p_76309_4_)
 {
     int i = p_76309_1_ & 15;
     return GRAD_2X[i] * p_76309_2_ + GRAD_2Z[i] * p_76309_4_;

@@ -42,8 +42,13 @@ struct State {
 } state;
 
 extern "C" {
+#if defined(_WIN32)
+#define EXPORT __declspec(dllexport) JNIEXPORT
+#else
+#define EXPORT JNIEXPORT
+#endif
 
-    JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved) {
+    EXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved) {
         JNIEnv* env;
         if (vm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_8) != JNI_OK) {
             return JNI_EVERSION;
@@ -63,7 +68,7 @@ extern "C" {
         return JNI_VERSION_1_8;
     }
 
-    JNIEXPORT void JNICALL JNI_OnUnload(JavaVM* vm, void* reserved) {
+    EXPORT void JNICALL JNI_OnUnload(JavaVM* vm, void* reserved) {
         JNIEnv* env;
         if (vm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_8) != JNI_OK) {
             return;
@@ -74,15 +79,15 @@ extern "C" {
         }
     }
 
-    JNIEXPORT jlong JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_newContext(JNIEnv* env, jclass, jlong seed) {
+    EXPORT jlong JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_newContext(JNIEnv* env, jclass, jlong seed) {
         return reinterpret_cast<jlong>(new Context{seed});
     }
 
-    JNIEXPORT void JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_freeContext(JNIEnv* env, jclass, Context* ctx) {
+    EXPORT void JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_freeContext(JNIEnv* env, jclass, Context* ctx) {
         delete ctx;
     }
 
-    JNIEXPORT void JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_insertChunkData(JNIEnv* env, jclass, Context* ctx, jint chunkX, jint chunkZ, jbooleanArray input) {
+    EXPORT void JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_insertChunkData(JNIEnv* env, jclass, Context* ctx, jint chunkX, jint chunkZ, jbooleanArray input) {
         jboolean isCopy{};
         constexpr auto blocksInChunk = 16 * 16 * 128;
         if (auto len = env->GetArrayLength(input); len != blocksInChunk) {
@@ -102,7 +107,7 @@ extern "C" {
         ctx->chunkCache.emplace(ChunkPos{chunkX, chunkZ}, std::move(chunk_ptr));
     }
 
-    JNIEXPORT jobject JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_pathFind(JNIEnv* env, jclass, Context* ctx, jint x1, jint y1, jint z1, jint x2, jint y2, jint z2) {
+    EXPORT jobject JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_pathFind(JNIEnv* env, jclass, Context* ctx, jint x1, jint y1, jint z1, jint x2, jint y2, jint z2) {
         if (!inBounds(y1) || !inBounds(y2)) {
             throwException(env, "Invalid y1 or y2");
             return nullptr;
@@ -129,11 +134,11 @@ extern "C" {
         return object;
     }
 
-    JNIEXPORT jboolean JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_cancel(JNIEnv* env, jclass clazz, Context* ctx) {
+    EXPORT jboolean JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_cancel(JNIEnv* env, jclass clazz, Context* ctx) {
         return ctx->cancelFlag.test_and_set();
     }
 
-    JNIEXPORT jlongArray JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_raytrace(JNIEnv* env, jclass, Context* ctx, jlongArray packed) {
+    EXPORT jlongArray JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_raytrace(JNIEnv* env, jclass, Context* ctx, jlongArray packed) {
         auto packedLen = env->GetArrayLength(packed);
         jboolean isCopy{};
         jlong* pointer = env->GetLongArrayElements(packed, &isCopy);

@@ -8,6 +8,7 @@ function do_build {
     local java_root=$1
     local target=$2
     local output_path=$3
+    echo "Building $target..."
 
     CXXFLAGS="-target $target" cmake -G Ninja $java_root/.. \
       -DCMAKE_C_COMPILER=$(realpath $java_root/zigcc.sh) -DCMAKE_CXX_COMPILER=$(realpath $java_root/zigcxx.sh) \
