@@ -104,7 +104,7 @@ extern "C" {
         }
         env->ReleaseBooleanArrayElements(input, data, JNI_ABORT);
 
-        ctx->chunkCache.emplace(ChunkPos{chunkX, chunkZ}, std::move(chunk_ptr));
+        ctx->chunkCache.insert_or_assign(ChunkPos{chunkX, chunkZ}, std::move(chunk_ptr));
     }
 
     EXPORT jobject JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_pathFind(JNIEnv* env, jclass, Context* ctx, jint x1, jint y1, jint z1, jint x2, jint y2, jint z2) {
