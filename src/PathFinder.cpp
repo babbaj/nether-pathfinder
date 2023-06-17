@@ -228,7 +228,7 @@ bool inGoal(const NodePos& node, const BlockPos& goal) {
 
 std::atomic_flag cancelFlag;
 
-std::optional<Path> findPathSegment(Context& ctx, const BlockPos& start, const BlockPos& goal) {
+std::optional<Path> findPathSegment(Context& ctx, const BlockPos& start, const BlockPos& goal, bool x4Min) {
     if (VERBOSE) std::cout << "distance = " << start.distanceTo(goal) << '\n';
 
     map_t<NodePos, std::unique_ptr<PathNode>> map;
@@ -356,7 +356,11 @@ std::optional<Path> findPathSegment(Context& ctx, const BlockPos& start, const B
                         callback(neighborNodePos);
                     }
                 } else {
-                    growThenIterateOuter<face, Size::X2>(chunk, neighborNodePos, callback);
+                    if (x4Min) {
+                        growThenIterateOuter<face, Size::X4>(chunk, neighborNodePos, callback);
+                    } else {
+                        growThenIterateOuter<face, Size::X2>(chunk, neighborNodePos, callback);
+                    }
                 }
             }(), ...);
         }(std::make_index_sequence<ALL_FACES.size()>{});
@@ -451,7 +455,7 @@ std::optional<Path> findPathFull(Context& ctx, const BlockPos& start, const Bloc
 
     while (true) {
         const BlockPos lastPathEnd = !segments.empty() ? segments.back().getEndPos() : realStart;
-        std::optional path = findPathSegment(ctx, lastPathEnd, realGoal);
+        std::optional path = findPathSegment(ctx, lastPathEnd, realGoal, false);
         if (!path.has_value()) {
             if (cancelFlag.test()) {
                 cancelFlag.clear();
