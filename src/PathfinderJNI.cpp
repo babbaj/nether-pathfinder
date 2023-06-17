@@ -99,7 +99,7 @@ extern "C" {
         for (int i = 0; i < blocksInChunk; i++) {
             auto x = (i >> 0) & 0xF;
             auto z = (i >> 4) & 0xF;
-            auto y = (i >> 8) & 0xF;
+            auto y = (i >> 8) & 0x7F;
             chunk_ptr->setBlock(x, y, z, data[i]);
         }
         env->ReleaseBooleanArrayElements(input, data, JNI_ABORT);
