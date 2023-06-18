@@ -455,7 +455,7 @@ std::optional<Path> findPathFull(Context& ctx, const BlockPos& start, const Bloc
 
     while (true) {
         const BlockPos lastPathEnd = !segments.empty() ? segments.back().getEndPos() : realStart;
-        std::optional path = findPathSegment(ctx, lastPathEnd, realGoal, false);
+        std::optional path = findPathSegment(ctx, lastPathEnd, realGoal, false, 0);
         if (!path.has_value()) {
             if (cancelFlag.test()) {
                 cancelFlag.clear();
