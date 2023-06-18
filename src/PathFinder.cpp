@@ -228,7 +228,7 @@ bool inGoal(const NodePos& node, const BlockPos& goal) {
 
 std::atomic_flag cancelFlag;
 
-std::optional<Path> findPathSegment(Context& ctx, const BlockPos& start, const BlockPos& goal, bool x4Min) {
+std::optional<Path> findPathSegment(Context& ctx, const BlockPos& start, const BlockPos& goal, bool x4Min, int timeoutMs) {
     if (VERBOSE) std::cout << "distance = " << start.distanceTo(goal) << '\n';
 
     map_t<NodePos, std::unique_ptr<PathNode>> map;
@@ -249,7 +249,8 @@ std::optional<Path> findPathSegment(Context& ctx, const BlockPos& start, const B
     using namespace std::chrono_literals;
     const auto startTime = std::chrono::system_clock::now();
     const auto primaryTimeoutTime = startTime + 500ms;
-    const auto failureTimeout = startTime + 30s;
+    const auto timeout = timeoutMs != 0 ? std::chrono::milliseconds{timeoutMs} : 30s;
+    const auto failureTimeout = startTime + timeout;
 
     bool failing = true;
     int numNodes = 0;
@@ -395,7 +396,6 @@ bool isSolid(const BlockPos& pos, const ChunkGeneratorHell& gen, ChunkGenExec& e
 }
 
 BlockPos findAir(Context& ctx, const BlockPos& pos, const ChunkGeneratorHell& gen) {
-    ChunkGenExec exec{};
     auto queue = std::queue<BlockPos>{};
     auto visited = std::unordered_set<BlockPos>{};
     queue.push(pos);
@@ -406,7 +406,7 @@ BlockPos findAir(Context& ctx, const BlockPos& pos, const ChunkGeneratorHell& ge
         const BlockPos node = queue.front();
         queue.pop();
         if (isInBounds(node)) {
-            if (!isSolid(node, gen, exec, ctx.chunkCache)) {
+            if (!isSolid(node, gen, ctx.executors[0], ctx.chunkCache)) {
                 return node;
             }
             auto push = [&](BlockPos pos) {

@@ -38,6 +38,6 @@ struct Context {
 };
 
 std::optional<Path> findPathFull(Context& ctx, const BlockPos& start, const BlockPos& goal);
-std::optional<Path> findPathSegment(Context& ctx, const BlockPos& start, const BlockPos& goal, bool x4Min);
+std::optional<Path> findPathSegment(Context& ctx, const BlockPos& start, const BlockPos& goal, bool x4Min, int failTimeoutMs);
 
 BlockPos findAir(const BlockPos& pos, const ChunkGeneratorHell& gen);
