@@ -1,6 +1,7 @@
 #include "Utils.h"
 #include "ChunkGeneratorHell.h"
 #include "ChunkGen.h"
+#include "Refiner.h"
 
 #include <vector>
 #include <unordered_map>
@@ -171,21 +172,6 @@ double min(double x, double y, double z) {
 }
 
 
-enum class Plane {
-    YZ,
-    XZ,
-    XY
-};
-
-// we intersected with a solid block
-struct Hit {};
-// line of sight confirmed
-struct Finished {};
-// we got to the other side of an x16 without hitting anything
-struct Miss {
-    Plane exitPlane;
-};
-using RaytraceResult = std::variant<Hit, Finished, Miss>;
 
 Plane exitPlane(double tx1, double ty1, double tz1) {
     if (tx1 < ty1) {
@@ -231,30 +217,34 @@ int new_node(double txm, int x, double tym, int y, double tzm, int z) {
     return out;
 }
 
-enum class SubtreeResult {
+enum class SubtreeResultType {
     HIT,
     FINISHED,
     MISS
 };
+struct SubtreeResult {
+    SubtreeResultType type;
+    Vec3 hitPos{}; // only valid for hits
+};
 
 template<Size Size>
 SubtreeResult proc_subtree(uint8_t a, const Vec3& origin, double targetLen, double tx0, double ty0, double tz0, double tx1, double ty1, double tz1, const Node<Size>& node) {
-    using enum SubtreeResult;
+    using enum SubtreeResultType;
     // if this node is behind us
     if (tx1 < 0.0 || ty1 < 0.0 || tz1 < 0.0) {
-        return MISS;
+        return {MISS};
     }
 
     if (tx0 >= targetLen || ty0 >= targetLen || tz0 >= targetLen) {
-        return FINISHED;
+        return {FINISHED};
     }
 
     if constexpr (Size == Size::X1) { // leaf
-        return node.node ? HIT : MISS;
+        return node.node ? SubtreeResult{HIT, {tx0, ty0, tz0}} : SubtreeResult{MISS};
     } else {
         if (node.empty()) {
             // we know that all the leafs are empty
-            return MISS;
+            return {MISS};
         }
 
         auto m = [](double origin, int nodeMin, int nodeMax, double t0, double t1) {
@@ -276,39 +266,39 @@ SubtreeResult proc_subtree(uint8_t a, const Vec3& origin, double targetLen, doub
         do {
             switch (currNode) {
                 case 0:
-                    if (auto result = proc_subtree(a, origin, targetLen, tx0, ty0, tz0, txm, tym, tzm, daughter(node, a)); result != MISS) return result;
+                    if (auto result = proc_subtree(a, origin, targetLen, tx0, ty0, tz0, txm, tym, tzm, daughter(node, a)); result.type != MISS) return result;
                     currNode = new_node(txm,4,tym,2,tzm,1);
                     break;
                 case 1:
-                    if (auto result = proc_subtree(a, origin, targetLen, tx0, ty0, tzm, txm, tym, tz1, daughter(node, 1 ^ a)); result != MISS) return result;
+                    if (auto result = proc_subtree(a, origin, targetLen, tx0, ty0, tzm, txm, tym, tz1, daughter(node, 1 ^ a)); result.type != MISS) return result;
                     currNode = new_node(txm,5,tym,3,tz1,8);
                     break;
                 case 2:
-                    if (auto result = proc_subtree(a, origin, targetLen, tx0, tym, tz0, txm, ty1, tzm, daughter(node, 2 ^ a)); result != MISS) return result;
+                    if (auto result = proc_subtree(a, origin, targetLen, tx0, tym, tz0, txm, ty1, tzm, daughter(node, 2 ^ a)); result.type != MISS) return result;
                     currNode = new_node(txm,6,ty1,8,tzm,3);
                     break;
                 case 3:
-                    if (auto result = proc_subtree(a, origin, targetLen, tx0, tym, tzm, txm, ty1, tz1, daughter(node, 3 ^ a)); result != MISS) return result;
+                    if (auto result = proc_subtree(a, origin, targetLen, tx0, tym, tzm, txm, ty1, tz1, daughter(node, 3 ^ a)); result.type != MISS) return result;
                     currNode = new_node(txm,7,ty1,8,tz1,8);
                     break;
                 case 4:
-                    if (auto result = proc_subtree(a, origin, targetLen, txm, ty0, tz0, tx1, tym, tzm, daughter(node, 4 ^ a)); result != MISS) return result;
+                    if (auto result = proc_subtree(a, origin, targetLen, txm, ty0, tz0, tx1, tym, tzm, daughter(node, 4 ^ a)); result.type != MISS) return result;
                     currNode = new_node(tx1,8,tym,6,tzm,5);
                     break;
                 case 5:
-                    if (auto result = proc_subtree(a, origin, targetLen, txm, ty0, tzm, tx1, tym, tz1, daughter(node, 5 ^ a)); result != MISS) return result;
+                    if (auto result = proc_subtree(a, origin, targetLen, txm, ty0, tzm, tx1, tym, tz1, daughter(node, 5 ^ a)); result.type != MISS) return result;
                     currNode = new_node(tx1,8,tym,7,tz1,8);
                     break;
                 case 6:
-                    if (auto result = proc_subtree(a, origin, targetLen, txm, tym, tz0, tx1, ty1, tzm, daughter(node, 6 ^ a)); result != MISS) return result;
+                    if (auto result = proc_subtree(a, origin, targetLen, txm, tym, tz0, tx1, ty1, tzm, daughter(node, 6 ^ a)); result.type != MISS) return result;
                     currNode = new_node(tx1,8,ty1,8,tzm,7);
                     break;
                 case 7:
-                    if (auto result = proc_subtree(a, origin, targetLen, txm, tym, tzm, tx1, ty1, tz1, daughter(node, 7 ^ a)); result != MISS) return result;
-                    return MISS;
+                    if (auto result = proc_subtree(a, origin, targetLen, txm, tym, tzm, tx1, ty1, tz1, daughter(node, 7 ^ a)); result.type != MISS) return result;
+                    return {MISS};
             }
         } while (currNode < 8);
-        return MISS;
+        return {MISS};
     }
 }
 
@@ -327,14 +317,14 @@ std::optional<RaytraceResult> raytrace16x(uint8_t a, Ray ray, double targetLen, 
     const double tz0 = (node.minZ() - ray.origin.z) * divz;
     const double tz1 = (node.maxZ() - ray.origin.z) * divz;
 
-    using enum SubtreeResult;
+    using enum SubtreeResultType;
     // condition 10
     const auto tmin = max(tx0, ty0, tz0);
     const auto tmax = min(tx1, ty1, tz1);
     if (tmin <= tmax) {
-        if (auto result = proc_subtree(a, ray.origin, targetLen, tx0, ty0, tz0, tx1, ty1, tz1, node); result != MISS) {
-            if (result == HIT) {
-                return Hit{}; // we could return the point where the hit happened but it's not useful
+        if (auto result = proc_subtree(a, ray.origin, targetLen, tx0, ty0, tz0, tx1, ty1, tz1, node); result.type != MISS) {
+            if (result.type == HIT) {
+                return Hit{.where = result.hitPos};
             } else {
                 return Finished{};
             }
@@ -357,11 +347,16 @@ double reflect(double x, double target) {
 }
 
 // 3rd time I've copy/pasted this
-Chunk& getOrGenChunk(const BlockPos& pos, const ChunkGeneratorHell& gen, ChunkGenExec& exec, cache_t & cache) {
+const Chunk& getOrGenChunk(const BlockPos& pos, bool airIfFake, const ChunkGeneratorHell& gen, ChunkGenExec& exec, cache_t& cache) {
     const ChunkPos chunkPos = pos.toChunkPos();
     auto it = cache.find(chunkPos);
     if (it != cache.end()) {
+        if (!it->second->isFromJava && airIfFake) {
+            return AIR_CHUNK;
+        }
         return *it->second;
+    } else if (airIfFake) {
+        return AIR_CHUNK;
     } else {
         std::unique_ptr ptr = std::make_unique<Chunk>();
         auto& chunk = *ptr;
@@ -400,7 +395,7 @@ Node<Size::X16> x16Node(const Chunk& chunk, const BlockPos& pos) {
 }
 
 // returns true if there is line of sight
-bool raytrace(const Vec3& from, const Vec3& to, const ChunkGeneratorHell& gen, ChunkGenExec& exec, cache_t& cache) {
+RaytraceResult raytrace(const Vec3& from, const Vec3& to, bool airIfFakeChunk, const ChunkGeneratorHell& gen, ChunkGenExec& exec, cache_t& cache) {
     const auto [ray, targetLen] = computeRay(from, to);
     // the algorithm only works in positive directions so we need to reflect around the target point
     uint8_t a = 0;
@@ -414,7 +409,7 @@ bool raytrace(const Vec3& from, const Vec3& to, const ChunkGeneratorHell& gen, C
         a |= 1;
     }
     const BlockPos realOriginBlock = vecToBlockPos(from);
-    auto firstNode = x16Node(getOrGenChunk(realOriginBlock, gen, exec, cache), realOriginBlock);
+    auto firstNode = x16Node(getOrGenChunk(realOriginBlock, airIfFakeChunk, gen, exec, cache), realOriginBlock);
 
     Node<Size::X16> currentNode = firstNode;
     while (true) {
@@ -422,12 +417,10 @@ bool raytrace(const Vec3& from, const Vec3& to, const ChunkGeneratorHell& gen, C
         auto result = raytrace16x(a, reflectedRay, targetLen, currentNode);
         if (!result) {
             std::cerr << "raytrace whiffed" << std::endl;
+            exit(696969);
         }
-        if (std::holds_alternative<Hit>(result.value())) {
-            return false;
-        }
-        if (std::holds_alternative<Finished>(result.value())) {
-            return true;
+        if (!std::holds_alternative<Miss>(result.value())) {
+            return result.value();
         }
 
         const Plane plane = std::get<Miss>(result.value()).exitPlane;
@@ -443,7 +436,7 @@ bool raytrace(const Vec3& from, const Vec3& to, const ChunkGeneratorHell& gen, C
                 neighborPos.x += (a & 4) ? -16 : 16;
                 break;
         }
-        currentNode = x16Node(getOrGenChunk(neighborPos, gen, exec, cache), neighborPos);
+        currentNode = x16Node(getOrGenChunk(neighborPos, airIfFakeChunk, gen, exec, cache), neighborPos);
     }
 }
 
@@ -455,8 +448,8 @@ size_t lastVisibleNode(const std::vector<BlockPos>& path, size_t currentNode, co
     for (auto i = lastVisible + 1; i < path.size(); i++) {
         const auto& currentBlock = path[i];
         if (fromBlock == currentBlock) continue; // apparently the pathfinder can produce 2 consecutive equal points and that breaks the raytracer
-        const bool result = raytrace(from, blockPosToVec(currentBlock), gen, exec, cache);
-        if (!result) {
+        const auto result = raytrace(from, blockPosToVec(currentBlock), false, gen, exec, cache);
+        if (std::holds_alternative<Hit>(result)) {
             return lastVisible;
         }
         lastVisible = i;

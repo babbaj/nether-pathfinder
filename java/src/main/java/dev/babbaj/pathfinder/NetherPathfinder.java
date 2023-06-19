@@ -26,7 +26,17 @@ public class NetherPathfinder {
 
     public static native PathSegment pathFind(long context, int x1, int y1, int z1, int x2, int y2, int z2, boolean atLeastX4, int failTimeoutInMillis);
 
-    public static native long[] raytrace(long context, long[] blocks);
+    public static native long[] refinePath(long context, long[] blocks);
+
+
+    private static native void raytrace0(long context, boolean assumeFakeChunksAreAir, int inputs, long[] start, long[] end, boolean[] hitsOut, double[] hitPosOutCanBeNull);
+
+    public static void raytrace(long context, boolean assumeFakeChunksAreAir, int inputs, long[] start, long[] end, boolean[] hitsOut, double[] hitPosOutCanBeNull) {
+        if (start.length != inputs || end.length != inputs || hitsOut.length != inputs || (hitPosOutCanBeNull != null && hitPosOutCanBeNull.length != inputs)) {
+            throw new IllegalArgumentException("Bad array lengths idiot");
+        }
+        raytrace0(context, assumeFakeChunksAreAir, inputs, start, end, hitsOut, hitPosOutCanBeNull);
+    }
 
     public static native boolean cancel(long context);
 

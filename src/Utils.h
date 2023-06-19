@@ -54,6 +54,10 @@ struct BlockPos {
     int y;
     int z;
 
+    [[nodiscard]] Vec3 toVec3() const {
+        return {(double) this->x, (double) this->y, (double) this->z};
+    }
+
     [[nodiscard]] ChunkPos toChunkPos() const {
         return {this->x >> 4, this->z >> 4};
     }

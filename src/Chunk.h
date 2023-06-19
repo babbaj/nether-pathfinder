@@ -74,10 +74,14 @@ inline bool isEmpty(const T& input) {
     return true;
 }
 
+
 struct Chunk {
 private:
     std::array<x16_t, 8> data{};
     std::array<bool, 8> x16Empty{};
+public:
+    bool isFromJava{};
+private:
 
 #define CHUNK_GETBIT(x, y, z)                   \
     auto& x2 = data                             \
@@ -187,3 +191,9 @@ template<>
 inline bool Chunk::isEmpty<Size::X1>(int x, int y, int z) const {
     return getBit(x, y, z) == 0;
 }
+
+static const Chunk AIR_CHUNK = [] {
+        Chunk out{};
+        out.calcEmptyX16();
+        return out;
+    }();

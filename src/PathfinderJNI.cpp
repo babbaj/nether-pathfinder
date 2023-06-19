@@ -103,6 +103,7 @@ extern "C" {
             auto y = (i >> 8) & 0x7F;
             chunk_ptr->setBlock(x, y, z, data[i]);
         }
+        chunk_ptr->isFromJava = true;
         env->ReleaseBooleanArrayElements(input, data, JNI_ABORT);
 
         ctx->chunkCache.insert_or_assign(ChunkPos{chunkX, chunkZ}, std::move(chunk_ptr));
@@ -139,7 +140,7 @@ extern "C" {
         return ctx->cancelFlag.test_and_set();
     }
 
-    EXPORT jlongArray JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_raytrace(JNIEnv* env, jclass, Context* ctx, jlongArray packed) {
+    EXPORT jlongArray JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_refinePath(JNIEnv* env, jclass, Context* ctx, jlongArray packed) {
         auto packedLen = env->GetArrayLength(packed);
         jboolean isCopy{};
         jlong* pointer = env->GetLongArrayElements(packed, &isCopy);
@@ -156,5 +157,33 @@ extern "C" {
         }
         env->ReleaseLongArrayElements(out, outPointer, 0);
         return out;
+    }
+
+    EXPORT void JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_raytrace0(JNIEnv* env, jclass, Context* ctx, jboolean assumeFakeChunksAreAir, jint inputs, jlongArray startArr, jlongArray endArr, jbooleanArray hitsOut, jdoubleArray hitPosOut) {
+        jboolean isCopy{};
+        jlong* startPtr = env->GetLongArrayElements(startArr, &isCopy);
+        jlong* endPtr = env->GetLongArrayElements(endArr, &isCopy);
+        jboolean* hitsOutPtr = env->GetBooleanArrayElements(hitsOut, &isCopy);
+        jdouble* hitPosOutPtr = hitPosOut != nullptr ? env->GetDoubleArrayElements(hitPosOut, &isCopy) : nullptr;
+        for (int i = 0; i < inputs; i++) {
+            auto start = unpackBlockPos(startPtr[i]);
+            auto end = unpackBlockPos(endPtr[i]);
+            const std::variant result = raytrace(start.toVec3(), end.toVec3(), assumeFakeChunksAreAir, ctx->generator, ctx->executors[0], ctx->chunkCache);
+            auto* hit = std::get_if<Hit>(&result);
+            if (hit) {
+                hitsOutPtr[i] = true;
+                if (hitPosOutPtr != nullptr) {
+                    hitPosOutPtr[i * 3] = hit->where.x;
+                    hitPosOutPtr[i * 3 + 1] = hit->where.y;
+                    hitPosOutPtr[i * 3 + 2] = hit->where.z;
+                }
+            }
+        }
+        env->ReleaseLongArrayElements(startArr, startPtr, JNI_ABORT);
+        env->ReleaseLongArrayElements(endArr, endPtr, JNI_ABORT);
+        env->ReleaseBooleanArrayElements(hitsOut, hitsOutPtr, 0);
+        if (hitPosOut) {
+            env->ReleaseDoubleArrayElements(hitPosOut, hitPosOutPtr, 0);
+        }
     }
 }
