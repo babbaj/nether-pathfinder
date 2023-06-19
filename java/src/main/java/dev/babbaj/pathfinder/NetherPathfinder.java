@@ -29,10 +29,11 @@ public class NetherPathfinder {
     public static native long[] refinePath(long context, long[] blocks);
 
 
-    private static native void raytrace0(long context, boolean assumeFakeChunksAreAir, int inputs, long[] start, long[] end, boolean[] hitsOut, double[] hitPosOutCanBeNull);
+    private static native void raytrace0(long context, boolean assumeFakeChunksAreAir, int inputs, double[] start, double[] end, boolean[] hitsOut, double[] hitPosOutCanBeNull);
 
-    public static void raytrace(long context, boolean assumeFakeChunksAreAir, int inputs, long[] start, long[] end, boolean[] hitsOut, double[] hitPosOutCanBeNull) {
-        if (start.length != inputs || end.length != inputs || hitsOut.length != inputs || (hitPosOutCanBeNull != null && hitPosOutCanBeNull.length != inputs)) {
+    public static void raytrace(long context, boolean assumeFakeChunksAreAir, int inputs, double[] start, double[] end, boolean[] hitsOut, double[] hitPosOutCanBeNull) {
+        // % 3 check isn't necessary because it's impossible to pass this with non % 3 arrays
+        if (start.length != (inputs * 3) || end.length != (inputs * 3) || hitsOut.length != inputs || (hitPosOutCanBeNull != null && hitPosOutCanBeNull.length != (inputs * 3))) {
             throw new IllegalArgumentException("Bad array lengths idiot");
         }
         raytrace0(context, assumeFakeChunksAreAir, inputs, start, end, hitsOut, hitPosOutCanBeNull);

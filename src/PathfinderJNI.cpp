@@ -159,16 +159,16 @@ extern "C" {
         return out;
     }
 
-    EXPORT void JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_raytrace0(JNIEnv* env, jclass, Context* ctx, jboolean assumeFakeChunksAreAir, jint inputs, jlongArray startArr, jlongArray endArr, jbooleanArray hitsOut, jdoubleArray hitPosOut) {
+    EXPORT void JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_raytrace0(JNIEnv* env, jclass, Context* ctx, jboolean assumeFakeChunksAreAir, jint inputs, jdoubleArray startArr, jdoubleArray endArr, jbooleanArray hitsOut, jdoubleArray hitPosOut) {
         jboolean isCopy{};
-        jlong* startPtr = env->GetLongArrayElements(startArr, &isCopy);
-        jlong* endPtr = env->GetLongArrayElements(endArr, &isCopy);
+        jdouble* startPtr = env->GetDoubleArrayElements(startArr, &isCopy);
+        jdouble * endPtr = env->GetDoubleArrayElements(endArr, &isCopy);
         jboolean* hitsOutPtr = env->GetBooleanArrayElements(hitsOut, &isCopy);
         jdouble* hitPosOutPtr = hitPosOut != nullptr ? env->GetDoubleArrayElements(hitPosOut, &isCopy) : nullptr;
         for (int i = 0; i < inputs; i++) {
-            auto start = unpackBlockPos(startPtr[i]);
-            auto end = unpackBlockPos(endPtr[i]);
-            const std::variant result = raytrace(start.toVec3(), end.toVec3(), assumeFakeChunksAreAir, ctx->generator, ctx->executors[0], ctx->chunkCache);
+            auto& start = reinterpret_cast<const Vec3*>(startPtr)[i];
+            auto& end = reinterpret_cast<const Vec3*>(endPtr)[i];
+            const std::variant result = raytrace(start, end, assumeFakeChunksAreAir, ctx->generator, ctx->executors[0], ctx->chunkCache);
             auto* hit = std::get_if<Hit>(&result);
             if (hit) {
                 hitsOutPtr[i] = true;
@@ -179,8 +179,8 @@ extern "C" {
                 }
             }
         }
-        env->ReleaseLongArrayElements(startArr, startPtr, JNI_ABORT);
-        env->ReleaseLongArrayElements(endArr, endPtr, JNI_ABORT);
+        env->ReleaseDoubleArrayElements(startArr, startPtr, JNI_ABORT);
+        env->ReleaseDoubleArrayElements(endArr, endPtr, JNI_ABORT);
         env->ReleaseBooleanArrayElements(hitsOut, hitsOutPtr, 0);
         if (hitPosOut) {
             env->ReleaseDoubleArrayElements(hitPosOut, hitPosOutPtr, 0);
