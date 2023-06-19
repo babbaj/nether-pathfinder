@@ -221,27 +221,37 @@ bestPathSoFar(map_t<NodePos, std::unique_ptr<PathNode>>& map, const PathNode* st
     //return createPath(map, start, end, startPos, goal, Path::Type::SEGMENT);
 }
 
-bool inGoal(const NodePos& node, const BlockPos& goal) {
-    // TODO: test if goal is in cube
+bool closeToGoal(const NodePos& node, const BlockPos& goal) {
     return node.absolutePosCenter().distanceToSq(goal) <= 16 * 16;
+}
+
+bool inGoal(const NodePos& node, const BlockPos& goal) {
+    [[likely]] if (!closeToGoal(node, goal)) return false;
+    auto c1 = node.absolutePosZero();
+    auto c2 = c1 + width(node.size);
+    return goal.x >= c1.x && goal.x <= c2.x &&
+            goal.y >= c1.y && goal.y <= c2.y &&
+            goal.z >= c1.z && goal.z <= c2.z;
 }
 
 std::atomic_flag cancelFlag;
 
-std::optional<Path> findPathSegment(Context& ctx, const BlockPos& start, const BlockPos& goal, bool x4Min, int timeoutMs) {
-    if (VERBOSE) std::cout << "distance = " << start.distanceTo(goal) << '\n';
+std::optional<Path> findPathSegment(Context& ctx, const NodePos& start, const NodePos& goal, bool x4Min, int timeoutMs) {
+    const auto goalCenter = goal.absolutePosCenter();
+    const auto startCenter = start.absolutePosCenter();
+    if (VERBOSE) std::cout << "distance = " << start.absolutePosCenter().distanceTo(goalCenter) << '\n';
 
     map_t<NodePos, std::unique_ptr<PathNode>> map;
     map_t<ChunkPos, bool> doneFull;
     BinaryHeapOpenSet openSet;
 
-    PathNode* const startNode = getNodeAtPosition(map, NodePos{Size::X1, start}, goal);
+    PathNode* const startNode = getNodeAtPosition(map, start, goal.absolutePosZero());
     startNode->cost = 0;
     startNode->combinedCost = startNode->estimatedCostToGoal;
     openSet.insert(startNode);
     std::mutex chunkMutRaw;
     std::mutex& chunkMut = chunkMutRaw;
-    getOrGenChunk(ctx.chunkCache, start.toChunkPos(), ctx.generator, ctx.executors[0], chunkMut);
+    getOrGenChunk(ctx.chunkCache, start.absolutePosZero().toChunkPos(), ctx.generator, ctx.executors[0], chunkMut);
 
     PathNode* bestSoFar = startNode;
     double bestHeuristicSoFar = startNode->estimatedCostToGoal;
@@ -268,15 +278,14 @@ std::optional<Path> findPathSegment(Context& ctx, const BlockPos& start, const B
 
         PathNode* currentNode = openSet.removeLowest();
 
-        // TODO: get the right sub cube
-        if (inGoal(currentNode->pos, goal)) {
+        if (inGoal(currentNode->pos, goal.absolutePosCenter())) {
             if (VERBOSE) {
                 std::cout << "chunkCache size = " << ctx.chunkCache.size() << '\n';
                 std::cout << "openSet size = " << openSet.getSize() << '\n';
                 std::cout << "map size = " << map.size() << '\n';
                 std::cout << '\n';
             }
-            return createPath(map, startNode, currentNode, start, goal, Path::Type::FINISHED);
+            return createPath(map, startNode, currentNode, startCenter, goalCenter, Path::Type::FINISHED);
         }
         const auto pos = currentNode->pos;
         const auto size = pos.size;
@@ -306,7 +315,7 @@ std::optional<Path> findPathSegment(Context& ctx, const BlockPos& start, const B
         }
 
         auto callback = [&](const NodePos& neighborPos) {
-            PathNode* neighborNode = getNodeAtPosition(map, neighborPos, goal);
+            PathNode* neighborNode = getNodeAtPosition(map, neighborPos, goalCenter);
             //auto sqrtSize = [](Size sz) { return sqrt(width(sz)); };
             const double cost = 1;//sqrtSize(neighborNode->pos.size);//width(neighborNode->pos.size);
             const double tentativeCost = currentNode->cost + cost;
@@ -328,7 +337,7 @@ std::optional<Path> findPathSegment(Context& ctx, const BlockPos& start, const B
                     bestSoFar = neighborNode;
 
                     if (failing &&
-                        start.distanceToSq(neighborPos.absolutePosCenter()) > MIN_DIST_PATH * MIN_DIST_PATH) {
+                            startCenter.distanceToSq(neighborPos.absolutePosCenter()) > MIN_DIST_PATH * MIN_DIST_PATH) {
                         failing = false;
                     }
                 }
@@ -377,47 +386,51 @@ std::optional<Path> findPathSegment(Context& ctx, const BlockPos& start, const B
         std::cout << '\n';
     }
 
-    return bestPathSoFar(map, startNode, bestSoFar, start, goal);
+    return bestPathSoFar(map, startNode, bestSoFar, startCenter, goalCenter);
 }
 
-bool isSolid(const BlockPos& pos, const ChunkGeneratorHell& gen, ChunkGenExec& exec, map_t<ChunkPos, std::unique_ptr<Chunk>>& cache) {
+const Chunk& getChunkNoMutex(const BlockPos& pos, const ChunkGeneratorHell& gen, ChunkGenExec& exec, map_t<ChunkPos, std::unique_ptr<Chunk>>& cache) {
     const ChunkPos chunkPos = pos.toChunkPos();
     auto it = cache.find(chunkPos);
     if (it != cache.end()) {
-        Chunk& chunk = *it->second;
-        return chunk.isSolid(pos.toChunkLocal());
+        return *it->second;
     } else {
         std::unique_ptr ptr = std::make_unique<Chunk>();
         auto& chunk = *ptr;
         gen.generateChunk(chunkPos.x, chunkPos.z, *ptr, exec);
         cache.emplace(chunkPos, std::move(ptr));
-        return chunk.isSolid(pos.toChunkLocal());
+        return chunk;
     }
 }
 
-BlockPos findAir(Context& ctx, const BlockPos& pos, const ChunkGeneratorHell& gen) {
-    auto queue = std::queue<BlockPos>{};
-    auto visited = std::unordered_set<BlockPos>{};
-    queue.push(pos);
-    visited.insert(pos);
-    if (!isInBounds(pos)) goto retard;
+template<Size size>
+NodePos findAir(Context& ctx, const BlockPos& start1x) {
+    auto start = NodePos{size, start1x};
+    auto queue = std::queue<NodePos>{};
+    auto visited = std::unordered_set<NodePos>{};
+    queue.push(start);
+    visited.insert(start);
+    if (!isInBounds(start1x)) goto retard;
 
     while (!queue.empty()) {
-        const BlockPos node = queue.front();
+        const NodePos node = queue.front();
+        const auto blockPos = node.absolutePosZero();
         queue.pop();
-        if (isInBounds(node)) {
-            if (!isSolid(node, gen, ctx.executors[0], ctx.chunkCache)) {
+        if (isInBounds(node.absolutePosZero())) {
+            const auto& chunk = getChunkNoMutex(blockPos, ctx.generator, ctx.executors[0], ctx.chunkCache);
+            if (chunk.isEmpty<Size::X4>(blockPos.x, blockPos.y, blockPos.z)) {
                 return node;
             }
-            auto push = [&](BlockPos pos) {
+            auto push = [&](NodePos pos) {
                 if (visited.emplace(pos).second) queue.push(pos);
             };
-            push(node.west());
-            push(node.east());
-            push(node.north());
-            push(node.south());
-            push(node.up());
-            push(node.down());
+            constexpr auto w = width(size);
+            push(NodePos{size, blockPos.west(w)});
+            push(NodePos{size, blockPos.east(w)});
+            push(NodePos{size, blockPos.north(w)});
+            push(NodePos{size, blockPos.south(w)});
+            push(NodePos{size, blockPos.up(w)});
+            push(NodePos{size, blockPos.down(w)});
         }
     }
     // shouldn't be possible to exit the while loop
@@ -425,6 +438,10 @@ BlockPos findAir(Context& ctx, const BlockPos& pos, const ChunkGeneratorHell& ge
     std::cerr << "retard" << std::endl;
     exit(1);
 }
+
+template NodePos findAir<Size::X2>(Context& ctx, const BlockPos& start1x);
+template NodePos findAir<Size::X4>(Context& ctx, const BlockPos& start1x);
+
 
 void appendPath(Path& path, Path&& segment) {
     path.blocks.insert(path.blocks.end(), segment.blocks.begin(), segment.blocks.end());
@@ -450,11 +467,11 @@ std::optional<Path> findPathFull(Context& ctx, const BlockPos& start, const Bloc
     std::vector<Path> segments;
 
     // we can't pathfind through solid blocks
-    const auto realStart = findAir(ctx, start, ctx.generator);
-    const auto realGoal = findAir(ctx, goal, ctx.generator);
+    const auto realStart = findAir<Size::X2>(ctx, start);
+    const auto realGoal = findAir<Size::X2>(ctx, goal);
 
     while (true) {
-        const BlockPos lastPathEnd = !segments.empty() ? segments.back().getEndPos() : realStart;
+        const NodePos lastPathEnd = !segments.empty() ? NodePos{Size::X2, segments.back().getEndPos()} : realStart;
         std::optional path = findPathSegment(ctx, lastPathEnd, realGoal, false, 0);
         if (!path.has_value()) {
             if (cancelFlag.test()) {
