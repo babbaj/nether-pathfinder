@@ -164,7 +164,7 @@ extern "C" {
     EXPORT void JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_raytrace0(JNIEnv* env, jclass, Context* ctx, jboolean assumeFakeChunksAreAir, jint inputs, jdoubleArray startArr, jdoubleArray endArr, jbooleanArray hitsOut, jdoubleArray hitPosOut) {
         jboolean isCopy{};
         jdouble* startPtr = env->GetDoubleArrayElements(startArr, &isCopy);
-        jdouble * endPtr = env->GetDoubleArrayElements(endArr, &isCopy);
+        jdouble* endPtr = env->GetDoubleArrayElements(endArr, &isCopy);
         jboolean* hitsOutPtr = env->GetBooleanArrayElements(hitsOut, &isCopy);
         jdouble* hitPosOutPtr = hitPosOut != nullptr ? env->GetDoubleArrayElements(hitPosOut, &isCopy) : nullptr;
         for (int i = 0; i < inputs; i++) {
@@ -187,5 +187,36 @@ extern "C" {
         if (hitPosOut) {
             env->ReleaseDoubleArrayElements(hitPosOut, hitPosOutPtr, 0);
         }
+    }
+
+    EXPORT jboolean JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_isVisibleMulti0(JNIEnv* env, jclass, Context* ctx, jboolean assumeFakeChunksAreAir, jint inputs, jdoubleArray startArr, jdoubleArray endArr, jboolean modeAny) {
+        jboolean isCopy{};
+        jdouble* startPtr = env->GetDoubleArrayElements(startArr, &isCopy);
+        jdouble* endPtr = env->GetDoubleArrayElements(endArr, &isCopy);
+        bool out = true;
+        for (int i = 0; i < inputs; i++) {
+            auto& start = reinterpret_cast<const Vec3*>(startPtr)[i];
+            auto& end = reinterpret_cast<const Vec3*>(endPtr)[i];
+            const std::variant result = raytrace(start, end, assumeFakeChunksAreAir, ctx->generator, ctx->executors[0], ctx->chunkCache);
+            auto* hit = std::get_if<Hit>(&result);
+            const bool modeAll = !modeAny;
+            if (!hit) {
+                if (modeAny) {
+                    out = true;
+                    break;
+                }
+            } else if (modeAll) {
+                out = false;
+                break;
+            }
+        }
+        env->ReleaseDoubleArrayElements(startArr, startPtr, JNI_ABORT);
+        env->ReleaseDoubleArrayElements(endArr, endPtr, JNI_ABORT);
+        return out;
+    }
+
+    EXPORT jboolean JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_isVisible(JNIEnv*, jclass, Context* ctx, jboolean assumeFakeChunksAreAir, double x1, double y1, double z1, double x2, double y2, double z2) {
+        const std::variant result = raytrace({x1, y1, z1}, {x2, y2, z2}, assumeFakeChunksAreAir, ctx->generator, ctx->executors[0], ctx->chunkCache);
+        return !std::holds_alternative<Hit>(result);
     }
 }
