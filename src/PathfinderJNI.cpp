@@ -189,12 +189,12 @@ extern "C" {
         }
     }
 
-    EXPORT jboolean JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_isVisibleMulti0(JNIEnv* env, jclass, Context* ctx, jboolean assumeFakeChunksAreAir, jint inputs, jdoubleArray startArr, jdoubleArray endArr, jboolean modeAny) {
+    EXPORT jint JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_isVisibleMulti0(JNIEnv* env, jclass, Context* ctx, jboolean assumeFakeChunksAreAir, jint inputs, jdoubleArray startArr, jdoubleArray endArr, jboolean modeAny) {
         jboolean isCopy{};
         jdouble* startPtr = env->GetDoubleArrayElements(startArr, &isCopy);
         jdouble* endPtr = env->GetDoubleArrayElements(endArr, &isCopy);
-        bool out = true;
-        for (int i = 0; i < inputs; i++) {
+        jint out = -1;
+        for (jint i = 0; i < inputs; i++) {
             auto& start = reinterpret_cast<const Vec3*>(startPtr)[i];
             auto& end = reinterpret_cast<const Vec3*>(endPtr)[i];
             const std::variant result = raytrace(start, end, assumeFakeChunksAreAir, ctx->generator, ctx->executors[0], ctx->chunkCache);
@@ -202,11 +202,11 @@ extern "C" {
             const bool modeAll = !modeAny;
             if (!hit) {
                 if (modeAny) {
-                    out = true;
+                    out = i;
                     break;
                 }
             } else if (modeAll) {
-                out = false;
+                out = i;
                 break;
             }
         }

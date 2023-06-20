@@ -38,9 +38,9 @@ public class NetherPathfinder {
         }
         raytrace0(context, assumeFakeChunksAreAir, inputs, start, end, hitsOut, hitPosOutCanBeNull);
     }
-    private static native boolean isVisibleMulti0(long context, boolean assumeFakeChunksAreAir, int inputs, double[] start, double[] end, boolean anyIfTrueElseAll);
+    private static native int isVisibleMulti0(long context, boolean assumeFakeChunksAreAir, int inputs, double[] start, double[] end, boolean anyIfTrueElseAll);
 
-    public static boolean isVisibleMulti(long context, boolean assumeFakeChunksAreAir, int inputs, double[] start, double[] end, boolean anyIfTrueElseAll) {
+    public static int isVisibleMulti(long context, boolean assumeFakeChunksAreAir, int inputs, double[] start, double[] end, boolean anyIfTrueElseAll) {
         // % 3 check isn't necessary because it's impossible to pass this with non % 3 arrays
         if (start.length != (inputs * 3) || end.length != (inputs * 3)) {
             throw new IllegalArgumentException("Bad array lengths idiot");
