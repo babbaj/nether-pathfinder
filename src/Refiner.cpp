@@ -57,7 +57,7 @@ template<typename Node>
 constexpr auto getDaughter(const Node& node, int i) {
     if constexpr (std::is_same_v<Node, x2_t>) {
         // im pretty confident the lower bits are closer to the origin
-        return (node >> i) != 0;
+        return ((node >> i) & 1) != 0;
     } else {
         return &node[i];
     }
