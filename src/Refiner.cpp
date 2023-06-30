@@ -30,6 +30,26 @@ std::pair<Ray, double> computeRay(Vec3 a, Vec3 b) {
     };
 }
 
+double reflect(double x, double target) {
+    return target - (x - target);
+}
+
+Ray reflectRay(Ray ray, const Vec3& center, uint8_t a) {
+    if (a & 4) {
+        ray.origin.x = reflect(ray.origin.x, center.x);
+        ray.dir.x = -ray.dir.x;
+    }
+    if (a & 2) {
+        ray.origin.y = reflect(ray.origin.y, center.y);
+        ray.dir.y = -ray.dir.y;
+    }
+    if (a & 1) {
+        ray.origin.z = reflect(ray.origin.z, center.z);
+        ray.dir.z = -ray.dir.z;
+    }
+    return ray;
+}
+
 template<Size size>
 auto nodeType0() {
     if constexpr (size == Size::X16) {
@@ -224,7 +244,7 @@ enum class SubtreeResultType {
 };
 struct SubtreeResult {
     SubtreeResultType type;
-    Vec3 hitPos{}; // only valid for hits
+    double len{}; // only valid for hits
 };
 
 template<Size Size>
@@ -240,7 +260,18 @@ SubtreeResult proc_subtree(uint8_t a, const Vec3& origin, double targetLen, doub
     }
 
     if constexpr (Size == Size::X1) { // leaf
-        return node.node ? SubtreeResult{HIT, {tx0, ty0, tz0}} : SubtreeResult{MISS};
+        if (!node.node) {
+            return SubtreeResult{MISS};
+        }
+        double len;
+        if (tx0 > ty0 && tx0 > tz0) {
+            len = tx0; // PLANE YZ
+        } else if (ty0 > tz0) {
+            len = ty0; // PLANE XZ
+        } else {
+            len = tz0; // PLANE XY
+        }
+        return SubtreeResult{HIT, len};
     } else {
         if (node.empty()) {
             // we know that all the leafs are empty
@@ -324,7 +355,19 @@ std::optional<RaytraceResult> raytrace16x(uint8_t a, Ray ray, double targetLen, 
     if (tmin <= tmax) {
         if (auto result = proc_subtree(a, ray.origin, targetLen, tx0, ty0, tz0, tx1, ty1, tz1, node); result.type != MISS) {
             if (result.type == HIT) {
-                return Hit{.where = result.hitPos};
+                const Ray unreflect = reflectRay(ray, center(node), a);
+
+                if (result.len < 0.0) {
+                    // if len is negative, then the origin was inside an occupied x1, therefore, the hit
+                    // position should be the origin.
+                    return Hit{unreflect.origin};
+                }
+
+                return Hit{
+                    unreflect.origin.x + unreflect.dir.x * result.len,
+                    unreflect.origin.y + unreflect.dir.y * result.len,
+                    unreflect.origin.z + unreflect.dir.z * result.len
+                };
             } else {
                 return Finished{};
             }
@@ -340,10 +383,6 @@ std::optional<RaytraceResult> raytrace16x(uint8_t a, Ray ray, double targetLen, 
         // we hit the corner precisely
         return {};
     }
-}
-
-double reflect(double x, double target) {
-    return target - (x - target);
 }
 
 // 3rd time I've copy/pasted this
@@ -364,22 +403,6 @@ const Chunk& getOrGenChunk(const BlockPos& pos, bool airIfFake, const ChunkGener
         cache.emplace(chunkPos, std::move(ptr));
         return chunk;
     }
-}
-
-Ray reflectRay(Ray ray, const Vec3& center, uint8_t a) {
-    if (a & 4) {
-        ray.origin.x = reflect(ray.origin.x, center.x);
-        ray.dir.x = -ray.dir.x;
-    }
-    if (a & 2) {
-        ray.origin.y = reflect(ray.origin.y, center.y);
-        ray.dir.y = -ray.dir.y;
-    }
-    if (a & 1) {
-        ray.origin.z = reflect(ray.origin.z, center.z);
-        ray.dir.z = -ray.dir.z;
-    }
-    return ray;
 }
 
 Node<Size::X16> x16Node(const Chunk& chunk, const BlockPos& pos) {
