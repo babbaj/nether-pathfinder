@@ -1,11 +1,15 @@
 package dev.babbaj.pathfinder;
 
+import org.tukaani.xz.XZInputStream;
+
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
+import java.io.UncheckedIOException;
+import java.nio.file.*;
 import java.util.Objects;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 
 public class NetherPathfinder {
 
@@ -79,22 +83,50 @@ public class NetherPathfinder {
         }
     }
 
+    private static byte[] getNativeLib(final String libName) {
+        try (
+            final InputStream nativesRaw = NetherPathfinder.class.getClassLoader().getResourceAsStream("natives.xz");
+            final XZInputStream nativesZx = new XZInputStream(nativesRaw);
+            final ZipInputStream nativesZip = new ZipInputStream(nativesZx)
+        ) {
+            ZipEntry entry;
+            while ((entry = nativesZip.getNextEntry()) != null) {
+                if (!entry.getName().equals(libName)) {
+                    continue;
+                }
+
+                final ByteArrayOutputStream byteStream = new ByteArrayOutputStream();
+                final byte[] buffer = new byte[4096];
+
+                int read;
+                while ((read = nativesZip.read(buffer)) != -1) {
+                    byteStream.write(buffer, 0, read);
+                }
+
+                return byteStream.toByteArray();
+            }
+        } catch (IOException ex) {
+            throw new UncheckedIOException(ex);
+        }
+        return null;
+    }
+
     static {
         final String libName = getNativeLibName();
-        final String library = "native/" + libName;
-        final InputStream libraryStream = NetherPathfinder.class.getClassLoader().getResourceAsStream(library);
-        Objects.requireNonNull(libraryStream, "Failed to find pathfinder library (" + library + ")");
+        final byte[] libBytes = getNativeLib(libName);
+        Objects.requireNonNull(libBytes, "Failed to find pathfinder library (" + libName + ")");
 
         final String[] split = libName.split("\\.");
         final Path tempFile;
         try {
             tempFile = Files.createTempFile(split[0], "." + split[1]);
         } catch (IOException ex) {
-            throw new RuntimeException(ex);
+            throw new UncheckedIOException(ex);
         }
         System.out.println("Created temp file at " + tempFile.toAbsolutePath());
+
         try {
-            Files.copy(libraryStream, tempFile, StandardCopyOption.REPLACE_EXISTING);
+            Files.write(tempFile, libBytes);
             System.load(tempFile.toAbsolutePath().toString());
         } catch (IOException ex) {
             throw new RuntimeException(ex);
