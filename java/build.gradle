@@ -2,6 +2,7 @@ import org.tukaani.xz.FilterOptions
 import org.tukaani.xz.LZMA2Options
 import org.tukaani.xz.X86Options
 import org.tukaani.xz.XZOutputStream
+import proguard.gradle.ProGuardTask
 
 import java.nio.file.Files
 import java.util.zip.Deflater
@@ -11,12 +12,14 @@ import java.util.zip.ZipOutputStream
 buildscript {
     dependencies {
         classpath 'org.tukaani:xz:1.9'
+        classpath 'com.guardsquare:proguard-gradle:7.3.2'
     }
 }
 
 plugins {
     id 'java-library'
     id 'maven-publish'
+    id 'com.github.johnrengelman.shadow' version '8.1.1'
 }
 
 group = 'dev.babbaj'
@@ -37,39 +40,14 @@ dependencies {
     implementation 'org.tukaani:xz:1.9'
 }
 
-publishing {
-    publications {
-        maven(MavenPublication) {
-            groupId = 'dev.babbaj'
-            artifactId = 'nether-pathfinder'
-            from components.java
-        }
-    }
-
-    repositories {
-        maven {
-            name = "FileSystem"
-            url = uri("file://" + System.getenv("MAVEN_DIR"))
-        }
-        maven {
-            name = "GithubPackages"
-            url = new URI("https://maven.pkg.github.com/Babbaj/nether-pathfinder")
-            credentials {
-                username = System.getenv("GITHUB_ACTOR")
-                password = System.getenv("GITHUB_TOKEN")
-            }
-        }
-    }
-}
-
-private static java.nio.file.Path getResourceOutput(SourceSet sourceSet) {
-    return sourceSet.getOutput().getResourcesDir().toPath();
+shadowJar {
+    relocate 'org.tukaani.xz', 'dev.babbaj.pathfinder.org.tukaani.xz'
 }
 
 final String compileLibraryOutput = 'compilePathfinderLibrary';
 
 tasks.register('buildNatives', Exec) {
-    final File outputDir = new File(project.getBuildDir(), compileLibraryOutput)
+    final File outputDir = new File(project.buildDir, compileLibraryOutput)
     outputDir.mkdirs()
 
     workingDir outputDir
@@ -123,7 +101,7 @@ abstract class XZCompress extends DefaultTask {
 
 tasks.register('joinNatives', ZipDirectoryNoCompress) {
     dependsOn buildNatives
-    natives = new File(project.getBuildDir(), compileLibraryOutput)
+    natives = new File(project.buildDir, compileLibraryOutput)
 }
 
 tasks.register('compressNatives', XZCompress) {
@@ -131,10 +109,62 @@ tasks.register('compressNatives', XZCompress) {
     input = tasks.joinNatives.output
 }
 
-jar {
+tasks.shadowJar.configure {
     dependsOn compressNatives
     into('') {
         from compressNatives.output
         rename { 'natives.xz' }
+    }
+}
+
+tasks.register('proguard', ProGuardTask) {
+    dependsOn shadowJar
+
+    injars tasks.shadowJar.outputs.files
+    outjars new File(getTemporaryDir(), "output.jar")
+    if (System.getProperty('java.version').startsWith('1.')) {
+        libraryjars "${System.getProperty('java.home')}/lib/rt.jar"
+    } else {
+        libraryjars "${System.getProperty('java.home')}/jmods/java.base.jmod", jarfilter: '!**.jar', filter: '!module-info.class'
+    }
+
+    verbose()
+    optimizationpasses 10
+    keep 'public class dev.babbaj.pathfinder.* { *; }'
+    keepnames 'public class dev.babbaj.pathfinder.* { *; }'
+}
+
+tasks.register('proguardJar', Jar) {
+    dependsOn proguard
+    from(zipTree(tasks.proguard.outJarFiles[0]))
+    archiveClassifier = 'proguard'
+    destinationDirectory = new File(buildDir, 'libs')
+}
+
+tasks.build.dependsOn tasks.proguardJar
+
+publishing {
+    publications {
+        maven(MavenPublication) {
+            groupId = 'dev.babbaj'
+            artifactId = 'nether-pathfinder'
+            artifact source: proguardJar, classifier: null
+            artifact sourcesJar
+        }
+    }
+
+    repositories {
+        maven {
+            name = "FileSystem"
+            url = uri("file://" + System.getenv("MAVEN_DIR"))
+        }
+        maven {
+            name = "GithubPackages"
+            url = new URI("https://maven.pkg.github.com/Babbaj/nether-pathfinder")
+            credentials {
+                username = System.getenv("GITHUB_ACTOR")
+                password = System.getenv("GITHUB_TOKEN")
+            }
+        }
     }
 }
