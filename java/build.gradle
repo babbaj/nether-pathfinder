@@ -1,5 +1,21 @@
+import org.tukaani.xz.FilterOptions
+import org.tukaani.xz.LZMA2Options
+import org.tukaani.xz.X86Options
+import org.tukaani.xz.XZOutputStream
+
+import java.nio.file.Files
+import java.util.zip.Deflater
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
+
+buildscript {
+    dependencies {
+        classpath 'org.tukaani:xz:1.9'
+    }
+}
+
 plugins {
-    id 'java'
+    id 'java-library'
     id 'maven-publish'
 }
 
@@ -18,6 +34,7 @@ repositories {
 }
 
 dependencies {
+    implementation 'org.tukaani:xz:1.9'
 }
 
 publishing {
@@ -51,7 +68,7 @@ private static java.nio.file.Path getResourceOutput(SourceSet sourceSet) {
 
 final String compileLibraryOutput = 'compilePathfinderLibrary';
 
-task buildNatives(type: Exec) {
+tasks.register('buildNatives', Exec) {
     final File outputDir = new File(project.getBuildDir(), compileLibraryOutput)
     outputDir.mkdirs()
 
@@ -59,16 +76,65 @@ task buildNatives(type: Exec) {
     commandLine new File(getProjectDir(), "multiplat_build.sh").absolutePath.toString(), getProjectDir().absolutePath.toString()
 }
 
+abstract class ZipDirectoryNoCompress extends DefaultTask {
 
-task moveLibraryToResources(type: Copy) {
-    dependsOn buildNatives
+    @InputDirectory
+    File natives
 
-    from (new File(project.getBuildDir(), compileLibraryOutput)) {
-        include '*.dll'
-        include '*.so'
-        include '*.dylib'
+    @OutputFile
+    File getOutput() {
+        return new File(getTemporaryDir(), "output.zip")
     }
-    into getResourceOutput(sourceSets.main).resolve('native')
+
+    @TaskAction
+    def run() {
+        try (FileOutputStream fos = new FileOutputStream(output)
+             ZipOutputStream zos = new ZipOutputStream(fos)
+        ) {
+            zos.setLevel(Deflater.NO_COMPRESSION)
+            Files.list(natives.toPath()).forEach {
+                zos.putNextEntry(new ZipEntry(it.getFileName().toString()))
+                zos.write(Files.readAllBytes(it))
+                zos.closeEntry()
+            }
+        }
+    }
 }
 
-jar.dependsOn(moveLibraryToResources)
+abstract class XZCompress extends DefaultTask {
+
+    @InputFile
+    File input
+
+    @OutputFile
+    File getOutput() {
+        return new File(getTemporaryDir(), "output.xz")
+    }
+
+    @TaskAction
+    def run() {
+        try (FileOutputStream fos = new FileOutputStream(output);
+             XZOutputStream xz = new XZOutputStream(fos, new FilterOptions[] {new X86Options(), new LZMA2Options()})
+        ) {
+            xz.write(Files.readAllBytes(input.toPath()))
+        }
+    }
+}
+
+tasks.register('joinNatives', ZipDirectoryNoCompress) {
+    dependsOn buildNatives
+    natives = new File(project.getBuildDir(), compileLibraryOutput)
+}
+
+tasks.register('compressNatives', XZCompress) {
+    dependsOn joinNatives
+    input = tasks.joinNatives.output
+}
+
+jar {
+    dependsOn compressNatives
+    into('') {
+        from compressNatives.output
+        rename { 'natives.xz' }
+    }
+}
