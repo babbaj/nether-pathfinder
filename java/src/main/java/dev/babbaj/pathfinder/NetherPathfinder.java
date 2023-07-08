@@ -24,6 +24,8 @@ public class NetherPathfinder {
     */
     public static native void insertChunkData(long context, int chunkX, int chunkZ, boolean[] data);
 
+    public static native boolean setBlockState(long context, int x, int y, int z, boolean state);
+
     public static native PathSegment pathFind(long context, int x1, int y1, int z1, int x2, int y2, int z2, boolean atLeastX4, int failTimeoutInMillis);
 
     public static native long[] refinePath(long context, long[] blocks);
