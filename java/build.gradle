@@ -50,10 +50,10 @@ tasks.register('buildNatives', Exec) {
     commandLine new File(getProjectDir(), "multiplat_build.sh").absolutePath.toString(), getProjectDir().absolutePath.toString()
 }
 
-abstract class ZipDirectoryNoCompress extends DefaultTask {
+abstract class ZipFilesNoCompress extends DefaultTask {
 
-    @InputDirectory
-    File natives
+    @InputFiles
+    FileCollection inputFiles
 
     @OutputFile
     File getOutput() {
@@ -66,9 +66,9 @@ abstract class ZipDirectoryNoCompress extends DefaultTask {
              ZipOutputStream zos = new ZipOutputStream(fos)
         ) {
             zos.setLevel(Deflater.NO_COMPRESSION)
-            Files.list(natives.toPath()).forEach {
-                zos.putNextEntry(new ZipEntry(it.getFileName().toString()))
-                zos.write(Files.readAllBytes(it))
+            inputFiles.forEach {
+                zos.putNextEntry(new ZipEntry(it.getName()))
+                zos.write(Files.readAllBytes(it.toPath()))
                 zos.closeEntry()
             }
         }
@@ -95,9 +95,13 @@ abstract class XZCompress extends DefaultTask {
     }
 }
 
-tasks.register('joinNatives', ZipDirectoryNoCompress) {
+tasks.register('joinNatives', ZipFilesNoCompress) {
     dependsOn buildNatives
-    natives = tasks.buildNatives.temporaryDir
+    inputFiles = fileTree(tasks.buildNatives.temporaryDir).matching {
+        include '*.dll'
+        include '*.so'
+        include '*.dylib'
+    }
 }
 
 tasks.register('compressNatives', XZCompress) {
