@@ -44,13 +44,9 @@ shadowJar {
     relocate 'org.tukaani.xz', 'dev.babbaj.pathfinder.org.tukaani.xz'
 }
 
-final String compileLibraryOutput = 'compilePathfinderLibrary';
-
 tasks.register('buildNatives', Exec) {
-    final File outputDir = new File(project.buildDir, compileLibraryOutput)
-    outputDir.mkdirs()
-
-    workingDir outputDir
+    outputs.dir(temporaryDir)
+    workingDir temporaryDir
     commandLine new File(getProjectDir(), "multiplat_build.sh").absolutePath.toString(), getProjectDir().absolutePath.toString()
 }
 
@@ -61,7 +57,7 @@ abstract class ZipDirectoryNoCompress extends DefaultTask {
 
     @OutputFile
     File getOutput() {
-        return new File(getTemporaryDir(), "output.zip")
+        return new File(temporaryDir, "output.zip")
     }
 
     @TaskAction
@@ -86,7 +82,7 @@ abstract class XZCompress extends DefaultTask {
 
     @OutputFile
     File getOutput() {
-        return new File(getTemporaryDir(), "output.xz")
+        return new File(temporaryDir, "output.xz")
     }
 
     @TaskAction
@@ -101,7 +97,7 @@ abstract class XZCompress extends DefaultTask {
 
 tasks.register('joinNatives', ZipDirectoryNoCompress) {
     dependsOn buildNatives
-    natives = new File(project.buildDir, compileLibraryOutput)
+    natives = tasks.buildNatives.temporaryDir
 }
 
 tasks.register('compressNatives', XZCompress) {
@@ -121,7 +117,7 @@ tasks.register('proguard', ProGuardTask) {
     dependsOn shadowJar
 
     injars tasks.shadowJar.outputs.files
-    outjars new File(getTemporaryDir(), "output.jar")
+    outjars new File(temporaryDir, "output.jar")
     if (System.getProperty('java.version').startsWith('1.')) {
         libraryjars "${System.getProperty('java.home')}/lib/rt.jar"
     } else {
