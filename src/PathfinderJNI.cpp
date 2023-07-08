@@ -109,6 +109,16 @@ extern "C" {
         ctx->chunkCache.insert_or_assign(ChunkPos{chunkX, chunkZ}, std::move(chunk_ptr));
     }
 
+    EXPORT jboolean JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_setBlockState(JNIEnv*, jclass, Context* ctx, jint x, jint y, jint z, jboolean newState) {
+        auto existing = ctx->chunkCache.find(ChunkPos{x >> 4, z >> 4});
+        if (existing != ctx->chunkCache.end()) {
+            existing->second->setBlock(x & 0xF, y & 0x7F, z & 0xF, newState);
+            return true;
+        } else {
+            return false;
+        }
+    }
+
     EXPORT jobject JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_pathFind(JNIEnv* env, jclass, Context* ctx, jint x1, jint y1, jint z1, jint x2, jint y2, jint z2, jboolean x4Min, jint timeoutMs) {
         if (!inBounds(y1) || !inBounds(y2)) {
             throwException(env, "Invalid y1 or y2");
