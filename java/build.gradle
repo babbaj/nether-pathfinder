@@ -23,7 +23,7 @@ plugins {
 }
 
 group = 'dev.babbaj'
-version = '0.21'
+version = '0.22'
 
 java {
     toolchain {
@@ -125,11 +125,19 @@ tasks.register('proguard', ProGuardTask) {
     if (System.getProperty('java.version').startsWith('1.')) {
         libraryjars "${System.getProperty('java.home')}/lib/rt.jar"
     } else {
+        println 'uwu'
+        println System.getProperty('java.home')
         libraryjars "${System.getProperty('java.home')}/jmods/java.base.jmod", jarfilter: '!**.jar', filter: '!module-info.class'
+        libraryjars "${System.getProperty('java.home')}/jmods/jdk.unsupported.jmod", jarfilter: '!**.jar', filter: '!module-info.class'
     }
 
     verbose()
     optimizationpasses 10
+    optimizations '**'
+    allowaccessmodification()
+    overloadaggressively()
+    dontusemixedcaseclassnames()
+    repackageclasses 'dev.babbaj.pathfinder.xz'
     keep 'public class dev.babbaj.pathfinder.* { *; }'
     keepnames 'public class dev.babbaj.pathfinder.* { *; }'
 }
