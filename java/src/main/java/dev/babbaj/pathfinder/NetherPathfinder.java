@@ -89,7 +89,7 @@ public class NetherPathfinder {
 
     private static byte[] getNativeLib(final String libName) {
         try (
-            final InputStream nativesRaw = NetherPathfinder.class.getClassLoader().getResourceAsStream("natives.xz");
+            final InputStream nativesRaw = NetherPathfinder.class.getClassLoader().getResourceAsStream("natives.zip.xz");
             final XZInputStream nativesZx = new XZInputStream(nativesRaw);
             final ZipInputStream nativesZip = new ZipInputStream(nativesZx)
         ) {
