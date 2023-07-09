@@ -79,7 +79,7 @@ public class NetherPathfinder {
         if (osName.contains("linux")) {
             return "libnether_pathfinder-" + arch + ".so";
         } else if (osName.contains("windows")) {
-            return "nether_pathfinder-x86_64.dll";
+            return "nether_pathfinder-" + arch + ".dll";
         } else if (osName.contains("mac")) {
             return "libnether_pathfinder-" + arch + ".dylib";
         } else {

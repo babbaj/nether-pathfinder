@@ -82,7 +82,7 @@ abstract class XZCompress extends DefaultTask {
 
     @OutputFile
     File getOutput() {
-        return new File(temporaryDir, "output.xz")
+        return new File(temporaryDir, "output.zip.xz")
     }
 
     @TaskAction
@@ -113,7 +113,7 @@ tasks.shadowJar.configure {
     dependsOn compressNatives
     into('') {
         from compressNatives.output
-        rename { 'natives.xz' }
+        rename { 'natives.zip.xz' }
     }
 }
 
