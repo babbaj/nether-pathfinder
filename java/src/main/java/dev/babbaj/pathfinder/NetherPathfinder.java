@@ -62,18 +62,24 @@ public class NetherPathfinder {
 
     // TODO: convenient function for computing a full path
 
+    private static final boolean isLoaded;
+
+    public static boolean isThisSystemSupported() {
+        return isLoaded;
+    }
+
     private static String getNativeLibName() {
         String osName = System.getProperty("os.name").toLowerCase();
         String osArch = System.getProperty("os.arch").toLowerCase();
         final int bits = Integer.parseInt(System.getProperty("sun.arch.data.model"));
-        if (bits != 64) throw new IllegalStateException(bits + " not supported");
+        if (bits != 64) return null;
         final String arch;
         if (osArch.contains("arm") || osArch.contains("aarch64")) {
             arch = "aarch64";
         } else if (osArch.equals("x86_64") || osArch.equals("amd64")) {
             arch = "x86_64";
         } else {
-            throw new IllegalStateException("Unsupported architecture: " + osArch);
+            return null;
         }
 
         if (osName.contains("linux")) {
@@ -83,7 +89,7 @@ public class NetherPathfinder {
         } else if (osName.contains("mac")) {
             return "libnether_pathfinder-" + arch + ".dylib";
         } else {
-            throw new IllegalStateException("Unsupported os: " + osName);
+            return null;
         }
     }
 
@@ -117,34 +123,39 @@ public class NetherPathfinder {
 
     static {
         final String libName = getNativeLibName();
-        final byte[] libBytes = getNativeLib(libName);
-        Objects.requireNonNull(libBytes, "Failed to find pathfinder library (" + libName + ")");
+        if (libName == null) {
+            isLoaded = false;
+        } else {
+            final byte[] libBytes = getNativeLib(libName);
+            Objects.requireNonNull(libBytes, "Failed to find pathfinder library (" + libName + ")");
 
-        final String[] split = libName.split("\\.");
-        final Path tempFile;
-        try {
-            tempFile = Files.createTempFile(split[0], "." + split[1]);
-        } catch (IOException ex) {
-            throw new UncheckedIOException(ex);
-        }
-        System.out.println("Created temp file at " + tempFile.toAbsolutePath());
-
-        try {
-            Files.write(tempFile, libBytes);
-            System.load(tempFile.toAbsolutePath().toString());
-        } catch (IOException ex) {
-            throw new RuntimeException(ex);
-        } finally {
+            final String[] split = libName.split("\\.");
+            final Path tempFile;
             try {
-                Files.delete(tempFile);
+                tempFile = Files.createTempFile(split[0], "." + split[1]);
             } catch (IOException ex) {
-                System.out.println("trolled");
-                ex.printStackTrace();
+                throw new UncheckedIOException(ex);
             }
-            tempFile.toFile().delete();
-            tempFile.toFile().deleteOnExit();
-        }
+            System.out.println("Created temp file at " + tempFile.toAbsolutePath());
 
-        System.out.println("Loaded shared library");
+            try {
+                Files.write(tempFile, libBytes);
+                System.load(tempFile.toAbsolutePath().toString());
+            } catch (IOException ex) {
+                throw new RuntimeException(ex);
+            } finally {
+                try {
+                    Files.delete(tempFile);
+                } catch (IOException ex) {
+                    System.out.println("trolled");
+                    ex.printStackTrace();
+                }
+                tempFile.toFile().delete();
+                tempFile.toFile().deleteOnExit();
+            }
+
+            System.out.println("Loaded shared library");
+            isLoaded = true;
+        }
     }
 }
