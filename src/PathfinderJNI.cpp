@@ -119,6 +119,15 @@ extern "C" {
         }
     }
 
+    EXPORT jlong JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_getChunkPointer(JNIEnv*, jclass, Context* ctx, jint x, jint z) {
+        auto existing = ctx->chunkCache.find(ChunkPos{x, z});
+        if (existing != ctx->chunkCache.end()) {
+            return (jlong) &existing->second->data;
+        } else {
+            return 0; // null pointer
+        }
+    }
+
     EXPORT jobject JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_pathFind(JNIEnv* env, jclass, Context* ctx, jint x1, jint y1, jint z1, jint x2, jint y2, jint z2, jboolean x4Min, jint timeoutMs) {
         if (!inBounds(y1) || !inBounds(y2)) {
             throwException(env, "Invalid y1 or y2");
@@ -228,5 +237,9 @@ extern "C" {
     EXPORT jboolean JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_isVisible(JNIEnv*, jclass, Context* ctx, jboolean assumeFakeChunksAreAir, double x1, double y1, double z1, double x2, double y2, double z2) {
         const std::variant result = raytrace({x1, y1, z1}, {x2, y2, z2}, assumeFakeChunksAreAir, ctx->generator, ctx->executors[0], ctx->chunkCache);
         return !std::holds_alternative<Hit>(result);
+    }
+
+    EXPORT jlong JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_getX2Index(JNIEnv*, jclass) {
+        return (jlong) &X2_INDEX;
     }
 }

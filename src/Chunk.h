@@ -76,10 +76,8 @@ inline bool isEmpty(const T& input) {
 
 
 struct Chunk {
-private:
     std::array<x16_t, 8> data{};
     std::array<bool, 8> x16Empty{};
-public:
     bool isFromJava{};
 private:
 
