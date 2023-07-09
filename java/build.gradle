@@ -125,8 +125,6 @@ tasks.register('proguard', ProGuardTask) {
     if (System.getProperty('java.version').startsWith('1.')) {
         libraryjars "${System.getProperty('java.home')}/lib/rt.jar"
     } else {
-        println 'uwu'
-        println System.getProperty('java.home')
         libraryjars "${System.getProperty('java.home')}/jmods/java.base.jmod", jarfilter: '!**.jar', filter: '!module-info.class'
         libraryjars "${System.getProperty('java.home')}/jmods/jdk.unsupported.jmod", jarfilter: '!**.jar', filter: '!module-info.class'
     }
