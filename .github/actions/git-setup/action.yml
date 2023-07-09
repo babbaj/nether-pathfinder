@@ -12,4 +12,5 @@ runs:
       shell: bash
       run: |
         git config --global user.name babbaj
+        git config --global user.email babbaj45@gmail.com
         git config --global user.password $ACCESS_TOKEN
