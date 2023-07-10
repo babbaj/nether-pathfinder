@@ -73,6 +73,18 @@ public class Octree {
         UNSAFE.putByte(x2Ptr, x2);
     }
 
+    public static void initBlock(long pointer, int x, int y, int z, boolean solid) {
+        final long x2Ptr = getX2Ptr(pointer, x, y, z);
+        final int bit = bitIndex(x, y, z);
+        byte x2 = UNSAFE.getByte(x2Ptr);
+
+        // this is more likely to be branchless than setBlock
+        int b = solid ? 1 : 0;
+        x2 |= (b << bit);
+
+        UNSAFE.putByte(x2Ptr, x2);
+    }
+
     public static boolean getBlock(long pointer, int x, int y, int z) {
         final long x2Ptr = getX2Ptr(pointer, x, y, z);
         final int bit = bitIndex(x, y, z);
