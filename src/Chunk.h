@@ -77,7 +77,7 @@ inline bool isEmpty(const T& input) {
 
 struct Chunk {
     std::array<x16_t, 8> data{};
-    std::array<bool, 8> x16Empty{};
+    //std::array<bool, 8> x16Empty{};
     bool isFromJava{};
 private:
 
@@ -100,7 +100,7 @@ private:
 public:
     void calcEmptyX16() {
         for (int i = 0; i < 8; i++) {
-            x16Empty[i] = ::isEmpty(data[i]);
+            //x16Empty[i] = ::isEmpty(data[i]);
         }
     }
 
@@ -165,7 +165,8 @@ public:
 
 template<>
 inline bool Chunk::isEmpty<Size::X16>(int, int y, int) const {
-    return x16Empty[x16Index(y)];
+    //return x16Empty[x16Index(y)];
+    return ::isEmpty(data[x16Index(y)]);
 }
 
 template<>

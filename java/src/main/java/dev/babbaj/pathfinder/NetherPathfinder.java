@@ -30,6 +30,8 @@ public class NetherPathfinder {
 
     public static native boolean setBlockState(long context, int x, int y, int z, boolean state);
 
+    public static native long getOrCreateChunk(long context, int x, int z);
+
     public static native long getChunkPointer(long context, int x, int z);
 
     public static native PathSegment pathFind(long context, int x1, int y1, int z1, int x2, int y2, int z2, boolean atLeastX4, int failTimeoutInMillis);

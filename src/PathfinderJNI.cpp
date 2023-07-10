@@ -108,7 +108,7 @@ extern "C" {
 
         ctx->chunkCache.insert_or_assign(ChunkPos{chunkX, chunkZ}, std::move(chunk_ptr));
     }
-
+    
     EXPORT jboolean JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_setBlockState(JNIEnv*, jclass, Context* ctx, jint x, jint y, jint z, jboolean newState) {
         auto existing = ctx->chunkCache.find(ChunkPos{x >> 4, z >> 4});
         if (existing != ctx->chunkCache.end()) {
@@ -116,6 +116,15 @@ extern "C" {
             return true;
         } else {
             return false;
+        }
+    }
+
+    EXPORT jlong JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_getOrCreateChunk(JNIEnv*, jclass, Context* ctx, jint x, jint z) {
+        auto existing = ctx->chunkCache.find(ChunkPos{x, z});
+        if (existing != ctx->chunkCache.end()) {
+            return (jlong) &existing->second->data;
+        } else {
+            return (jlong) ctx->chunkCache.emplace(ChunkPos{x, z}, std::make_unique<Chunk>()).first->second.get();
         }
     }
 

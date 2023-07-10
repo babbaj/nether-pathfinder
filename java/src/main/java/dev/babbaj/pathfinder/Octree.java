@@ -24,6 +24,7 @@ public class Octree {
     public static final int SIZEOF_X4 = SIZEOF_X2 * 8;
     public static final int SIZEOF_X8 = SIZEOF_X4 * 8;
     public static final int SIZEOF_X16 = SIZEOF_X8 * 8;
+    public static final int SIZEOF_CHUNK = SIZEOF_X16 * 8;
 
     public static int x16Index(int y) {
         return y >> 4;
@@ -77,5 +78,9 @@ public class Octree {
         final int bit = bitIndex(x, y, z);
         final byte x2 = UNSAFE.getByte(x2Ptr);
         return ((x2 >> bit) & 1) != 0;
+    }
+
+    public static void setIsFromJava(long pointer) {
+        UNSAFE.putByte(pointer + SIZEOF_CHUNK, (byte) 1);
     }
 }
