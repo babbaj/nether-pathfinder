@@ -64,24 +64,28 @@ public class NetherPathfinder {
 
     // TODO: convenient function for computing a full path
 
-    private static final boolean isLoaded;
+    private static final boolean IS_LOADED;
 
     public static boolean isThisSystemSupported() {
-        return isLoaded;
+        return IS_LOADED;
     }
 
     private static String getNativeLibName() {
-        String osName = System.getProperty("os.name").toLowerCase();
-        String osArch = System.getProperty("os.arch").toLowerCase();
         final int bits = Integer.parseInt(System.getProperty("sun.arch.data.model"));
-        if (bits != 64) return null;
+        if (bits != 64) {
+            throw new UnsupportedOperationException("Unsupported architecture (64-bit required)");
+        }
+
+        final String osName = System.getProperty("os.name").toLowerCase();
+        final String osArch = System.getProperty("os.arch").toLowerCase();
+
         final String arch;
         if (osArch.contains("arm") || osArch.contains("aarch64")) {
             arch = "aarch64";
         } else if (osArch.equals("x86_64") || osArch.equals("amd64")) {
             arch = "x86_64";
         } else {
-            return null;
+            throw new UnsupportedOperationException("Unsupported architecture: " + osArch);
         }
 
         if (osName.contains("linux")) {
@@ -91,11 +95,11 @@ public class NetherPathfinder {
         } else if (osName.contains("mac")) {
             return "libnether_pathfinder-" + arch + ".dylib";
         } else {
-            return null;
+            throw new UnsupportedOperationException("Unsupported operating system: " + osName);
         }
     }
 
-    private static byte[] getNativeLib(final String libName) {
+    private static byte[] getNativeLib(final String libName) throws IOException {
         try (
             final InputStream nativesRaw = NetherPathfinder.class.getClassLoader().getResourceAsStream("natives.zip.xz");
             final XZInputStream nativesZx = new XZInputStream(nativesRaw);
@@ -117,47 +121,45 @@ public class NetherPathfinder {
 
                 return byteStream.toByteArray();
             }
-        } catch (IOException ex) {
-            throw new UncheckedIOException(ex);
         }
-        return null;
+        throw new NullPointerException("Failed to find pathfinder library: " + libName);
+    }
+
+    private static void tryLoadLibrary() throws IOException {
+        final String libName = getNativeLibName();
+        final byte[] libBytes = getNativeLib(libName);
+
+        final String[] split = libName.split("\\.");
+        final Path tempFile = Files.createTempFile(split[0], "." + split[1]);
+        System.out.println("[nether-pathfinder] Created temp file at " + tempFile.toAbsolutePath());
+
+        try {
+            Files.write(tempFile, libBytes);
+            System.load(tempFile.toAbsolutePath().toString());
+        } finally {
+            try {
+                Files.delete(tempFile);
+            } catch (IOException ignored) {
+                System.err.println("[nether-pathfinder] Failed to delete temp file");
+//                System.out.println("trolled");
+//                ex.printStackTrace();
+            }
+            if (!tempFile.toFile().delete()) {
+                tempFile.toFile().deleteOnExit();
+            }
+        }
     }
 
     static {
-        final String libName = getNativeLibName();
-        if (libName == null) {
-            isLoaded = false;
-        } else {
-            final byte[] libBytes = getNativeLib(libName);
-            Objects.requireNonNull(libBytes, "Failed to find pathfinder library (" + libName + ")");
-
-            final String[] split = libName.split("\\.");
-            final Path tempFile;
-            try {
-                tempFile = Files.createTempFile(split[0], "." + split[1]);
-            } catch (IOException ex) {
-                throw new UncheckedIOException(ex);
-            }
-            System.out.println("Created temp file at " + tempFile.toAbsolutePath());
-
-            try {
-                Files.write(tempFile, libBytes);
-                System.load(tempFile.toAbsolutePath().toString());
-            } catch (IOException ex) {
-                throw new RuntimeException(ex);
-            } finally {
-                try {
-                    Files.delete(tempFile);
-                } catch (IOException ex) {
-                    System.out.println("trolled");
-                    ex.printStackTrace();
-                }
-                tempFile.toFile().delete();
-                tempFile.toFile().deleteOnExit();
-            }
-
-            System.out.println("Loaded shared library");
-            isLoaded = true;
+        boolean loaded = false;
+        try {
+            tryLoadLibrary();
+            System.out.println("[nether-pathfinder] Loaded shared library");
+            loaded = true;
+        } catch (Throwable e) {
+            System.err.println("[nether-pathfinder] Failed to load shared library");
+            e.printStackTrace();
         }
+        IS_LOADED = loaded;
     }
 }
