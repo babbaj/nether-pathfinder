@@ -109,11 +109,9 @@ static void BM_testGenChunk(benchmark::State& state) {
 }
 
 static void BM_testPathFind(benchmark::State& state) {
-    ChunkGenExec exec;
-
     for (auto _ : state) {
-        cache_t cache;
-        auto path = findPath({0, 40, 0}, {(int)state.range(0), 64, (int)state.range(0)}, generator, false);
+        Context ctx{seed};
+        auto path = findPathFull(ctx, {0, 40, 0}, {(int)state.range(0), 64, (int)state.range(0)});
         benchmark::DoNotOptimize(path);
     }
 }
@@ -155,6 +153,58 @@ void BM_generateNoiseOctaves(benchmark::State& state) {
     }
 }
 
+void BM_testDirectChunkInit(benchmark::State& state) {
+    Context ctx{seed};
+    Chunk source = ctx.generator.generateChunk(69, 420, ctx.executors[0]);
+    bool input[BLOCKS_IN_CHUNK]{};
+    auto* asX2 = (uint8_t*) &source.data;
+    for (int i = 0; i < BLOCKS_IN_CHUNK / 8; i++) {
+        auto x2 = asX2[i];
+        for (int j = 0; j < 8; j++) {
+            input[i * 8 + j] = ((x2 >> j) & 1);
+        }
+    }
+    benchmark::DoNotOptimize(input);
+    for (auto _ : state) {
+        Chunk chunk;
+        for (int y = 0; y < 128; y++) {
+            for (int x = 0; x < 16; x++) {
+                for (int z = 0; z < 16; z++) {
+                    auto b = input[X2_INDEX[x/2][z/2][y/2] + bitIndex(x, y, z)];
+                    chunk.setBlock(x, y, z, b);
+                }
+            }
+        }
+        benchmark::DoNotOptimize(chunk);
+    }
+}
+
+
+void BM_testFastChunkInit(benchmark::State& state) {
+    Context ctx{seed};
+    Chunk source = ctx.generator.generateChunk(69, 420, ctx.executors[0]);
+    uint8_t input[BLOCKS_IN_CHUNK]{};
+    auto* asX2 = (uint8_t*) &source.data;
+    for (int i = 0; i < BLOCKS_IN_CHUNK / 8; i++) {
+        auto x2 = asX2[i];
+        for (int j = 0; j < 8; j++) {
+            input[i * 8 + j] = ((x2 >> (7 - j)) & 1);
+        }
+    }
+    benchmark::DoNotOptimize(input);
+
+    for (auto _ : state) {
+        Chunk chunk;
+        unpackedToPackedChunk(chunk, input);
+        benchmark::DoNotOptimize(chunk);
+
+        /*if (std::memcmp(&chunk, &source, sizeof(Chunk)) != 0) {
+            std::cout << "different :sob:" << std::endl;
+            exit(1);
+        }*/
+    }
+}
+
 //BENCHMARK(BM_testGetx2);
 //BENCHMARK(BM_testOldGetx2);
 //BENCHMARK(BM_testSetBlock);
@@ -164,7 +214,9 @@ void BM_generateNoiseOctaves(benchmark::State& state) {
 //BENCHMARK(BM_testMaxNoAttribute);
 //BENCHMARK(BM_testMax);
 //BENCHMARK(BM_testPathFind)->Range(1000, 128000)->RangeMultiplier(2)->Unit(benchmark::kSecond);
-BENCHMARK(BM_testGenChunk)/*->Iterations(10)*/->Unit(benchmark::kMicrosecond);
-BENCHMARK(BM_generateNoiseOctaves)/*->Iterations(10)*/->Unit(benchmark::kMicrosecond);
+//BENCHMARK(BM_testGenChunk)/*->Iterations(10)*/->Unit(benchmark::kMicrosecond);
+//BENCHMARK(BM_generateNoiseOctaves)/*->Iterations(10)*/->Unit(benchmark::kMicrosecond);
+BENCHMARK(BM_testDirectChunkInit);
+BENCHMARK(BM_testFastChunkInit);
 
 BENCHMARK_MAIN();

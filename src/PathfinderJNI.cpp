@@ -90,14 +90,13 @@ extern "C" {
 
     EXPORT void JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_insertChunkData(JNIEnv* env, jclass, Context* ctx, jint chunkX, jint chunkZ, jbooleanArray input) {
         jboolean isCopy{};
-        constexpr auto blocksInChunk = 16 * 16 * 128;
-        if (auto len = env->GetArrayLength(input); len != blocksInChunk) {
+        if (auto len = env->GetArrayLength(input); len != BLOCKS_IN_CHUNK) {
             throwException(env, "input is not 32768 elements");
             return;
         }
         jboolean* data = env->GetBooleanArrayElements(input, &isCopy);
         auto chunk_ptr = std::make_unique<Chunk>();
-        for (int i = 0; i < blocksInChunk; i++) {
+        for (int i = 0; i < BLOCKS_IN_CHUNK; i++) {
             auto x = (i >> 0) & 0xF;
             auto z = (i >> 4) & 0xF;
             auto y = (i >> 8) & 0x7F;
@@ -108,7 +107,23 @@ extern "C" {
 
         ctx->chunkCache.insert_or_assign(ChunkPos{chunkX, chunkZ}, std::move(chunk_ptr));
     }
-    
+
+    EXPORT void JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_insertUnpackedOctreeChunkData(JNIEnv* env, jclass, Context* ctx, jint chunkX, jint chunkZ, jbooleanArray input) {
+        jboolean isCopy{};
+        if (auto len = env->GetArrayLength(input); len != BLOCKS_IN_CHUNK) {
+            throwException(env, "input is not 32768 elements");
+            return;
+        }
+        jboolean* data = env->GetBooleanArrayElements(input, &isCopy);
+        auto chunk_ptr = std::make_unique<Chunk>();
+
+        unpackedToPackedChunk(*chunk_ptr, data);
+
+        chunk_ptr->isFromJava = true;
+        env->ReleaseBooleanArrayElements(input, data, JNI_ABORT);
+        ctx->chunkCache.insert_or_assign(ChunkPos{chunkX, chunkZ}, std::move(chunk_ptr));
+    }
+
     EXPORT jboolean JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_setBlockState(JNIEnv*, jclass, Context* ctx, jint x, jint y, jint z, jboolean newState) {
         auto existing = ctx->chunkCache.find(ChunkPos{x >> 4, z >> 4});
         if (existing != ctx->chunkCache.end()) {

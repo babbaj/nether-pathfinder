@@ -39,6 +39,7 @@ struct Worker {
     }
 };
 
+#if 1
 template<int Threads>
 struct ParallelExecutor {
     std::array<Worker, Threads - 1> workers{};
@@ -88,3 +89,12 @@ struct ParallelExecutor {
         }
     }
 };
+#else
+template<int Tasks>
+struct ParallelExecutor {
+    template<typename... Fn>
+    auto compute(Fn&&... tasks) {
+        return std::make_tuple(tasks()...);
+    }
+};
+#endif
