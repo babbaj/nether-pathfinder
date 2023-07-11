@@ -26,4 +26,4 @@ do_build $1 aarch64-linux-gnu libnether_pathfinder-aarch64.so
 do_build $1 x86_64-macos-gnu libnether_pathfinder-x86_64.dylib
 do_build $1 aarch64-macos-gnu libnether_pathfinder-aarch64.dylib
 do_build $1 x86_64-windows-gnu nether_pathfinder-x86_64.dll
-do_build $1 aarch64-windows-gnu nether_pathfinder-aarch64.so
+do_build $1 aarch64-windows-gnu nether_pathfinder-aarch64.dll
