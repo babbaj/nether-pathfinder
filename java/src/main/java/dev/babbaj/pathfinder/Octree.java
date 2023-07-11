@@ -6,7 +6,7 @@ import java.lang.reflect.Field;
 
 @SuppressWarnings("sunapi")
 public class Octree {
-    private static final Unsafe UNSAFE;
+    public static final Unsafe UNSAFE;
 
     static {
         try {
@@ -18,7 +18,7 @@ public class Octree {
         }
     }
 
-    private static final long X2_INDEX_PTR = NetherPathfinder.getX2Index();
+    public static final long X2_INDEX_PTR = NetherPathfinder.getX2Index();
 
     public static final int SIZEOF_X2 = 1;
     public static final int SIZEOF_X4 = SIZEOF_X2 * 8;
@@ -46,7 +46,7 @@ public class Octree {
         return ((x & 1) << 2) | ((y & 1) << 1) | ((z & 1));
     }
 
-    private static long getX2Ptr(long chunk, int x, int y, int z) {
+    public static long getX2Ptr(long chunk, int x, int y, int z) {
         //final int offset = (x16Index(y) * SIZEOF_X16) + (x8Index(x, y, z) * SIZEOF_X8) + (x4Index(x, y, z) * SIZEOF_X4) + (x2Index(x, y, z) * SIZEOF_X2);
 
         // std::array<std::array<std::array<uint16_t, 64>, 8>, 8>
