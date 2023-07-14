@@ -68,6 +68,7 @@ const Chunk& getOrGenChunk(Context& ctx, ChunkGenExec& executor, const ChunkPos&
         }
         return *it->second;
     } else if (airIfFake) {
+        ctx.cacheMutex.unlock();
         return AIR_CHUNK;
     } else {
         ctx.cacheMutex.unlock();
