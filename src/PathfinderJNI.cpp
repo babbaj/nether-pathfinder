@@ -106,12 +106,12 @@ extern "C" {
         chunk_ptr->isFromJava = true;
         env->ReleaseBooleanArrayElements(input, data, JNI_ABORT);
 
-        std::unique_lock lock{ctx->cacheMutex};
+        std::scoped_lock lock{ctx->cacheMutex};
         ctx->chunkCache.insert_or_assign(ChunkPos{chunkX, chunkZ}, std::move(chunk_ptr));
     }
 
     EXPORT jlong JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_getOrCreateChunk(JNIEnv*, jclass, Context* ctx, jint x, jint z) {
-        std::unique_lock lock{ctx->cacheMutex};
+        std::scoped_lock lock{ctx->cacheMutex};
         auto existing = ctx->chunkCache.find(ChunkPos{x, z});
         if (existing != ctx->chunkCache.end()) {
             return (jlong) &existing->second->data;
@@ -121,7 +121,7 @@ extern "C" {
     }
 
     EXPORT jlong JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_getChunkPointer(JNIEnv*, jclass, Context* ctx, jint x, jint z) {
-        std::unique_lock lock{ctx->cacheMutex};
+        std::scoped_lock lock{ctx->cacheMutex};
         auto existing = ctx->chunkCache.find(ChunkPos{x, z});
         if (existing != ctx->chunkCache.end()) {
             return (jlong) &existing->second->data;
