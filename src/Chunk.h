@@ -214,6 +214,15 @@ inline void reverse32x8(__m256i* buf) {
     a[3] = _0;
 }
 
+inline void reverse16x8(__m128i* buf) {
+    // inlined to vpshufb + vpermq
+    uint64_t* a = reinterpret_cast<uint64_t*>(buf);
+    uint64_t _0 = __bswap_64(a[0]);
+    uint64_t _1 = __bswap_64(a[1]);
+    a[0] = _1;
+    a[1] = _0;
+}
+
 inline void unpackedToPackedChunk(Chunk& out, const uint8_t* unpacked) {
     auto* asX2 = (uint8_t*) &out.data;
     // 32 bytes from input
@@ -221,16 +230,38 @@ inline void unpackedToPackedChunk(Chunk& out, const uint8_t* unpacked) {
     for (int i = 0; i < BLOCKS_IN_CHUNK; i += 32) {
         auto buf = _mm256_loadu_si256((const __m256i*) &unpacked[i]);
         reverse32x8(&buf);
-        auto based = _mm256_cmpeq_epi8(buf, __m256i{}); // 1 -> 0xFF
+
+        auto based = _mm256_cmpeq_epi8(buf, {}); // 1 -> 0xFF
         // invert because we want inequality to be 1 but we only have cmpeq
         int mask = ~_mm256_movemask_epi8(based);
         uint8_t untrolled[4] = {(uint8_t)((mask >> 24) & 0xFF), (uint8_t)((mask >> 16) & 0xFF), (uint8_t)((mask >> 8) & 0xFF), (uint8_t)(mask & 0xFF)};
         memcpy(&asX2[i / 8], &untrolled, 4);
     }
-    /*for (int i = 0; i < BLOCKS_IN_CHUNK; i++) {
+}
+
+inline void unpackedToPackedChunk128(Chunk& out, const uint8_t* unpacked) {
+    auto* asX2 = (uint8_t*) &out.data;
+    // 32 bytes from input
+    // 32 bits to output
+    for (int i = 0; i < BLOCKS_IN_CHUNK; i += 16) {
+        auto buf = _mm_loadu_si128((const __m128i*) &unpacked[i]);
+        reverse16x8(&buf);
+        auto based = _mm_cmpeq_epi8(buf, {}); // 1 -> 0xFF
+        // invert because we want inequality to be 1 but we only have cmpeq
+        int mask = ~_mm_movemask_epi8(based);
+        uint8_t untrolled[2] = {(uint8_t)((mask >> 8) & 0xFF), (uint8_t)(mask & 0xFF)};
+        memcpy(&asX2[i / 8], &untrolled, 2);
+    }
+
+}
+
+inline void unpackedToPackedChunkShrimple(Chunk& out, const uint8_t* unpacked) {
+    auto* asX2 = (uint8_t*) &out.data;
+
+    for (int i = 0; i < BLOCKS_IN_CHUNK; i++) {
         auto x2 = asX2[i / 8];
         auto bit = 7 - (i % 8);
         x2 = unpacked[i] ? (x2 | (1u << bit)) : (x2 & ~(1u << bit));
         asX2[i / 8] = x2;
-    }*/
+    }
 }
