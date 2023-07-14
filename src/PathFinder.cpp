@@ -57,22 +57,26 @@ Path createPath(map_t<NodePos, std::unique_ptr<PathNode>>& map, const PathNode* 
     };
 }
 
-Chunk&
-getOrGenChunk(cache_t& cache, const ChunkPos& pos, const ChunkGeneratorHell& generator,
-              ChunkGenExec& executor, std::mutex& chunkMut) {
-    chunkMut.lock();
-    auto it = cache.find(pos);
-    if (it != cache.end()) {
-        chunkMut.unlock();
+const Chunk& getOrGenChunk(Context& ctx, ChunkGenExec& executor, const ChunkPos& pos, bool airIfFake) {
+    ctx.cacheMutex.lock();
+    auto it = ctx.chunkCache.find(pos);
+    if (it != ctx.chunkCache.end()) {
+        auto& chunk = *it->second;
+        ctx.cacheMutex.unlock();
+        if (!chunk.isFromJava && airIfFake) {
+            return AIR_CHUNK;
+        }
         return *it->second;
+    } else if (airIfFake) {
+        return AIR_CHUNK;
     } else {
-        chunkMut.unlock();
+        ctx.cacheMutex.unlock();
         std::unique_ptr ptr = std::make_unique<Chunk>();
         auto& chunk = *ptr;
-        generator.generateChunk(pos.x, pos.z, *ptr, executor);
-        chunkMut.lock();
-        cache.emplace(pos, std::move(ptr));
-        chunkMut.unlock();
+        ctx.generator.generateChunk(pos.x, pos.z, *ptr, executor);
+        ctx.cacheMutex.lock();
+        ctx.chunkCache.emplace(pos, std::move(ptr));
+        ctx.cacheMutex.unlock();
         return chunk;
     }
 }
@@ -249,9 +253,7 @@ std::optional<Path> findPathSegment(Context& ctx, const NodePos& start, const No
     startNode->cost = 0;
     startNode->combinedCost = startNode->estimatedCostToGoal;
     openSet.insert(startNode);
-    std::mutex chunkMutRaw;
-    std::mutex& chunkMut = chunkMutRaw;
-    getOrGenChunk(ctx.chunkCache, start.absolutePosZero().toChunkPos(), ctx.generator, ctx.executors[0], chunkMut);
+    getOrGenChunk(ctx, ctx.executors[0], start.absolutePosZero().toChunkPos());
 
     PathNode* bestSoFar = startNode;
     double bestHeuristicSoFar = startNode->estimatedCostToGoal;
@@ -299,16 +301,16 @@ std::optional<Path> findPathSegment(Context& ctx, const NodePos& start, const No
         if (!doneFull.contains(cpos)) {
             ctx.topExecutor.compute(
                     [&] {
-                        return getOrGenChunk(ctx.chunkCache, cposNorth, ctx.generator, ctx.executors[0], chunkMut);
+                        return getOrGenChunk(ctx, ctx.executors[0], cposNorth);
                     },
                     [&] {
-                        return getOrGenChunk(ctx.chunkCache, cposSouth, ctx.generator, ctx.executors[1], chunkMut);
+                        return getOrGenChunk(ctx, ctx.executors[1], cposSouth);
                     },
                     [&] {
-                        return getOrGenChunk(ctx.chunkCache, cposEast, ctx.generator, ctx.executors[2], chunkMut);
+                        return getOrGenChunk(ctx, ctx.executors[2], cposEast);
                     },
                     [&] {
-                        return getOrGenChunk(ctx.chunkCache, cposWest, ctx.generator, ctx.executors[3], chunkMut);
+                        return getOrGenChunk(ctx, ctx.executors[3], cposWest);
                     }
             );
             doneFull.emplace(cpos, true);

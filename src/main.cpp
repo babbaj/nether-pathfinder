@@ -146,7 +146,7 @@ int main(int argc, char** argv) {
 
         std::cout<< "refining..." << std::endl;
         auto t1 = std::chrono::steady_clock::now();
-        refine(path->blocks, ctx.generator, path->chunkCache);
+        refine(ctx, path->blocks);
         auto t2 = std::chrono::steady_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
         std::cout << "refining took " << duration / 1000.0 << "s " << std::endl;

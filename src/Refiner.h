@@ -3,6 +3,7 @@
 #include <vector>
 #include <variant>
 
+#include "PathFinder.h"
 #include "Utils.h"
 #include "ChunkGeneratorHell.h"
 #include "ChunkGen.h"
@@ -25,6 +26,6 @@ struct Miss {
 };
 using RaytraceResult = std::variant<Hit, Finished, Miss>;
 
-RaytraceResult raytrace(const Vec3& from, const Vec3& to, bool airIfFakeChunk, const ChunkGeneratorHell& gen, ChunkGenExec& exec, cache_t& cache);
+RaytraceResult raytrace(Context& ctx, const Vec3& from, const Vec3& to, bool airIfFakeChunk);
 
-std::vector<BlockPos> refine(const std::vector<BlockPos>& path, const ChunkGeneratorHell& gen, cache_t& cache);
+std::vector<BlockPos> refine(Context& ctx, const std::vector<BlockPos>& path);

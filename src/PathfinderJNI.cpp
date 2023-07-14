@@ -106,20 +106,12 @@ extern "C" {
         chunk_ptr->isFromJava = true;
         env->ReleaseBooleanArrayElements(input, data, JNI_ABORT);
 
+        std::unique_lock lock{ctx->cacheMutex};
         ctx->chunkCache.insert_or_assign(ChunkPos{chunkX, chunkZ}, std::move(chunk_ptr));
-    }
-    
-    EXPORT jboolean JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_setBlockState(JNIEnv*, jclass, Context* ctx, jint x, jint y, jint z, jboolean newState) {
-        auto existing = ctx->chunkCache.find(ChunkPos{x >> 4, z >> 4});
-        if (existing != ctx->chunkCache.end()) {
-            existing->second->setBlock(x & 0xF, y & 0x7F, z & 0xF, newState);
-            return true;
-        } else {
-            return false;
-        }
     }
 
     EXPORT jlong JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_getOrCreateChunk(JNIEnv*, jclass, Context* ctx, jint x, jint z) {
+        std::unique_lock lock{ctx->cacheMutex};
         auto existing = ctx->chunkCache.find(ChunkPos{x, z});
         if (existing != ctx->chunkCache.end()) {
             return (jlong) &existing->second->data;
@@ -129,6 +121,7 @@ extern "C" {
     }
 
     EXPORT jlong JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_getChunkPointer(JNIEnv*, jclass, Context* ctx, jint x, jint z) {
+        std::unique_lock lock{ctx->cacheMutex};
         auto existing = ctx->chunkCache.find(ChunkPos{x, z});
         if (existing != ctx->chunkCache.end()) {
             return (jlong) &existing->second->data;
@@ -179,7 +172,7 @@ extern "C" {
         std::transform(pointer, pointer + packedLen, std::back_inserter(unpacked), unpackBlockPos);
         env->ReleaseLongArrayElements(packed, pointer, JNI_ABORT);
 
-        auto refined = refine(unpacked, ctx->generator, ctx->chunkCache);
+        auto refined = refine(*ctx, unpacked);
         jlongArray out = env->NewLongArray((jint) refined.size());
         jlong* outPointer = env->GetLongArrayElements(out, &isCopy);
         for (int i = 0; i < refined.size(); i++) {
@@ -198,7 +191,7 @@ extern "C" {
         for (int i = 0; i < inputs; i++) {
             auto& start = reinterpret_cast<const Vec3*>(startPtr)[i];
             auto& end = reinterpret_cast<const Vec3*>(endPtr)[i];
-            const std::variant result = raytrace(start, end, assumeFakeChunksAreAir, ctx->generator, ctx->executors[0], ctx->chunkCache);
+            const std::variant result = raytrace(*ctx, start, end, assumeFakeChunksAreAir);
             auto* hit = std::get_if<Hit>(&result);
             if (hit) {
                 hitsOutPtr[i] = true;
@@ -225,7 +218,7 @@ extern "C" {
         for (jint i = 0; i < inputs; i++) {
             auto& start = reinterpret_cast<const Vec3*>(startPtr)[i];
             auto& end = reinterpret_cast<const Vec3*>(endPtr)[i];
-            const std::variant result = raytrace(start, end, assumeFakeChunksAreAir, ctx->generator, ctx->executors[0], ctx->chunkCache);
+            const std::variant result = raytrace(*ctx, start, end, assumeFakeChunksAreAir);
             auto* hit = std::get_if<Hit>(&result);
             const bool modeAll = !modeAny;
             if (!hit) {
@@ -244,7 +237,7 @@ extern "C" {
     }
 
     EXPORT jboolean JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_isVisible(JNIEnv*, jclass, Context* ctx, jboolean assumeFakeChunksAreAir, double x1, double y1, double z1, double x2, double y2, double z2) {
-        const std::variant result = raytrace({x1, y1, z1}, {x2, y2, z2}, assumeFakeChunksAreAir, ctx->generator, ctx->executors[0], ctx->chunkCache);
+        const std::variant result = raytrace(*ctx, {x1, y1, z1}, {x2, y2, z2}, assumeFakeChunksAreAir);
         return !std::holds_alternative<Hit>(result);
     }
 

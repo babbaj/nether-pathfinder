@@ -28,8 +28,6 @@ public class NetherPathfinder {
     */
     public static native void insertChunkData(long context, int chunkX, int chunkZ, boolean[] data);
 
-    public static native boolean setBlockState(long context, int x, int y, int z, boolean state);
-
     public static native long getOrCreateChunk(long context, int x, int z);
 
     public static native long getChunkPointer(long context, int x, int z);

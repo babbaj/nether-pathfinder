@@ -2,6 +2,7 @@
 #include "ChunkGeneratorHell.h"
 #include "ChunkGen.h"
 #include "Refiner.h"
+#include "PathFinder.h"
 
 #include <vector>
 #include <unordered_map>
@@ -385,26 +386,6 @@ std::optional<RaytraceResult> raytrace16x(uint8_t a, Ray ray, double targetLen, 
     }
 }
 
-// 3rd time I've copy/pasted this
-const Chunk& getOrGenChunk(const BlockPos& pos, bool airIfFake, const ChunkGeneratorHell& gen, ChunkGenExec& exec, cache_t& cache) {
-    const ChunkPos chunkPos = pos.toChunkPos();
-    auto it = cache.find(chunkPos);
-    if (it != cache.end()) {
-        if (!it->second->isFromJava && airIfFake) {
-            return AIR_CHUNK;
-        }
-        return *it->second;
-    } else if (airIfFake) {
-        return AIR_CHUNK;
-    } else {
-        std::unique_ptr ptr = std::make_unique<Chunk>();
-        auto& chunk = *ptr;
-        gen.generateChunk(chunkPos.x, chunkPos.z, *ptr, exec);
-        cache.emplace(chunkPos, std::move(ptr));
-        return chunk;
-    }
-}
-
 Node<Size::X16> x16Node(const Chunk& chunk, const BlockPos& pos) {
     return {
         {
@@ -418,7 +399,7 @@ Node<Size::X16> x16Node(const Chunk& chunk, const BlockPos& pos) {
 }
 
 // returns true if there is line of sight
-RaytraceResult raytrace(const Vec3& from, const Vec3& to, bool airIfFakeChunk, const ChunkGeneratorHell& gen, ChunkGenExec& exec, cache_t& cache) {
+RaytraceResult raytrace(Context& ctx, const Vec3& from, const Vec3& to, bool airIfFakeChunk) {
     const auto [ray, targetLen] = computeRay(from, to);
     // the algorithm only works in positive directions so we need to reflect around the target point
     uint8_t a = 0;
@@ -432,7 +413,7 @@ RaytraceResult raytrace(const Vec3& from, const Vec3& to, bool airIfFakeChunk, c
         a |= 1;
     }
     const BlockPos realOriginBlock = vecToBlockPos(from);
-    auto firstNode = x16Node(getOrGenChunk(realOriginBlock, airIfFakeChunk, gen, exec, cache), realOriginBlock);
+    auto firstNode = x16Node(getOrGenChunk(ctx, ctx.executors[0], realOriginBlock.toChunkPos(), airIfFakeChunk), realOriginBlock);
 
     Node<Size::X16> currentNode = firstNode;
     while (true) {
@@ -459,11 +440,11 @@ RaytraceResult raytrace(const Vec3& from, const Vec3& to, bool airIfFakeChunk, c
                 neighborPos.x += (a & 4) ? -16 : 16;
                 break;
         }
-        currentNode = x16Node(getOrGenChunk(neighborPos, airIfFakeChunk, gen, exec, cache), neighborPos);
+        currentNode = x16Node(getOrGenChunk(ctx, ctx.executors[0], neighborPos.toChunkPos(), airIfFakeChunk), neighborPos);
     }
 }
 
-size_t lastVisibleNode(const std::vector<BlockPos>& path, size_t currentNode, const ChunkGeneratorHell& gen, ChunkGenExec& exec, cache_t& cache) {
+size_t lastVisibleNode(Context& ctx, const std::vector<BlockPos>& path, size_t currentNode) {
     if (currentNode == path.size() - 1) return currentNode;
     const BlockPos fromBlock = path[currentNode];
     const Vec3 from = blockPosToVec(fromBlock);
@@ -471,7 +452,7 @@ size_t lastVisibleNode(const std::vector<BlockPos>& path, size_t currentNode, co
     for (auto i = lastVisible + 1; i < path.size(); i++) {
         const auto& currentBlock = path[i];
         if (fromBlock == currentBlock) continue; // apparently the pathfinder can produce 2 consecutive equal points and that breaks the raytracer
-        const auto result = raytrace(from, blockPosToVec(currentBlock), false, gen, exec, cache);
+        const auto result = raytrace(ctx, from, blockPosToVec(currentBlock), false);
         if (std::holds_alternative<Hit>(result)) {
             return lastVisible;
         }
@@ -480,10 +461,10 @@ size_t lastVisibleNode(const std::vector<BlockPos>& path, size_t currentNode, co
     return lastVisible;
 }
 
-std::vector<BlockPos> refine(const std::vector<BlockPos>& path, const ChunkGeneratorHell& gen, cache_t& cache) {
+std::vector<BlockPos> refine(Context& ctx, const std::vector<BlockPos>& path) {
     ChunkGenExec exec;
     std::vector<BlockPos> out;
-    for (size_t i = 0; i < path.size(); i = lastVisibleNode(path, i, gen, exec, cache)) {
+    for (size_t i = 0; i < path.size(); i = lastVisibleNode(ctx, path, i)) {
         out.push_back(path[i]);
         if (i == path.size() - 1) break;
     }
