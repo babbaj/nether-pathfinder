@@ -140,7 +140,10 @@ extern "C" {
         const NodePos goal = x4Min ? findAir<Size::X4>(*ctx, {x2, y2, z2}) : findAir<Size::X2>(*ctx, {x2, y2, z2});
         std::optional<Path> path = findPathSegment(*ctx, start, goal, x4Min, timeoutMs);
         if (!path) return nullptr;
-
+        const bool isFinished = path->type == Path::Type::FINISHED;
+        if (isFinished) {
+            path->blocks.push_back({x2, y2, z2});
+        }
         std::vector<jlong> packed;
         packed.reserve(path->blocks.size());
         std::transform(path->blocks.begin(), path->blocks.end(), std::back_inserter(packed), packBlockPos);
@@ -153,7 +156,7 @@ extern "C" {
             state.pathSegmentClass,
             state.pathSegmentCtor,
             // args
-            path->type == Path::Type::FINISHED,
+            isFinished,
             array
         );
         return object;
