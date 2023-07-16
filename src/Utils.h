@@ -33,6 +33,12 @@ constexpr int width(Size sizeEnum) {
 
 struct ChunkPos {
     int x, z;
+
+    [[nodiscard]] double distanceToSq(const ChunkPos& pos) const {
+        const double dx = pos.x - this->x;
+        const double dz = pos.z - this->z;
+        return (dx * dx) + (dz * dz);
+    }
 };
 
 struct Vec3 {

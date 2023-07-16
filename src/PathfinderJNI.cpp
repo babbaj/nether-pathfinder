@@ -130,6 +130,17 @@ extern "C" {
         }
     }
 
+    EXPORT void JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_cullFarChunks(JNIEnv*, jclass, Context* ctx, jint chunkX, jint chunkZ, jint maxDistanceBlocks) {
+        std::scoped_lock lock{ctx->cacheMutex};
+        const auto distSqBlocks = (maxDistanceBlocks / 16) * (maxDistanceBlocks / 16);
+        const auto distSq = distSqBlocks;
+        for (const auto& [cpos, ptr] : ctx->chunkCache) {
+            if (cpos.distanceToSq({chunkX, chunkZ}) > distSq) {
+                ctx->chunkCache.erase(cpos);
+            }
+        }
+    }
+
     EXPORT jobject JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_pathFind(JNIEnv* env, jclass, Context* ctx, jint x1, jint y1, jint z1, jint x2, jint y2, jint z2, jboolean x4Min, jint timeoutMs) {
         if (!inBounds(y1) || !inBounds(y2)) {
             throwException(env, "Invalid y1 or y2");
