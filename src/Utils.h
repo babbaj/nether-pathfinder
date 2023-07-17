@@ -130,7 +130,7 @@ struct BlockPos {
     constexpr BlockPos& operator=(const BlockPos& newPos) = default;
 };
 
-std::ostream& operator<<(std::ostream& out, const BlockPos& pos) {
+inline std::ostream& operator<<(std::ostream& out, const BlockPos& pos) {
     out << pos.x << "," << pos.y << "," << pos.z;
     return out;
 }
