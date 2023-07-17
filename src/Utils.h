@@ -4,6 +4,7 @@
 #include <functional>
 #include <array>
 #include <memory>
+#include <string>
 
 enum class Face {
     UP,
