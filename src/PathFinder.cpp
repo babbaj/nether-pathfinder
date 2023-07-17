@@ -250,11 +250,11 @@ std::optional<Path> findPathSegment(Context& ctx, const NodePos& start, const No
     map_t<ChunkPos, bool> doneFull;
     BinaryHeapOpenSet openSet;
 
-    PathNode* const startNode = getNodeAtPosition(map, start, goal.absolutePosZero());
+    PathNode* const startNode = getNodeAtPosition(map, start, goalCenter);
     startNode->cost = 0;
     startNode->combinedCost = startNode->estimatedCostToGoal;
     openSet.insert(startNode);
-    getOrGenChunk(ctx, ctx.executors[0], start.absolutePosZero().toChunkPos());
+    getOrGenChunk(ctx, ctx.executors[0], startCenter.toChunkPos());
 
     PathNode* bestSoFar = startNode;
     double bestHeuristicSoFar = startNode->estimatedCostToGoal;
@@ -318,6 +318,30 @@ std::optional<Path> findPathSegment(Context& ctx, const NodePos& start, const No
         }
 
         auto callback = [&](const NodePos& neighborPos) {
+            {
+                auto bpos = neighborPos.absolutePosZero();
+                auto cpos = bpos.toChunkPos();
+                auto& chunk = ctx.chunkCache[cpos];
+                switch (neighborPos.size) {
+                    case Size::X4:
+                        if (!chunk->isEmpty<Size::X4>(bpos.x, bpos.y, bpos.z)) {
+                            std::cout << "callback called in non empty cube (X4)" << std::endl;
+                        }
+                        break;
+                    case Size::X8:
+                        if (!chunk->isEmpty<Size::X8>(bpos.x, bpos.y, bpos.z)) {
+                            std::cout << "callback called in non empty cube (X8)" << std::endl;
+                        }
+                        break;
+                    case Size::X16:
+                        if (!chunk->isEmpty<Size::X16>(bpos.x, bpos.y, bpos.z)) {
+                            std::cout << "callback called in non empty cube (X16)" << std::endl;
+                        }
+                        break;
+                    default: break;
+                }
+            }
+
             PathNode* neighborNode = getNodeAtPosition(map, neighborPos, goalCenter);
             //auto sqrtSize = [](Size sz) { return sqrt(width(sz)); };
             const double cost = 1;//sqrtSize(neighborNode->pos.size);//width(neighborNode->pos.size);
@@ -363,17 +387,11 @@ std::optional<Path> findPathSegment(Context& ctx, const NodePos& start, const No
                         face == Face::EAST ? neighborCpos == cpos ? currentChunk : *ctx.chunkCache[cposEast] :
                         /* face == Face::WEST */ neighborCpos == cpos ? currentChunk : *ctx.chunkCache[cposWest];
 
-                // 1x only
-                if (/*fine*/ false) {
-                    if (!chunk.isSolid(neighborNodePos.absolutePosZero())) {
-                        callback(neighborNodePos);
-                    }
+
+                if (x4Min) {
+                    growThenIterateOuter<face, Size::X4>(chunk, neighborNodePos, callback);
                 } else {
-                    if (x4Min) {
-                        growThenIterateOuter<face, Size::X4>(chunk, neighborNodePos, callback);
-                    } else {
-                        growThenIterateOuter<face, Size::X2>(chunk, neighborNodePos, callback);
-                    }
+                    growThenIterateOuter<face, Size::X2>(chunk, neighborNodePos, callback);
                 }
             }(), ...);
         }(std::make_index_sequence<ALL_FACES.size()>{});
