@@ -128,12 +128,11 @@ struct BlockPos {
     }
 
     constexpr BlockPos& operator=(const BlockPos& newPos) = default;
-};
 
-inline std::ostream& operator<<(std::ostream& out, const BlockPos& pos) {
-    out << pos.x << "," << pos.y << "," << pos.z;
-    return out;
-}
+    [[nodiscard]] std::string toString() const {
+        return std::to_string(this->x) + "," + std::to_string(this->y) + "," + std::to_string(this->z);
+    }
+};
 
 constexpr int ifloor(double x) {
     int i = static_cast<int>(x);
