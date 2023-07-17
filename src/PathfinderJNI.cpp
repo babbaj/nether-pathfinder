@@ -134,9 +134,10 @@ extern "C" {
         std::scoped_lock lock{ctx->cacheMutex};
         const auto distSqBlocks = (maxDistanceBlocks / 16) * (maxDistanceBlocks / 16);
         const auto distSq = distSqBlocks;
-        for (const auto& [cpos, ptr] : ctx->chunkCache) {
+        for (auto it = ctx->chunkCache.begin(); it != ctx->chunkCache.end(); it++) {
+            const auto& cpos = it->first;
             if (cpos.distanceToSq({chunkX, chunkZ}) > distSq) {
-                ctx->chunkCache.erase(cpos);
+                it = ctx->chunkCache.erase(it);
             }
         }
     }
