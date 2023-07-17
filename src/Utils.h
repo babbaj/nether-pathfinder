@@ -130,6 +130,11 @@ struct BlockPos {
     constexpr BlockPos& operator=(const BlockPos& newPos) = default;
 };
 
+std::ostream& operator<<(std::ostream& out, const BlockPos& pos) {
+    out << pos.x << "," << pos.y << "," << pos.z;
+    return out;
+}
+
 constexpr int ifloor(double x) {
     int i = static_cast<int>(x);
     return x < i ? i - 1 : i;

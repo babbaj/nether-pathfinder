@@ -153,9 +153,9 @@ extern "C" {
         if (!path) return nullptr;
         auto goalCenter = goal.absolutePosCenter();
         auto inputGoalPos = BlockPos{x2, y2, z2};
-        if (path->getEndPos() == inputGoalPos && inputGoalPos != goalCenter) {
-            std::cout << "wtf???" << std::endl;
-        }
+        std::cout << "path->getEndPos() = " << path->getEndPos() << std::endl;
+        std::cout << "inputGoalPos = " << inputGoalPos << std::endl;
+        std::cout << "goalCenter = " << goalCenter << std::endl;
 
         std::vector<jlong> packed;
         packed.reserve(path->blocks.size());
