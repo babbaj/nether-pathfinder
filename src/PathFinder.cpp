@@ -281,7 +281,7 @@ std::optional<Path> findPathSegment(Context& ctx, const NodePos& start, const No
 
         PathNode* currentNode = openSet.removeLowest();
 
-        if (inGoal(currentNode->pos, goal.absolutePosCenter())) {
+        if (inGoal(currentNode->pos, goalCenter)) {
             if (VERBOSE) {
                 std::cout << "chunkCache size = " << ctx.chunkCache.size() << '\n';
                 std::cout << "openSet size = " << openSet.getSize() << '\n';

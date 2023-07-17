@@ -151,6 +151,11 @@ extern "C" {
         const NodePos goal = x4Min ? findAir<Size::X4>(*ctx, {x2, y2, z2}) : findAir<Size::X2>(*ctx, {x2, y2, z2});
         std::optional<Path> path = findPathSegment(*ctx, start, goal, x4Min, timeoutMs);
         if (!path) return nullptr;
+        auto goalCenter = goal.absolutePosCenter();
+        auto inputGoalPos = BlockPos{x2, y2, z2};
+        if (path->getEndPos() == inputGoalPos && inputGoalPos != goalCenter) {
+            std::cout << "wtf???" << std::endl;
+        }
 
         std::vector<jlong> packed;
         packed.reserve(path->blocks.size());
