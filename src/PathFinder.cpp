@@ -421,7 +421,7 @@ NodePos findAir(Context& ctx, const BlockPos& start1x) {
         queue.pop();
         if (isInBounds(node.absolutePosZero())) {
             const auto& chunk = getChunkNoMutex(blockPos, ctx.generator, ctx.executors[0], ctx.chunkCache);
-            if (chunk.isEmpty<Size::X4>(blockPos.x, blockPos.y, blockPos.z)) {
+            if (chunk.isEmpty<size>(blockPos.x, blockPos.y, blockPos.z)) {
                 return node;
             }
             auto push = [&](NodePos pos) {
