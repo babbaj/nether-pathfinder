@@ -134,12 +134,10 @@ extern "C" {
         std::scoped_lock lock{ctx->cacheMutex};
         const auto distSqBlocks = (maxDistanceBlocks / 16) * (maxDistanceBlocks / 16);
         const auto distSq = distSqBlocks;
-        for (auto it = ctx->chunkCache.begin(); it != ctx->chunkCache.end(); it++) {
-            const auto& cpos = it->first;
-            if (cpos.distanceToSq({chunkX, chunkZ}) > distSq) {
-                it = ctx->chunkCache.erase(it);
-            }
-        }
+        std::erase_if(ctx->chunkCache, [=](const auto& item) {
+            const auto cpos = item.first;
+            return cpos.distanceToSq({chunkX, chunkZ}) > distSq;
+        });
     }
 
     EXPORT jobject JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_pathFind(JNIEnv* env, jclass, Context* ctx, jint x1, jint y1, jint z1, jint x2, jint y2, jint z2, jboolean x4Min, jint timeoutMs) {
