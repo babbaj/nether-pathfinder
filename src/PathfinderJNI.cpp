@@ -169,6 +169,35 @@ extern "C" {
         return object;
     }
 
+EXPORT jobject JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_pathFind2(JNIEnv* env, jclass, Context* ctx, jint x1, jint y1, jint z1, jint x2, jint y2, jint z2, jboolean x4Min, jint timeoutMs) {
+    if (!inBounds(y1) || !inBounds(y2)) {
+        throwException(env, "Invalid y1 or y2");
+        return nullptr;
+    }
+    ctx->cancelFlag.clear();
+    const NodePos start = x4Min ? findAir<Size::X4>(*ctx, {x1, y1, z1}) : findAir<Size::X2>(*ctx, {x1, y1, z1});
+    const NodePos goal = x4Min ? findAir<Size::X4>(*ctx, {x2, y2, z2}) : findAir<Size::X2>(*ctx, {x2, y2, z2});
+    std::optional<Path> path = findPathSegment(*ctx, start, goal, x4Min, timeoutMs);
+    if (!path) return nullptr;
+    auto refined = refine(*ctx, path->blocks);
+    std::vector<jlong> packed;
+    packed.reserve(refined.size());
+    std::transform(refined.begin(), refined.end(), std::back_inserter(packed), packBlockPos);
+
+    const auto len = (jint) packed.size();
+    jlongArray array = env->NewLongArray(len);
+    env->SetLongArrayRegion(array, 0, len, packed.data());
+
+    jobject object = env->NewObject(
+            state.pathSegmentClass,
+            state.pathSegmentCtor,
+            // args
+            path->type == Path::Type::FINISHED,
+            array
+    );
+    return object;
+}
+
     EXPORT jboolean JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_cancel(JNIEnv* env, jclass clazz, Context* ctx) {
         return ctx->cancelFlag.test_and_set();
     }
