@@ -39,6 +39,7 @@ struct Worker {
     }
 };
 
+#if 1
 template<int Threads>
 struct ParallelExecutor {
     std::array<Worker, Threads - 1> workers{};
@@ -88,3 +89,13 @@ struct ParallelExecutor {
         }
     }
 };
+
+#else
+template<int Threads>
+struct ParallelExecutor {
+    template<typename... Fn> requires (sizeof...(Fn) == Threads)
+    auto compute(Fn&&... tasks) {
+        return std::tuple{tasks()...};
+    }
+};
+#endif

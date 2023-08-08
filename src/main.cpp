@@ -133,7 +133,9 @@ int main(int argc, char** argv) {
 
     Context ctx{seed};
     auto t1 = std::chrono::steady_clock::now();
-    std::optional<Path> path = findPathFull(ctx, {0, 40, 0}, ONE_HUNDRED_K).value();
+    auto realStart = findAir<Size::X4>(ctx, {0, 50, 0});
+    auto realGoal = findAir<Size::X4>(ctx, {1000, 64, 0});
+    std::optional<Path> path = findPathSegment(ctx, realStart, realGoal, true, 10000).value();
     auto t2 = std::chrono::steady_clock::now();
 
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
@@ -146,12 +148,12 @@ int main(int argc, char** argv) {
 
         std::cout<< "refining..." << std::endl;
         auto t1 = std::chrono::steady_clock::now();
-        refine(ctx, path->blocks);
+        auto refined = refine(ctx, path->blocks);
         auto t2 = std::chrono::steady_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
         std::cout << "refining took " << duration / 1000.0 << "s " << std::endl;
         std::cout << "done refining" << std::endl;
-
+        std::cout << "refined path has " << refined.size() << std::endl;
         //writeBreadCrumbFile("test", *path);
         printSizes(*path);
     } else {

@@ -34,10 +34,7 @@ public class NetherPathfinder {
 
     public static native void cullFarChunks(long context, int chunkX, int chunkZ, int maxDistanceBlocks);
 
-    public static native PathSegment pathFind(long context, int x1, int y1, int z1, int x2, int y2, int z2, boolean atLeastX4, int failTimeoutInMillis);
-
-    public static native long[] refinePath(long context, long[] blocks);
-
+    public static native PathSegment pathFind(long context, int x1, int y1, int z1, int x2, int y2, int z2, boolean atLeastX4, boolean refine, int failTimeoutInMillis);
 
     private static native void raytrace0(long context, boolean assumeFakeChunksAreAir, int inputs, double[] start, double[] end, boolean[] hitsOut, double[] hitPosOutCanBeNull);
 

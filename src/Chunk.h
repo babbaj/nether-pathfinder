@@ -116,6 +116,7 @@ public:
         return getX8(x, y, z)[x4Index(x, y, z)];
     }
 
+    // TODO: this doesn't modulo the input args like the other functions
     const x2_t& getX2(int x, int y, int z) const {
         auto x2Idx = X2_INDEX[x/2][z/2][y/2];
         auto* asX2Array = reinterpret_cast<const x2_t*>(this->data.data());

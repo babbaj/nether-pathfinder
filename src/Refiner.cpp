@@ -462,7 +462,6 @@ size_t lastVisibleNode(Context& ctx, const std::vector<BlockPos>& path, size_t c
 }
 
 std::vector<BlockPos> refine(Context& ctx, const std::vector<BlockPos>& path) {
-    ChunkGenExec exec;
     std::vector<BlockPos> out;
     for (size_t i = 0; i < path.size(); i = lastVisibleNode(ctx, path, i)) {
         out.push_back(path[i]);
