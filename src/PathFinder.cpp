@@ -462,7 +462,7 @@ Path splicePaths(std::vector<Path>&& paths) {
     return path;
 }
 
-std::optional<Path> findPathFull(Context& ctx, const BlockPos& start, const BlockPos& goal, bool airIfFake) {
+std::optional<Path> findPathFull(Context& ctx, const BlockPos& start, const BlockPos& goal) {
     if (!isInBounds(start)) throw "troll";
 
     ParallelExecutor<4> topExecutor;
@@ -475,7 +475,7 @@ std::optional<Path> findPathFull(Context& ctx, const BlockPos& start, const Bloc
 
     while (true) {
         const NodePos lastPathEnd = !segments.empty() ? NodePos{Size::X2, segments.back().getEndPos()} : realStart;
-        std::optional path = findPathSegment(ctx, lastPathEnd, realGoal, false, 0, airIfFake);
+        std::optional path = findPathSegment(ctx, lastPathEnd, realGoal, false, 0, false);
         if (!path.has_value()) {
             if (cancelFlag.test()) {
                 cancelFlag.clear();
