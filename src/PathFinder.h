@@ -40,8 +40,8 @@ struct Context {
 
 const Chunk& getOrGenChunk(Context& ctx, ChunkGenExec& executor, const ChunkPos& pos, bool airIfFake = false);
 
-std::optional<Path> findPathFull(Context& ctx, const BlockPos& start, const BlockPos& goal);
-std::optional<Path> findPathSegment(Context& ctx, const NodePos& start, const NodePos& goal, bool x4Min, int failTimeoutMs);
+std::optional<Path> findPathFull(Context& ctx, const BlockPos& start, const BlockPos& goal, bool airIfFake);
+std::optional<Path> findPathSegment(Context& ctx, const NodePos& start, const NodePos& goal, bool x4Min, int failTimeoutMs, bool airIfFake);
 
 template<Size size>
 NodePos findAir(Context& ctx, const BlockPos& start1x);

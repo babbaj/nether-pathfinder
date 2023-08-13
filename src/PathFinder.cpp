@@ -241,7 +241,7 @@ bool inGoal(const NodePos& node, const BlockPos& goal) {
 
 std::atomic_flag cancelFlag;
 
-std::optional<Path> findPathSegment(Context& ctx, const NodePos& start, const NodePos& goal, bool x4Min, int timeoutMs) {
+std::optional<Path> findPathSegment(Context& ctx, const NodePos& start, const NodePos& goal, bool x4Min, int timeoutMs, bool airIfFake) {
     const auto goalCenter = goal.absolutePosCenter();
     const auto startCenter = start.absolutePosCenter();
     if (VERBOSE) std::cout << "distance = " << start.absolutePosCenter().distanceTo(goalCenter) << '\n';
@@ -254,7 +254,7 @@ std::optional<Path> findPathSegment(Context& ctx, const NodePos& start, const No
     startNode->cost = 0;
     startNode->combinedCost = startNode->estimatedCostToGoal;
     openSet.insert(startNode);
-    getOrGenChunk(ctx, ctx.executors[0], start.absolutePosZero().toChunkPos());
+    getOrGenChunk(ctx, ctx.executors[0], start.absolutePosZero().toChunkPos(), airIfFake);
 
     PathNode* bestSoFar = startNode;
     double bestHeuristicSoFar = startNode->estimatedCostToGoal;
@@ -302,16 +302,16 @@ std::optional<Path> findPathSegment(Context& ctx, const NodePos& start, const No
         if (!doneFull.contains(cpos)) {
             ctx.topExecutor.compute(
                     [&] {
-                        return getOrGenChunk(ctx, ctx.executors[0], cposNorth);
+                        return getOrGenChunk(ctx, ctx.executors[0], cposNorth, airIfFake);
                     },
                     [&] {
-                        return getOrGenChunk(ctx, ctx.executors[1], cposSouth);
+                        return getOrGenChunk(ctx, ctx.executors[1], cposSouth, airIfFake);
                     },
                     [&] {
-                        return getOrGenChunk(ctx, ctx.executors[2], cposEast);
+                        return getOrGenChunk(ctx, ctx.executors[2], cposEast, airIfFake);
                     },
                     [&] {
-                        return getOrGenChunk(ctx, ctx.executors[3], cposWest);
+                        return getOrGenChunk(ctx, ctx.executors[3], cposWest, airIfFake);
                     }
             );
             doneFull.emplace(cpos, true);
@@ -462,7 +462,7 @@ Path splicePaths(std::vector<Path>&& paths) {
     return path;
 }
 
-std::optional<Path> findPathFull(Context& ctx, const BlockPos& start, const BlockPos& goal) {
+std::optional<Path> findPathFull(Context& ctx, const BlockPos& start, const BlockPos& goal, bool airIfFake) {
     if (!isInBounds(start)) throw "troll";
 
     ParallelExecutor<4> topExecutor;
@@ -475,7 +475,7 @@ std::optional<Path> findPathFull(Context& ctx, const BlockPos& start, const Bloc
 
     while (true) {
         const NodePos lastPathEnd = !segments.empty() ? NodePos{Size::X2, segments.back().getEndPos()} : realStart;
-        std::optional path = findPathSegment(ctx, lastPathEnd, realGoal, false, 0);
+        std::optional path = findPathSegment(ctx, lastPathEnd, realGoal, false, 0, airIfFake);
         if (!path.has_value()) {
             if (cancelFlag.test()) {
                 cancelFlag.clear();

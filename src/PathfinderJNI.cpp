@@ -140,7 +140,7 @@ extern "C" {
         });
     }
 
-    EXPORT jobject JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_pathFind(JNIEnv* env, jclass, Context* ctx, jint x1, jint y1, jint z1, jint x2, jint y2, jint z2, jboolean x4Min, jboolean refineResult, jint timeoutMs) {
+    EXPORT jobject JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_pathFind(JNIEnv* env, jclass, Context* ctx, jint x1, jint y1, jint z1, jint x2, jint y2, jint z2, jboolean x4Min, jboolean refineResult, jint timeoutMs, jboolean airIfFake) {
         if (!inBounds(y1) || !inBounds(y2)) {
             throwException(env, "Invalid y1 or y2");
             return nullptr;
@@ -148,7 +148,7 @@ extern "C" {
         ctx->cancelFlag.clear();
         const NodePos start = x4Min ? findAir<Size::X4>(*ctx, {x1, y1, z1}) : findAir<Size::X2>(*ctx, {x1, y1, z1});
         const NodePos goal = x4Min ? findAir<Size::X4>(*ctx, {x2, y2, z2}) : findAir<Size::X2>(*ctx, {x2, y2, z2});
-        std::optional<Path> path = findPathSegment(*ctx, start, goal, x4Min, timeoutMs);
+        std::optional<Path> path = findPathSegment(*ctx, start, goal, x4Min, timeoutMs, airIfFake ? true : false);
         if (!path) return nullptr;
 
         std::vector<jlong> packed;
