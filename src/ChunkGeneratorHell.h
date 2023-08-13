@@ -22,10 +22,13 @@ public:
     // buffer may be null
     template<int xSize, int ySize, int zSize>
     std::array<double, xSize * ySize * zSize> getHeights(int xOffset, int yOffset, int zOffset, ChunkGenExec& threadPool) const;
+
+    boolean leaveEmpty;
 public:
 
     static ChunkGeneratorHell fromSeed(uint64_t seed) {
         Random rand{seed};
+        leaveEmpty = seed != 0ULL;
 
         return ChunkGeneratorHell {
             decltype(lperlinNoise1)(rand),
