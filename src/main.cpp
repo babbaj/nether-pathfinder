@@ -135,7 +135,7 @@ int main(int argc, char** argv) {
     auto t1 = std::chrono::steady_clock::now();
     auto realStart = findAir<Size::X4>(ctx, {0, 50, 0});
     auto realGoal = findAir<Size::X4>(ctx, {1000, 64, 0});
-    std::optional<Path> path = findPathSegment(ctx, realStart, realGoal, true, 10000).value();
+    std::optional<Path> path = findPathSegment(ctx, realStart, realGoal, true, 10000, true).value();
     auto t2 = std::chrono::steady_clock::now();
 
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();

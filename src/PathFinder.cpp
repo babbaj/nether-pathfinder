@@ -82,6 +82,15 @@ const Chunk& getOrGenChunk(Context& ctx, ChunkGenExec& executor, const ChunkPos&
     }
 }
 
+const Chunk& getChunkOrAir(Context& ctx, const ChunkPos& pos) {
+    auto it = ctx.chunkCache.find(pos);
+    if (it != ctx.chunkCache.end()) {
+        return *it->second;
+    } else {
+        return AIR_CHUNK;
+    }
+}
+
 // This is called inside of a big neighbor cube and returns the 4 sub cubes that are adjacent to the original cube.
 // The face argument is relative to the original cube.
 // This size argument is the size of the sub cubes.
@@ -294,7 +303,7 @@ std::optional<Path> findPathSegment(Context& ctx, const NodePos& start, const No
         const auto size = pos.size;
         const auto bpos = pos.absolutePosZero();
         const ChunkPos cpos = bpos.toChunkPos();
-        const Chunk& currentChunk = *ctx.chunkCache[cpos];
+        const Chunk& currentChunk = getChunkOrAir(ctx, cpos);
         const ChunkPos cposNorth = bpos.north(16).toChunkPos();
         const ChunkPos cposSouth = bpos.south(16).toChunkPos();
         const ChunkPos cposEast = bpos.east(16).toChunkPos();
@@ -358,10 +367,10 @@ std::optional<Path> findPathSegment(Context& ctx, const NodePos& start, const No
                 const ChunkPos neighborCpos = origin.toChunkPos();
                 const Chunk& chunk =
                         face == Face::UP || face == Face::DOWN ? currentChunk :
-                        face == Face::NORTH ? neighborCpos == cpos ? currentChunk : *ctx.chunkCache[cposNorth] :
-                        face == Face::SOUTH ? neighborCpos == cpos ? currentChunk : *ctx.chunkCache[cposSouth] :
-                        face == Face::EAST ? neighborCpos == cpos ? currentChunk : *ctx.chunkCache[cposEast] :
-                        /* face == Face::WEST */ neighborCpos == cpos ? currentChunk : *ctx.chunkCache[cposWest];
+                        face == Face::NORTH ? neighborCpos == cpos ? currentChunk : getChunkOrAir(ctx, cposNorth) :
+                        face == Face::SOUTH ? neighborCpos == cpos ? currentChunk : getChunkOrAir(ctx, cposSouth) :
+                        face == Face::EAST ? neighborCpos == cpos ? currentChunk : getChunkOrAir(ctx, cposEast) :
+                        /* face == Face::WEST */ neighborCpos == cpos ? currentChunk : getChunkOrAir(ctx, cposWest);
 
                 // 1x only
                 if (/*fine*/ false) {
