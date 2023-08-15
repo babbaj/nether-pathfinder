@@ -399,7 +399,7 @@ Node<Size::X16> x16Node(const Chunk& chunk, const BlockPos& pos) {
 }
 
 // returns true if there is line of sight
-RaytraceResult raytrace(Context& ctx, const Vec3& from, const Vec3& to, bool airIfFakeChunk) {
+RaytraceResult raytrace(Context& ctx, const Vec3& from, const Vec3& to, FakeChunkMode fakeChunkMode) {
     const auto [ray, targetLen] = computeRay(from, to);
     // the algorithm only works in positive directions so we need to reflect around the target point
     uint8_t a = 0;
@@ -413,7 +413,7 @@ RaytraceResult raytrace(Context& ctx, const Vec3& from, const Vec3& to, bool air
         a |= 1;
     }
     const BlockPos realOriginBlock = vecToBlockPos(from);
-    auto firstNode = x16Node(getOrGenChunk(ctx, ctx.executors[0], realOriginBlock.toChunkPos(), airIfFakeChunk), realOriginBlock);
+    auto firstNode = x16Node(getOrGenChunk(ctx, ctx.executors[0], realOriginBlock.toChunkPos(), fakeChunkMode), realOriginBlock);
 
     Node<Size::X16> currentNode = firstNode;
     while (true) {
@@ -440,7 +440,7 @@ RaytraceResult raytrace(Context& ctx, const Vec3& from, const Vec3& to, bool air
                 neighborPos.x += (a & 4) ? -16 : 16;
                 break;
         }
-        currentNode = x16Node(getOrGenChunk(ctx, ctx.executors[0], neighborPos.toChunkPos(), airIfFakeChunk), neighborPos);
+        currentNode = x16Node(getOrGenChunk(ctx, ctx.executors[0], neighborPos.toChunkPos(), fakeChunkMode), neighborPos);
     }
 }
 
@@ -452,7 +452,7 @@ size_t lastVisibleNode(Context& ctx, const std::vector<BlockPos>& path, size_t c
     for (auto i = lastVisible + 1; i < path.size(); i++) {
         const auto& currentBlock = path[i];
         if (fromBlock == currentBlock) continue; // apparently the pathfinder can produce 2 consecutive equal points and that breaks the raytracer
-        const auto result = raytrace(ctx, from, blockPosToVec(currentBlock), false);
+        const auto result = raytrace(ctx, from, blockPosToVec(currentBlock), FakeChunkMode::GENERATE);
         if (std::holds_alternative<Hit>(result)) {
             return lastVisible;
         }

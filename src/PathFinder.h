@@ -8,6 +8,12 @@
 #include "PathNode.h"
 #include "ChunkGen.h"
 
+enum class FakeChunkMode {
+    GENERATE = 0,
+    AIR = 1,
+    SOLID = 2
+};
+
 struct Path {
     enum class Type {
         SEGMENT,
@@ -38,7 +44,7 @@ struct Context {
     explicit Context(int64_t seed): generator(ChunkGeneratorHell::fromSeed(seed)) {}
 };
 
-const Chunk& getOrGenChunk(Context& ctx, ChunkGenExec& executor, const ChunkPos& pos, bool airIfFake = false);
+const Chunk& getOrGenChunk(Context& ctx, ChunkGenExec& executor, const ChunkPos& pos, FakeChunkMode fakeChunkMode = FakeChunkMode::GENERATE);
 
 std::optional<Path> findPathFull(Context& ctx, const BlockPos& start, const BlockPos& goal);
 std::optional<Path> findPathSegment(Context& ctx, const NodePos& start, const NodePos& goal, bool x4Min, int failTimeoutMs, bool airIfFake);

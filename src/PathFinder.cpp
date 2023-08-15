@@ -57,19 +57,19 @@ Path createPath(map_t<NodePos, std::unique_ptr<PathNode>>& map, const PathNode* 
     };
 }
 
-const Chunk& getOrGenChunk(Context& ctx, ChunkGenExec& executor, const ChunkPos& pos, bool airIfFake) {
+const Chunk& getOrGenChunk(Context& ctx, ChunkGenExec& executor, const ChunkPos& pos, FakeChunkMode fakeChunkMode) {
     ctx.cacheMutex.lock();
     auto it = ctx.chunkCache.find(pos);
     if (it != ctx.chunkCache.end()) {
         auto& chunk = *it->second;
         ctx.cacheMutex.unlock();
-        if (!chunk.isFromJava && airIfFake) {
-            return AIR_CHUNK;
+        if (!chunk.isFromJava && fakeChunkMode != FakeChunkMode::GENERATE) {
+            return fakeChunkMode == FakeChunkMode::AIR ? AIR_CHUNK : SOLID_CHUNK;
         }
         return *it->second;
-    } else if (airIfFake) {
+    } else if (fakeChunkMode != FakeChunkMode::GENERATE) {
         ctx.cacheMutex.unlock();
-        return AIR_CHUNK;
+        return fakeChunkMode == FakeChunkMode::AIR ? AIR_CHUNK : SOLID_CHUNK;;
     } else {
         ctx.cacheMutex.unlock();
         std::unique_ptr ptr = std::make_unique<Chunk>();
@@ -251,6 +251,7 @@ bool inGoal(const NodePos& node, const BlockPos& goal) {
 std::atomic_flag cancelFlag;
 
 std::optional<Path> findPathSegment(Context& ctx, const NodePos& start, const NodePos& goal, bool x4Min, int timeoutMs, bool airIfFake) {
+    const auto fakeChunkMode = airIfFake ? FakeChunkMode::AIR : FakeChunkMode::GENERATE;
     const auto goalCenter = goal.absolutePosCenter();
     const auto startCenter = start.absolutePosCenter();
     if (VERBOSE) std::cout << "distance = " << start.absolutePosCenter().distanceTo(goalCenter) << '\n';
@@ -263,7 +264,7 @@ std::optional<Path> findPathSegment(Context& ctx, const NodePos& start, const No
     startNode->cost = 0;
     startNode->combinedCost = startNode->estimatedCostToGoal;
     openSet.insert(startNode);
-    getOrGenChunk(ctx, ctx.executors[0], start.absolutePosZero().toChunkPos(), airIfFake);
+    getOrGenChunk(ctx, ctx.executors[0], start.absolutePosZero().toChunkPos(), fakeChunkMode);
 
     PathNode* bestSoFar = startNode;
     double bestHeuristicSoFar = startNode->estimatedCostToGoal;
@@ -308,19 +309,19 @@ std::optional<Path> findPathSegment(Context& ctx, const NodePos& start, const No
         const ChunkPos cposSouth = bpos.south(16).toChunkPos();
         const ChunkPos cposEast = bpos.east(16).toChunkPos();
         const ChunkPos cposWest = bpos.west(16).toChunkPos();
-        if (!doneFull.contains(cpos)) {
+        if (!airIfFake && !doneFull.contains(cpos)) {
             ctx.topExecutor.compute(
                     [&] {
-                        return getOrGenChunk(ctx, ctx.executors[0], cposNorth, airIfFake);
+                        return getOrGenChunk(ctx, ctx.executors[0], cposNorth, fakeChunkMode);
                     },
                     [&] {
-                        return getOrGenChunk(ctx, ctx.executors[1], cposSouth, airIfFake);
+                        return getOrGenChunk(ctx, ctx.executors[1], cposSouth, fakeChunkMode);
                     },
                     [&] {
-                        return getOrGenChunk(ctx, ctx.executors[2], cposEast, airIfFake);
+                        return getOrGenChunk(ctx, ctx.executors[2], cposEast, fakeChunkMode);
                     },
                     [&] {
-                        return getOrGenChunk(ctx, ctx.executors[3], cposWest, airIfFake);
+                        return getOrGenChunk(ctx, ctx.executors[3], cposWest, fakeChunkMode);
                     }
             );
             doneFull.emplace(cpos, true);

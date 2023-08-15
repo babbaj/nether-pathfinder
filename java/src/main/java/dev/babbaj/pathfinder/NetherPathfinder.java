@@ -13,6 +13,11 @@ import java.util.zip.ZipInputStream;
 
 public class NetherPathfinder {
 
+    // How the raytracer will treat chunks that aren't actually observed
+    public static int CACHE_MISS_GENERATE = 0;
+    public static int CACHE_MISS_AIR = 1;
+    public static int CACHE_MISS_SOLID = 2;
+
     public static native long newContext(long seed);
     public static native void freeContext(long pointer);
 
@@ -36,24 +41,24 @@ public class NetherPathfinder {
 
     public static native PathSegment pathFind(long context, int x1, int y1, int z1, int x2, int y2, int z2, boolean atLeastX4, boolean refine, int failTimeoutInMillis, boolean useAirIfChunkNotLoaded);
 
-    private static native void raytrace0(long context, boolean assumeFakeChunksAreAir, int inputs, double[] start, double[] end, boolean[] hitsOut, double[] hitPosOutCanBeNull);
+    private static native void raytrace0(long context, int fakeChunkMode, int inputs, double[] start, double[] end, boolean[] hitsOut, double[] hitPosOutCanBeNull);
 
-    public static void raytrace(long context, boolean assumeFakeChunksAreAir, int inputs, double[] start, double[] end, boolean[] hitsOut, double[] hitPosOutCanBeNull) {
+    public static void raytrace(long context, int fakeChunkMode, int inputs, double[] start, double[] end, boolean[] hitsOut, double[] hitPosOutCanBeNull) {
         if (start.length < (inputs * 3) || end.length < (inputs * 3) || hitsOut.length < inputs || (hitPosOutCanBeNull != null && hitPosOutCanBeNull.length < (inputs * 3))) {
             throw new IllegalArgumentException("Bad array lengths idiot");
         }
-        raytrace0(context, assumeFakeChunksAreAir, inputs, start, end, hitsOut, hitPosOutCanBeNull);
+        raytrace0(context, fakeChunkMode, inputs, start, end, hitsOut, hitPosOutCanBeNull);
     }
-    private static native int isVisibleMulti0(long context, boolean assumeFakeChunksAreAir, int inputs, double[] start, double[] end, boolean anyIfTrueElseAll);
+    private static native int isVisibleMulti0(long context, int fakeChunkMode, int inputs, double[] start, double[] end, boolean anyIfTrueElseAll);
 
-    public static int isVisibleMulti(long context, boolean assumeFakeChunksAreAir, int inputs, double[] start, double[] end, boolean anyIfTrueElseAll) {
+    public static int isVisibleMulti(long context, int fakeChunkMode, int inputs, double[] start, double[] end, boolean anyIfTrueElseAll) {
         if (start.length < (inputs * 3) || end.length < (inputs * 3)) {
             throw new IllegalArgumentException("Bad array lengths idiot");
         }
-        return isVisibleMulti0(context, assumeFakeChunksAreAir, inputs, start, end, anyIfTrueElseAll);
+        return isVisibleMulti0(context, fakeChunkMode, inputs, start, end, anyIfTrueElseAll);
     }
 
-    public static native boolean isVisible(long context, boolean assumeFakeChunksAreAir, double x1, double y1, double z1, double x2, double y2, double z2);
+    public static native boolean isVisible(long context, int fakeChunkMode, double x1, double y1, double z1, double x2, double y2, double z2);
 
     public static native boolean cancel(long context);
 

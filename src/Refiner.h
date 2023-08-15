@@ -26,6 +26,6 @@ struct Miss {
 };
 using RaytraceResult = std::variant<Hit, Finished, Miss>;
 
-RaytraceResult raytrace(Context& ctx, const Vec3& from, const Vec3& to, bool airIfFakeChunk);
+RaytraceResult raytrace(Context& ctx, const Vec3& from, const Vec3& to, FakeChunkMode fakeChunkMode);
 
 std::vector<BlockPos> refine(Context& ctx, const std::vector<BlockPos>& path);

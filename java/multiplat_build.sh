@@ -12,7 +12,7 @@ function do_build {
 
     CXXFLAGS="-target $target" cmake -G Ninja $java_root/.. \
       -DCMAKE_C_COMPILER=$(realpath $java_root/zigcc.sh) -DCMAKE_CXX_COMPILER=$(realpath $java_root/zigcxx.sh) \
-      -DSHARED_LIBRARY=True -DCMAKE_BUILD_TYPE=Release
+      -DCMAKE_BUILD_TYPE=Release
 
     ninja -j `nproc`
 
