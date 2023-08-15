@@ -200,6 +200,6 @@ static const Chunk AIR_CHUNK = [] {
 
 static const Chunk SOLID_CHUNK = [] {
     Chunk out{};
-    memset(&out.data, 1, sizeof(out.data));
+    memset(&out.data, 0xFF, sizeof(out.data));
     return out;
 }();
