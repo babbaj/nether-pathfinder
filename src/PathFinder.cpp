@@ -312,7 +312,7 @@ std::optional<Path> findPathSegment(Context& ctx, const NodePos& start, const No
             fakeChunkVisits = 0;
         }
         if (fakeChunkVisits >= 100 && airIfFake) {
-            return createPath(map, startNode, currentNode, startCenter, goalCenter, Path::Type::SEGMENT);
+            return bestPathSoFar(map, startNode, bestSoFar, startCenter, goalCenter);
         }
         const ChunkPos cposNorth = bpos.north(16).toChunkPos();
         const ChunkPos cposSouth = bpos.south(16).toChunkPos();
