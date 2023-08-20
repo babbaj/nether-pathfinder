@@ -37,6 +37,8 @@ public class NetherPathfinder {
 
     public static native long getChunkPointer(long context, int x, int z);
 
+    public static native boolean hasChunkFromJava(long context, int x, int z);
+
     public static native void cullFarChunks(long context, int chunkX, int chunkZ, int maxDistanceBlocks);
 
     public static native PathSegment pathFind(long context, int x1, int y1, int z1, int x2, int y2, int z2, boolean atLeastX4, boolean refine, int failTimeoutInMillis, boolean useAirIfChunkNotLoaded);

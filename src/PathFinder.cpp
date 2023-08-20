@@ -277,6 +277,7 @@ std::optional<Path> findPathSegment(Context& ctx, const NodePos& start, const No
 
     bool failing = true;
     int numNodes = 0;
+    int fakeChunkVisits = 0; // if this gets too high we return
     while (!openSet.isEmpty()) {
         constexpr int timeCheckInterval = 1 << 6;
         if ((numNodes & (timeCheckInterval - 1)) == 0) { // only call this once every 64 nodes
@@ -305,6 +306,14 @@ std::optional<Path> findPathSegment(Context& ctx, const NodePos& start, const No
         const auto bpos = pos.absolutePosZero();
         const ChunkPos cpos = bpos.toChunkPos();
         const Chunk& currentChunk = getChunkOrAir(ctx, cpos);
+        if (!currentChunk.isFromJava) {
+            fakeChunkVisits++;
+        } else {
+            fakeChunkVisits = 0;
+        }
+        if (fakeChunkVisits >= 100 && airIfFake) {
+            return createPath(map, startNode, currentNode, startCenter, goalCenter, Path::Type::SEGMENT);
+        }
         const ChunkPos cposNorth = bpos.north(16).toChunkPos();
         const ChunkPos cposSouth = bpos.south(16).toChunkPos();
         const ChunkPos cposEast = bpos.east(16).toChunkPos();
@@ -398,7 +407,6 @@ std::optional<Path> findPathSegment(Context& ctx, const NodePos& start, const No
         std::cout << "chunk cache size: " << ctx.chunkCache.size() << '\n';
         std::cout << '\n';
     }
-
     return bestPathSoFar(map, startNode, bestSoFar, startCenter, goalCenter);
 }
 

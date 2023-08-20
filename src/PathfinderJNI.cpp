@@ -130,6 +130,16 @@ extern "C" {
         }
     }
 
+    EXPORT jboolean JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_hasChunkFromJava(JNIEnv*, jclass, Context* ctx, jint x, jint z) {
+        std::scoped_lock lock{ctx->cacheMutex};
+        auto existing = ctx->chunkCache.find(ChunkPos{x, z});
+        if (existing != ctx->chunkCache.end()) {
+            return existing->second->isFromJava;
+        } else {
+            return false;
+        }
+    }
+
     EXPORT void JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_cullFarChunks(JNIEnv*, jclass, Context* ctx, jint chunkX, jint chunkZ, jint maxDistanceBlocks) {
         std::scoped_lock lock{ctx->cacheMutex};
         const auto distSqBlocks = (maxDistanceBlocks / 16) * (maxDistanceBlocks / 16);
