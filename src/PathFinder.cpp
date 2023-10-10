@@ -138,13 +138,13 @@ std::array<BlockPos, 4> neighborCubes(const BlockPos& origin) {
 template<Face face, Size size, bool sizeChange, Size minSize>
 void forEachNeighborInCube(const Chunk& chunk, const NodePos& neighborNode, auto& callback) {
     if constexpr (sizeChange) {
-        callback(neighborNode);
+        callback(neighborNode, chunk);
         return;
     }
     const auto pos = neighborNode.absolutePosZero();
     const auto chunkLocal = pos.toChunkLocal();
     if (chunk.isEmpty<size>(chunkLocal.x, chunkLocal.y, chunkLocal.z)) {
-        callback(neighborNode);
+        callback(neighborNode, chunk);
         return;
     }
     if constexpr (size != Size::X1) {
@@ -336,10 +336,10 @@ std::optional<Path> findPathSegment(Context& ctx, const NodePos& start, const No
             doneFull.emplace(cpos, true);
         }
 
-        auto callback = [&](const NodePos& neighborPos) {
+        auto callback = [&](const NodePos& neighborPos, const Chunk& chunk) {
             PathNode* neighborNode = getNodeAtPosition(map, neighborPos, goalCenter);
             //auto sqrtSize = [](Size sz) { return sqrt(width(sz)); };
-            const double cost = 1;//sqrtSize(neighborNode->pos.size);//width(neighborNode->pos.size);
+            const double cost = chunk.isFromJava ? 1 : ctx.fakeChunkCost;//sqrtSize(neighborNode->pos.size);//width(neighborNode->pos.size);
             const double tentativeCost = currentNode->cost + cost;
             constexpr double MIN_IMPROVEMENT = 0.01;
             if (neighborNode->cost - tentativeCost > MIN_IMPROVEMENT) {
@@ -375,6 +375,34 @@ std::optional<Path> findPathSegment(Context& ctx, const NodePos& start, const No
                     if (!isInBounds(origin)) return;
                 }
                 const ChunkPos neighborCpos = origin.toChunkPos();
+                if (ctx.jvm != nullptr && ctx.checkedRegions.insert(RegionPos{neighborCpos.x >> 5, neighborCpos.z >> 5}).second) {
+                    // TODO: clean this up
+                    thread_local static JNIEnv* env{};
+                    if (env == nullptr) {
+                        JavaVMAttachArgs args{.version = JNI_VERSION_1_6};
+                        if (ctx.jvm->AttachCurrentThread((void**)&env, &args) != JNI_OK) {
+                            std::cerr << "AttachCurrentThread failed" << std::endl;
+                            exit(69);
+                        }
+                    }
+                    thread_local static jclass clazz = env->FindClass("baritone/process/elytra/NetherPathfinderContext");
+                    if (!clazz) {
+                        std::cerr << "No NetherPathfinderContext wtf" << std::endl;
+                        exit(69);
+                    }
+                    thread_local static jmethodID method = env->GetStaticMethodID(clazz, "loadRegionFromCache", "(JII)V");
+                    if (!method) {
+                        std::cerr << "No loadRegionFromCache wtf" << std::endl;
+                        exit(69);
+                    }
+                    std::cout << "calling loadRegionFromCache" << std::endl;
+                    env->CallStaticVoidMethod(clazz, method, &ctx, neighborCpos.x >> 5, neighborCpos.z >> 5);
+
+                    if (env->ExceptionCheck()) {
+                        env->ExceptionDescribe();
+                        env->ExceptionClear();
+                    }
+                }
                 const Chunk& chunk =
                         face == Face::UP || face == Face::DOWN ? currentChunk :
                         face == Face::NORTH ? neighborCpos == cpos ? currentChunk : getChunkOrAir(ctx, cposNorth) :
@@ -385,7 +413,7 @@ std::optional<Path> findPathSegment(Context& ctx, const NodePos& start, const No
                 // 1x only
                 if (/*fine*/ false) {
                     if (!chunk.isSolid(neighborNodePos.absolutePosZero())) {
-                        callback(neighborNodePos);
+                        callback(neighborNodePos, chunk);
                     }
                 } else {
                     if (x4Min) {

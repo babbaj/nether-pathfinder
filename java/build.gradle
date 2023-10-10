@@ -23,7 +23,7 @@ plugins {
 }
 
 group = 'dev.babbaj'
-version = '1.4.1'
+version = '1.4.17'
 
 java {
     toolchain {
@@ -160,7 +160,8 @@ publishing {
     }
 
     repositories {
-        maven {
+        mavenLocal()
+        /*maven {
             name = "FileSystem"
             url = uri("file://" + System.getenv("MAVEN_DIR"))
         }
@@ -171,6 +172,6 @@ publishing {
                 username = System.getenv("GITHUB_ACTOR")
                 password = System.getenv("GITHUB_TOKEN")
             }
-        }
+        }*/
     }
 }

@@ -80,8 +80,12 @@ extern "C" {
         }
     }
 
-    EXPORT jlong JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_newContext(JNIEnv* env, jclass, jlong seed) {
-        return reinterpret_cast<jlong>(new Context{seed});
+    EXPORT jlong JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_newContext(JNIEnv* env, jclass, jlong seed, jdouble airChunkCost) {
+        JavaVM* jvm;
+        if (env->GetJavaVM(&jvm) != JNI_OK) {
+            std::cerr << "GetJavaVM failed??" << std::endl;
+        }
+        return reinterpret_cast<jlong>(new Context{seed, airChunkCost, jvm});
     }
 
     EXPORT void JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_freeContext(JNIEnv* env, jclass, Context* ctx) {

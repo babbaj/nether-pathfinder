@@ -18,7 +18,7 @@ public class NetherPathfinder {
     public static int CACHE_MISS_AIR = 1;
     public static int CACHE_MISS_SOLID = 2;
 
-    public static native long newContext(long seed);
+    public static native long newContext(long seed, double airChunkCost);
     public static native void freeContext(long pointer);
 
     /*

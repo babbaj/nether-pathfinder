@@ -131,11 +131,12 @@ int main(int argc, char** argv) {
     auto nyaa = std::chrono::duration_cast<std::chrono::milliseconds>(owo - uwu).count();
     std::cout << "first iteration took " << nyaa / 1000.0 << "s " << std::endl;*/
 
-    Context ctx{seed};
+    Context ctx{seed, 1.0, nullptr};
     auto t1 = std::chrono::steady_clock::now();
     auto realStart = findAir<Size::X4>(ctx, {0, 50, 0});
-    auto realGoal = findAir<Size::X4>(ctx, {1000, 64, 0});
-    std::optional<Path> path = findPathSegment(ctx, realStart, realGoal, true, 10000, true).value();
+    auto realGoal = findAir<Size::X4>(ctx, TEN_K);
+    //std::optional<Path> path = findPathSegment(ctx, realStart, realGoal, true, 10000, true).value();
+    std::optional<Path> path = findPathFull(ctx, realStart.absolutePosCenter(), realGoal.absolutePosCenter()).value();
     auto t2 = std::chrono::steady_clock::now();
 
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();

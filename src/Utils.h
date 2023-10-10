@@ -41,6 +41,17 @@ struct ChunkPos {
     }
 };
 
+struct RegionPos {
+    int x, z;
+
+    bool operator==(const RegionPos& other) const {
+        return this->x == other.x && this->z == other.z;
+    }
+    bool operator!=(const RegionPos& other) const {
+        return !(*this == other);
+    }
+};
+
 struct Vec3 {
     double x, y, z;
 
@@ -200,6 +211,16 @@ namespace std {
     template<>
     struct hash<ChunkPos> {
         size_t operator()(const ChunkPos& pos) const {
+            size_t hash = 3241;
+            hash = 3457689L * hash + pos.x;
+            hash = 2873465L * hash + pos.z;
+            return hash;
+        }
+    };
+
+    template<>
+    struct hash<RegionPos> {
+        size_t operator()(const RegionPos& pos) const {
             size_t hash = 3241;
             hash = 3457689L * hash + pos.x;
             hash = 2873465L * hash + pos.z;

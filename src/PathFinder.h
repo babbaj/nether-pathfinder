@@ -2,6 +2,9 @@
 
 #include <vector>
 #include <optional>
+#include <unordered_set>
+
+#include <jni.h>
 
 #include "Utils.h"
 #include "ChunkGeneratorHell.h"
@@ -35,13 +38,19 @@ struct Path {
 
 struct Context {
     ChunkGeneratorHell generator;
+    double fakeChunkCost;
+    JavaVM* jvm;
+    std::optional<std::string> baritoneCache;
     std::mutex cacheMutex;
     cache_t chunkCache;
     ParallelExecutor<4> topExecutor;
     std::array<ChunkGenExec, 4> executors;
     std::atomic_flag cancelFlag;
+    std::unordered_set<RegionPos> checkedRegions;
 
-    explicit Context(int64_t seed): generator(ChunkGeneratorHell::fromSeed(seed)) {}
+
+    explicit Context(int64_t seed, double fakeChunkCost, JavaVM* jvm): generator(ChunkGeneratorHell::fromSeed(seed)), fakeChunkCost(fakeChunkCost), jvm(jvm) {}
+    explicit Context(int64_t seed, double fakeChunkCost, JavaVM* jvm, std::string&& baritone): generator(ChunkGeneratorHell::fromSeed(seed)), fakeChunkCost(fakeChunkCost), jvm(jvm), baritoneCache(baritone) {}
 };
 
 const Chunk& getOrGenChunk(Context& ctx, ChunkGenExec& executor, const ChunkPos& pos, FakeChunkMode fakeChunkMode = FakeChunkMode::GENERATE);
