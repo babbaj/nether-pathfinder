@@ -80,12 +80,23 @@ extern "C" {
         }
     }
 
-    EXPORT jlong JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_newContext(JNIEnv* env, jclass, jlong seed, jdouble airChunkCost) {
+    EXPORT jlong JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_newContext(JNIEnv* env, jclass, jlong seed, jstring baritoneCacheDir) {
         JavaVM* jvm;
         if (env->GetJavaVM(&jvm) != JNI_OK) {
             std::cerr << "GetJavaVM failed??" << std::endl;
         }
-        return reinterpret_cast<jlong>(new Context{seed, airChunkCost, jvm});
+        Context* ctx;
+        if (baritoneCacheDir != nullptr) {
+            jsize len = env->GetStringLength(baritoneCacheDir);
+            jboolean dontcare;
+            const jchar* chars = env->GetStringChars(baritoneCacheDir, &dontcare);
+            std::string str{chars, chars + len};
+            ctx = new Context{seed, jvm, std::move(str)};
+            env->ReleaseStringChars(baritoneCacheDir, chars);
+        } else {
+            ctx = new Context{seed, jvm};
+        }
+        return reinterpret_cast<jlong>(ctx);
     }
 
     EXPORT void JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_freeContext(JNIEnv* env, jclass, Context* ctx) {
@@ -154,7 +165,7 @@ extern "C" {
         });
     }
 
-    EXPORT jobject JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_pathFind(JNIEnv* env, jclass, Context* ctx, jint x1, jint y1, jint z1, jint x2, jint y2, jint z2, jboolean x4Min, jboolean refineResult, jint timeoutMs, jboolean airIfFake) {
+    EXPORT jobject JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_pathFind(JNIEnv* env, jclass, Context* ctx, jint x1, jint y1, jint z1, jint x2, jint y2, jint z2, jboolean x4Min, jboolean refineResult, jint timeoutMs, jboolean airIfFake, jdouble fakeChunkCost) {
         if (!inBounds(y1) || !inBounds(y2)) {
             throwException(env, "Invalid y1 or y2");
             return nullptr;
@@ -162,7 +173,7 @@ extern "C" {
         ctx->cancelFlag.clear();
         const NodePos start = x4Min ? findAir<Size::X4>(*ctx, {x1, y1, z1}) : findAir<Size::X2>(*ctx, {x1, y1, z1});
         const NodePos goal = x4Min ? findAir<Size::X4>(*ctx, {x2, y2, z2}) : findAir<Size::X2>(*ctx, {x2, y2, z2});
-        std::optional<Path> path = findPathSegment(*ctx, start, goal, x4Min, timeoutMs, airIfFake);
+        std::optional<Path> path = findPathSegment(*ctx, start, goal, x4Min, timeoutMs, airIfFake, fakeChunkCost);
         if (!path) return nullptr;
 
         std::vector<jlong> packed;

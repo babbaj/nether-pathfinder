@@ -18,7 +18,7 @@ public class NetherPathfinder {
     public static int CACHE_MISS_AIR = 1;
     public static int CACHE_MISS_SOLID = 2;
 
-    public static native long newContext(long seed, double airChunkCost);
+    public static native long newContext(long seed, String baritoneCacheDirCanBeNull);
     public static native void freeContext(long pointer);
 
     /*
@@ -41,7 +41,7 @@ public class NetherPathfinder {
 
     public static native void cullFarChunks(long context, int chunkX, int chunkZ, int maxDistanceBlocks);
 
-    public static native PathSegment pathFind(long context, int x1, int y1, int z1, int x2, int y2, int z2, boolean atLeastX4, boolean refine, int failTimeoutInMillis, boolean useAirIfChunkNotLoaded);
+    public static native PathSegment pathFind(long context, int x1, int y1, int z1, int x2, int y2, int z2, boolean atLeastX4, boolean refine, int failTimeoutInMillis, boolean useAirIfChunkNotLoaded, double fakeChunkCost);
 
     private static native void raytrace0(long context, int fakeChunkMode, int inputs, double[] start, double[] end, boolean[] hitsOut, double[] hitPosOutCanBeNull);
 

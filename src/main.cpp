@@ -7,6 +7,7 @@
 #include "ChunkGeneratorHell.h"
 #include "PathFinder.h"
 #include "Refiner.h"
+#include "baritone.h"
 
 template<size_t Bits>
 std::array<char, Bits / 8> bitsetToBytes(const std::bitset<Bits>& bitSet) {
@@ -116,6 +117,15 @@ void printSizes(const Path& path) {
 }
 
 int main(int argc, char** argv) {
+    auto dir = "/home/babbaj/.local/share/PrismLauncher/instances/1.20/.minecraft/baritone/2b2t.org/minecraft/the_nether_128/cache/";
+    RegionPos file{-45, -5166};
+    cache_t cache;
+    auto data = readRegionFile(dir, file);
+    if (data) {
+        parseBaritoneRegion(cache, *data);
+    }
+
+    return 0;
     constexpr auto seed = 146008555100680;
 
     [[maybe_unused]] constexpr BlockPos ONE_MIL = {1000072, 64, -121};
@@ -131,7 +141,7 @@ int main(int argc, char** argv) {
     auto nyaa = std::chrono::duration_cast<std::chrono::milliseconds>(owo - uwu).count();
     std::cout << "first iteration took " << nyaa / 1000.0 << "s " << std::endl;*/
 
-    Context ctx{seed, 1.0, nullptr};
+    Context ctx{seed, {}};
     auto t1 = std::chrono::steady_clock::now();
     auto realStart = findAir<Size::X4>(ctx, {0, 50, 0});
     auto realGoal = findAir<Size::X4>(ctx, TEN_K);

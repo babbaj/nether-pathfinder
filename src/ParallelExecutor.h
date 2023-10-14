@@ -11,17 +11,16 @@
 
 
 struct Worker {
-    std::condition_variable_any condition;
+    std::condition_variable& condition;
+    std::mutex& mutex;
     std::function<void()> task;
-    std::mutex mutex;
     std::thread thread;
     std::atomic_bool stopRequest;
 
-    Worker(): thread([this] {
+    Worker(std::condition_variable& cv, std::mutex& m): condition(cv), mutex(m), thread([this] {
         while (true) {
             std::unique_lock lock(this->mutex);
             condition.wait(lock, [this] { return stopRequest.load(std::memory_order_acquire) || static_cast<bool>(this->task); });
-
             if (stopRequest.load(std::memory_order_acquire)) return;
 
             this->task();
@@ -31,7 +30,6 @@ struct Worker {
 
     void stop() {
         stopRequest.store(true, std::memory_order_release);
-        condition.notify_one();
     }
 
     void join() {
@@ -39,10 +37,14 @@ struct Worker {
     }
 };
 
-#if 1
+#if 0
 template<int Threads>
 struct ParallelExecutor {
-    std::array<Worker, Threads - 1> workers{};
+    std::condition_variable condition_variable;
+    std::mutex mutex;
+    std::array<Worker, Threads - 1> workers = std::apply([&](auto... uwu) {
+        return std::array{(uwu, Worker{condition_variable, mutex})...};
+    }, std::array<char, Threads -1>{});
 
     template<typename... Fn> requires (sizeof...(Fn) == Threads)
     __attribute__((noinline)) auto compute(Fn&&... tasks) {
@@ -53,29 +55,24 @@ struct ParallelExecutor {
         std::atomic_int counter = 0;
 
         [&]<size_t... I>(std::index_sequence<I...>) {
+            std::lock_guard lock(mutex);
             ([&] {
                 Worker& worker = workers[I];
-
                 auto& r = std::get<I>(results);
-                {
-                    std::lock_guard lock(worker.mutex);
-                    worker.task = [&] {
-                        r = std::get<I>(args)();
-
-                        // signal that we are finished
-                        counter++;
-                    };
-                }
-
-                // wake up babe we have more work for you!
-                worker.condition.notify_one();
+                worker.task = [&] {
+                    r = std::get<I>(args)();
+                    // signal that we are finished
+                    counter++;
+                };
             }(), ...);
         }(std::make_index_sequence<Threads - 1>{});
+        this->condition_variable.notify_all();
         // take advantage of the calling tread
         std::get<Threads - 1>(results) = std::get<Threads - 1>(args)();
         counter++;
 
-        while (counter != Threads); // wait
+        //while (counter != Threads); // wait
+        while (counter.load(std::memory_order_acquire) != Threads);
 
         return results;
     }
@@ -84,6 +81,7 @@ struct ParallelExecutor {
         for (auto& w : workers) {
             w.stop();
         }
+        this->condition_variable.notify_all();
         for (auto& w : workers) {
             w.join();
         }

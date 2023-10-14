@@ -12,9 +12,9 @@
 #include "ChunkGen.h"
 
 enum class FakeChunkMode {
-    GENERATE = 0,
-    AIR = 1,
-    SOLID = 2
+    GENERATE = 0
+    ,AIR = 1
+    //,SOLID = 2
 };
 
 struct Path {
@@ -38,7 +38,6 @@ struct Path {
 
 struct Context {
     ChunkGeneratorHell generator;
-    double fakeChunkCost;
     JavaVM* jvm;
     std::optional<std::string> baritoneCache;
     std::mutex cacheMutex;
@@ -49,14 +48,14 @@ struct Context {
     std::unordered_set<RegionPos> checkedRegions;
 
 
-    explicit Context(int64_t seed, double fakeChunkCost, JavaVM* jvm): generator(ChunkGeneratorHell::fromSeed(seed)), fakeChunkCost(fakeChunkCost), jvm(jvm) {}
-    explicit Context(int64_t seed, double fakeChunkCost, JavaVM* jvm, std::string&& baritone): generator(ChunkGeneratorHell::fromSeed(seed)), fakeChunkCost(fakeChunkCost), jvm(jvm), baritoneCache(baritone) {}
+    explicit Context(int64_t seed, JavaVM* jvm): generator(ChunkGeneratorHell::fromSeed(seed)), jvm(jvm) {}
+    explicit Context(int64_t seed, JavaVM* jvm, std::string&& cacheDir): generator(ChunkGeneratorHell::fromSeed(seed)), jvm(jvm), baritoneCache(cacheDir) {}
 };
 
 const Chunk& getOrGenChunk(Context& ctx, ChunkGenExec& executor, const ChunkPos& pos, FakeChunkMode fakeChunkMode = FakeChunkMode::GENERATE);
 
 std::optional<Path> findPathFull(Context& ctx, const BlockPos& start, const BlockPos& goal);
-std::optional<Path> findPathSegment(Context& ctx, const NodePos& start, const NodePos& goal, bool x4Min, int failTimeoutMs, bool airIfFake);
+std::optional<Path> findPathSegment(Context& ctx, const NodePos& start, const NodePos& goal, bool x4Min, int failTimeoutMs, bool airIfFake, double fakeChunkCost);
 
 template<Size size>
 NodePos findAir(Context& ctx, const BlockPos& start1x);

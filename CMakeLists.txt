@@ -4,10 +4,9 @@ project(nether_pathfinder)
 find_package(JNI COMPONENTS JNI_INCLUDE_DIRS)
 include_directories(${JNI_INCLUDE_DIRS})
 
-find_package(PkgConfig) # not required
-if(PkgConfig_FOUND)
-    pkg_check_modules(GBENCHMARK IMPORTED_TARGET benchmark) # not required
-endif()
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(GBENCHMARK IMPORTED_TARGET benchmark) # not required
+pkg_check_modules(ZLIB IMPORTED_TARGET zlib)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++20 -Wall")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}")
@@ -26,6 +25,9 @@ if (TESTING)
 else()
     add_library(nether_pathfinder SHARED ${SRC})
 endif()
+message("${ZLIB_LIBRARIES}")
+target_link_libraries(nether_pathfinder PRIVATE PkgConfig::ZLIB)
+target_include_directories(nether_pathfinder PRIVATE PkgConfig::ZLIB)
 
 if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     message(WARNING "gcc is not recommended")

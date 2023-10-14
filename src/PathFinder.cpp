@@ -1,6 +1,7 @@
 #include "PathFinder.h"
 #include "BinaryHeapOpenSet.h"
 #include "ChunkGen.h"
+#include "baritone.h"
 
 #include <memory>
 #include <array>
@@ -248,9 +249,53 @@ bool inGoal(const NodePos& node, const BlockPos& goal) {
             goal.z >= c1.z && goal.z <= c2.z;
 }
 
+
+void tryLoadRegionNative(Context& ctx, ChunkPos pos) {
+    auto regionPos = RegionPos{pos.x >> 5, pos.z >> 5};
+    if (ctx.baritoneCache.has_value() && ctx.checkedRegions.insert(regionPos).second) {
+        auto data = readRegionFile(ctx.baritoneCache.value(), regionPos);
+        if (!data) {
+            std::cout << "couldn't read region file" << std::endl;
+            return;
+        }
+        parseBaritoneRegion(ctx.chunkCache, regionPos, *data);
+    }
+}
+
+void tryLoadRegion(Context& ctx, ChunkPos pos) {
+    if (ctx.jvm != nullptr && ctx.checkedRegions.insert(RegionPos{pos.x >> 5, pos.z >> 5}).second) {
+        // TODO: clean this up
+        thread_local static JNIEnv* env{};
+        if (env == nullptr) {
+            JavaVMAttachArgs args{.version = JNI_VERSION_1_6};
+            if (ctx.jvm->AttachCurrentThread((void**)&env, &args) != JNI_OK) {
+                std::cerr << "AttachCurrentThread failed" << std::endl;
+                exit(69);
+            }
+        }
+        thread_local static jclass clazz = env->FindClass("baritone/process/elytra/NetherPathfinderContext");
+        if (!clazz) {
+            std::cerr << "No NetherPathfinderContext wtf" << std::endl;
+            exit(69);
+        }
+        thread_local static jmethodID method = env->GetStaticMethodID(clazz, "loadRegionFromCache", "(JII)V");
+        if (!method) {
+            std::cerr << "No loadRegionFromCache wtf" << std::endl;
+            exit(69);
+        }
+        std::cout << "calling loadRegionFromCache" << std::endl;
+        env->CallStaticVoidMethod(clazz, method, &ctx, pos.x >> 5, pos.z >> 5);
+
+        if (env->ExceptionCheck()) {
+            env->ExceptionDescribe();
+            env->ExceptionClear();
+        }
+    }
+}
+
 std::atomic_flag cancelFlag;
 
-std::optional<Path> findPathSegment(Context& ctx, const NodePos& start, const NodePos& goal, bool x4Min, int timeoutMs, bool airIfFake) {
+std::optional<Path> findPathSegment(Context& ctx, const NodePos& start, const NodePos& goal, bool x4Min, int timeoutMs, bool airIfFake, double fakeChunkCost) {
     const auto fakeChunkMode = airIfFake ? FakeChunkMode::AIR : FakeChunkMode::GENERATE;
     const auto goalCenter = goal.absolutePosCenter();
     const auto startCenter = start.absolutePosCenter();
@@ -261,6 +306,7 @@ std::optional<Path> findPathSegment(Context& ctx, const NodePos& start, const No
     BinaryHeapOpenSet openSet;
 
     PathNode* const startNode = getNodeAtPosition(map, start, goal.absolutePosZero());
+    tryLoadRegionNative(ctx, start.absolutePosZero().toChunkPos());
     startNode->cost = 0;
     startNode->combinedCost = startNode->estimatedCostToGoal;
     openSet.insert(startNode);
@@ -339,7 +385,7 @@ std::optional<Path> findPathSegment(Context& ctx, const NodePos& start, const No
         auto callback = [&](const NodePos& neighborPos, const Chunk& chunk) {
             PathNode* neighborNode = getNodeAtPosition(map, neighborPos, goalCenter);
             //auto sqrtSize = [](Size sz) { return sqrt(width(sz)); };
-            const double cost = chunk.isFromJava ? 1 : ctx.fakeChunkCost;//sqrtSize(neighborNode->pos.size);//width(neighborNode->pos.size);
+            const double cost = chunk.isFromJava ? 1 : fakeChunkCost;//sqrtSize(neighborNode->pos.size);//width(neighborNode->pos.size);
             const double tentativeCost = currentNode->cost + cost;
             constexpr double MIN_IMPROVEMENT = 0.01;
             if (neighborNode->cost - tentativeCost > MIN_IMPROVEMENT) {
@@ -375,34 +421,7 @@ std::optional<Path> findPathSegment(Context& ctx, const NodePos& start, const No
                     if (!isInBounds(origin)) return;
                 }
                 const ChunkPos neighborCpos = origin.toChunkPos();
-                if (ctx.jvm != nullptr && ctx.checkedRegions.insert(RegionPos{neighborCpos.x >> 5, neighborCpos.z >> 5}).second) {
-                    // TODO: clean this up
-                    thread_local static JNIEnv* env{};
-                    if (env == nullptr) {
-                        JavaVMAttachArgs args{.version = JNI_VERSION_1_6};
-                        if (ctx.jvm->AttachCurrentThread((void**)&env, &args) != JNI_OK) {
-                            std::cerr << "AttachCurrentThread failed" << std::endl;
-                            exit(69);
-                        }
-                    }
-                    thread_local static jclass clazz = env->FindClass("baritone/process/elytra/NetherPathfinderContext");
-                    if (!clazz) {
-                        std::cerr << "No NetherPathfinderContext wtf" << std::endl;
-                        exit(69);
-                    }
-                    thread_local static jmethodID method = env->GetStaticMethodID(clazz, "loadRegionFromCache", "(JII)V");
-                    if (!method) {
-                        std::cerr << "No loadRegionFromCache wtf" << std::endl;
-                        exit(69);
-                    }
-                    std::cout << "calling loadRegionFromCache" << std::endl;
-                    env->CallStaticVoidMethod(clazz, method, &ctx, neighborCpos.x >> 5, neighborCpos.z >> 5);
-
-                    if (env->ExceptionCheck()) {
-                        env->ExceptionDescribe();
-                        env->ExceptionClear();
-                    }
-                }
+                tryLoadRegionNative(ctx, neighborCpos);
                 const Chunk& chunk =
                         face == Face::UP || face == Face::DOWN ? currentChunk :
                         face == Face::NORTH ? neighborCpos == cpos ? currentChunk : getChunkOrAir(ctx, cposNorth) :
@@ -521,7 +540,7 @@ std::optional<Path> findPathFull(Context& ctx, const BlockPos& start, const Bloc
 
     while (true) {
         const NodePos lastPathEnd = !segments.empty() ? NodePos{Size::X2, segments.back().getEndPos()} : realStart;
-        std::optional path = findPathSegment(ctx, lastPathEnd, realGoal, false, 0, false);
+        std::optional path = findPathSegment(ctx, lastPathEnd, realGoal, false, 0, false, 1.0);
         if (!path.has_value()) {
             if (cancelFlag.test()) {
                 cancelFlag.clear();
