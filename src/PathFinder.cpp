@@ -253,12 +253,12 @@ bool inGoal(const NodePos& node, const BlockPos& goal) {
 void tryLoadRegionNative(Context& ctx, ChunkPos pos) {
     auto regionPos = RegionPos{pos.x >> 5, pos.z >> 5};
     if (ctx.baritoneCache.has_value() && ctx.checkedRegions.insert(regionPos).second) {
-        auto data = readRegionFile(ctx.baritoneCache.value(), regionPos);
-        if (!data) {
-            std::cout << "couldn't read region file" << std::endl;
+        auto file = openRegionFile(ctx.baritoneCache.value(), regionPos);
+        if (!file) {
+            std::cout << "couldn't open region file" << std::endl;
             return;
         }
-        parseBaritoneRegion(ctx.chunkCache, regionPos, *data);
+        parseBaritoneRegion(ctx.chunkCache, regionPos, *file);
     }
 }
 

@@ -12,15 +12,15 @@
   in {
 
     devShells.${system}.default = pkgs.mkShell {
-      nativeBuildInputs = with pkgs; [ clang_14 pkg-config ];
+      nativeBuildInputs = with pkgs; [ clang_16 pkg-config ];
       buildInputs = with pkgs; [
-        gbenchmark zlib
+        gbenchmark
       ];
 
       shellHook = ''
         export NIX_CFLAGS_COMPILE="-march=native"
-        export CC=${pkgs.clang_14}/bin/clang
-        export CXX=${pkgs.clang_14}/bin/clang++
+        export CC=${pkgs.clang_16}/bin/clang
+        export CXX=${pkgs.clang_16}/bin/clang++
       '';
     };
   };

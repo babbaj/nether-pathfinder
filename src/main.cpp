@@ -118,11 +118,11 @@ void printSizes(const Path& path) {
 
 int main(int argc, char** argv) {
     auto dir = "/home/babbaj/.local/share/PrismLauncher/instances/1.20/.minecraft/baritone/2b2t.org/minecraft/the_nether_128/cache/";
-    RegionPos file{-45, -5166};
+    RegionPos pos{-45, -5166};
     cache_t cache;
-    auto data = readRegionFile(dir, file);
-    if (data) {
-        parseBaritoneRegion(cache, *data);
+    auto file = openRegionFile(dir, pos);
+    if (file) {
+        parseBaritoneRegion(cache, pos, *file);
     }
 
     return 0;

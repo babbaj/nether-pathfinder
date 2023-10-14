@@ -11,6 +11,7 @@ function do_build {
     echo "Building $target..."
 
     CXXFLAGS="-target $target" cmake -G Ninja $java_root/.. \
+      -DPATHFINDER_TARGET=$target \
       -DCMAKE_C_COMPILER=$(realpath $java_root/zigcc.sh) -DCMAKE_CXX_COMPILER=$(realpath $java_root/zigcxx.sh) \
       -DCMAKE_BUILD_TYPE=Release
 

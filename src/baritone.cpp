@@ -1,7 +1,8 @@
 #include <cstdio>
 #include <filesystem>
 #include <iostream>
-#include <zlib.h>
+#define WITH_GZFILEOP 1
+#include <zlib-ng.h>
 
 #include "baritone.h"
 
@@ -21,6 +22,15 @@ int8_t byte(std::span<const int8_t> span) {
         throw std::range_error{"failed to read byte"};
     }
     return span[0];
+}
+
+template<size_t N>
+std::array<int8_t, N> decomp(gzFile file) {
+    std::array<int8_t, N> out{};
+    if (zng_gzread(file, out.data(), N) < N) {
+        throw std::range_error{"not enough data"};
+    }
+    return out;
 }
 
 int positionIndex(int x, int y, int z) {
@@ -51,9 +61,8 @@ void parseAndInsertChunk(cache_t& cache, int chunkX, int chunkZ, std::span<const
     }
 }
 
-void parseBaritoneRegion(cache_t& cache, RegionPos regionPos, std::span<const int8_t> data) {
-    int magic = beInt(data);
-    data = data.subspan<4>();
+void parseBaritoneRegion(cache_t& cache, RegionPos regionPos, gzFile data) {
+    int magic = beInt(decomp<4>(data));
     if (magic != 456022911) {
         puts("Bad magic");
         std::terminate();
@@ -61,37 +70,26 @@ void parseBaritoneRegion(cache_t& cache, RegionPos regionPos, std::span<const in
     int insertedChunks = 0;
     for (int x = 0; x < 32; x++) {
         for (int z = 0; z < 32; z++) {
-            const int8_t present = byte(data);
-            data = data.subspan<1>();
+            const int8_t present = decomp<1>(data)[0];
             if (present == 1) {
                 // DimensionType.height for the nether is 256 and that is what is used for serializing to disk
                 constexpr auto chunkSizeBytes = (2 * 16 * 16 * 256) / 8;
-                if (data.size() < chunkSizeBytes) {
-                    throw std::range_error{"not enough bytes for chunk"};
-                }
-                parseAndInsertChunk(cache, x + 32 * regionPos.x, z + 32 * regionPos.z, data.subspan(0, chunkSizeBytes));
-                data = data.subspan<chunkSizeBytes>();
+
+                parseAndInsertChunk(cache, x + 32 * regionPos.x, z + 32 * regionPos.z, decomp<chunkSizeBytes>(data));
                 insertedChunks++;
             }
         }
     }
+    zng_gzclose_r(data);
 }
 
-std::optional<std::vector<int8_t>> readRegionFile(std::string_view dir, RegionPos pos) {
+std::optional<gzFile> openRegionFile(std::string_view dir, RegionPos pos) {
     auto fileName = std::string{"r."} + std::to_string(pos.x) + "." + std::to_string(pos.z) + ".bcr";
     auto path = std::filesystem::path{dir} / fileName;
-    gzFile file = gzopen(path.c_str(), "rb");
+    gzFile file = zng_gzopen(path.string().c_str(), "rb");
     if (!file) {
-        return {};
+        return nullptr;
     }
-
-    std::vector<int8_t> out;
-    char buffer[32768]; // same as baritone
-    int bytesRead;
-    while ((bytesRead = gzread(file, buffer, sizeof(buffer))) > 0) {
-        out.insert(out.end(), buffer, buffer + bytesRead);
-    }
-    gzclose(file);
-
-    return {out};
+    zng_gzbuffer(file, 32768); // same as baritone
+    return {file};
 }
