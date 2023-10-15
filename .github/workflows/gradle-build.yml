@@ -17,5 +17,4 @@ jobs:
       - name: Run gradle build
         run: |
           cd java
-          rm -rf ~/.cache/zig
           nix develop --command ./gradlew build
