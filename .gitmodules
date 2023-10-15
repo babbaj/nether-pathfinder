@@ -1,6 +1,3 @@
 [submodule "abseil-cpp"]
 	path = abseil-cpp
 	url = https://github.com/abseil/abseil-cpp.git
-[submodule "zlib-ng"]
-	path = zlib-ng
-	url = git@github.com:zlib-ng/zlib-ng.git

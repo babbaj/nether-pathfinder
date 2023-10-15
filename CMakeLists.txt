@@ -8,13 +8,6 @@ find_package(PkgConfig) # not required
 if(PkgConfig_FOUND)
     pkg_check_modules(GBENCHMARK IMPORTED_TARGET benchmark) # not required
 endif()
-set(CMAKE_C_COMPILER_TARGET ${PATHFINDER_TARGET})
-message("meow ${CMAKE_C_COMPILER_TARGET}")
-set(CMAKE_CROSSCOMPILING True)
-set(WITH_SANITIZER False)
-set(ZLIBNG_ENABLE_TESTS False)
-set(ZLIB_ENABLE_TESTS False)
-add_subdirectory(zlib-ng)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++20 -Wall")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}")
@@ -33,8 +26,6 @@ if (TESTING)
 else()
     add_library(nether_pathfinder SHARED ${SRC})
 endif()
-target_include_directories(nether_pathfinder PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/zlib-ng)
-target_link_libraries(nether_pathfinder PRIVATE zlibstatic)
 
 if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     message(WARNING "gcc is not recommended")

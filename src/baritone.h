@@ -4,13 +4,11 @@
 #include <vector>
 #include <optional>
 #include <span>
-#define WITH_GZFILEOP 1
-#include <zlib-ng.h>
 
 
 #include "ChunkGen.h"
 #include "Chunk.h"
 
 
-void parseBaritoneRegion(cache_t& cache, RegionPos, gzFile data);
-std::optional<gzFile> openRegionFile(std::string_view dir, RegionPos pos);
+void parseBaritoneRegion(cache_t& cache, RegionPos, std::span<const int8_t> data);
+jbyteArray readRegionFileChunks(JNIEnv* env, std::string_view dir, RegionPos pos);

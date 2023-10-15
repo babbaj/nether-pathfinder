@@ -2,12 +2,9 @@ package dev.babbaj.pathfinder;
 
 import org.tukaani.xz.XZInputStream;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.UncheckedIOException;
+import java.io.*;
 import java.nio.file.*;
-import java.util.Objects;
+import java.util.zip.GZIPInputStream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -72,6 +69,38 @@ public class NetherPathfinder {
 
     public static boolean isThisSystemSupported() {
         return IS_LOADED;
+    }
+
+    public static byte[] readRegionChunks(String file) {
+        try (
+                FileInputStream fileIn = new FileInputStream(file);
+                GZIPInputStream gzipIn = new GZIPInputStream(fileIn, 32768);
+                DataInputStream in = new DataInputStream(gzipIn)
+        ) {
+            Buffer buf = new Buffer(1048576); // 1MB;
+            int magic = in.readInt();
+            if (magic != 456022911) {
+                System.out.println("Bad region file magic for " + file + ": " + magic);
+                return null;
+            }
+            for (int i = 0; i < 32 * 32; i++) {
+                int isChunkPresent = in.read();
+                buf.appendByte((byte) isChunkPresent);
+                switch (isChunkPresent) {
+                    case 1:
+                        buf.read(in, (2 * 16 * 16 * 256) / 8);
+                        break;
+                    case 0: break;
+                    default:
+                        System.out.println("Malformed region file (bad isChunkPresent)");
+                        return null;
+                }
+            }
+            return buf.array;
+        } catch (IOException ex) {
+            ex.printStackTrace();
+            return null;
+        }
     }
 
     private static String getNativeLibName() {

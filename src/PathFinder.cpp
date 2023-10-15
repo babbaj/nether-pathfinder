@@ -250,21 +250,11 @@ bool inGoal(const NodePos& node, const BlockPos& goal) {
 }
 
 
-void tryLoadRegionNative(Context& ctx, ChunkPos pos) {
+std::chrono::milliseconds tryLoadRegionMostlyNative(Context& ctx, ChunkPos pos) {
+    auto t1 = std::chrono::steady_clock::now();
     auto regionPos = RegionPos{pos.x >> 5, pos.z >> 5};
     if (ctx.baritoneCache.has_value() && ctx.checkedRegions.insert(regionPos).second) {
-        auto file = openRegionFile(ctx.baritoneCache.value(), regionPos);
-        if (!file) {
-            std::cout << "couldn't open region file" << std::endl;
-            return;
-        }
-        parseBaritoneRegion(ctx.chunkCache, regionPos, *file);
-    }
-}
-
-void tryLoadRegion(Context& ctx, ChunkPos pos) {
-    if (ctx.jvm != nullptr && ctx.checkedRegions.insert(RegionPos{pos.x >> 5, pos.z >> 5}).second) {
-        // TODO: clean this up
+        // TODO: detach/delete thread_local static jni pointers in unload
         thread_local static JNIEnv* env{};
         if (env == nullptr) {
             JavaVMAttachArgs args{.version = JNI_VERSION_1_6};
@@ -273,24 +263,20 @@ void tryLoadRegion(Context& ctx, ChunkPos pos) {
                 exit(69);
             }
         }
-        thread_local static jclass clazz = env->FindClass("baritone/process/elytra/NetherPathfinderContext");
-        if (!clazz) {
-            std::cerr << "No NetherPathfinderContext wtf" << std::endl;
-            exit(69);
-        }
-        thread_local static jmethodID method = env->GetStaticMethodID(clazz, "loadRegionFromCache", "(JII)V");
-        if (!method) {
-            std::cerr << "No loadRegionFromCache wtf" << std::endl;
-            exit(69);
-        }
-        std::cout << "calling loadRegionFromCache" << std::endl;
-        env->CallStaticVoidMethod(clazz, method, &ctx, pos.x >> 5, pos.z >> 5);
+        jbyteArray array = readRegionFileChunks(env, ctx.baritoneCache.value(), regionPos);
+        if (!array) {
+            std::cout << "couldn't read region file" << std::endl;
+        } else {
+            jsize len = env->GetArrayLength(array);
+            jboolean isCopy;
+            jbyte* elems = env->GetByteArrayElements(array, &isCopy);
 
-        if (env->ExceptionCheck()) {
-            env->ExceptionDescribe();
-            env->ExceptionClear();
+            parseBaritoneRegion(ctx.chunkCache, regionPos, {(int8_t*) elems, (size_t) len});
+            env->ReleaseByteArrayElements(array, elems, JNI_ABORT);
         }
     }
+    auto t2 = std::chrono::steady_clock::now();
+    return std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
 }
 
 std::atomic_flag cancelFlag;
@@ -306,7 +292,7 @@ std::optional<Path> findPathSegment(Context& ctx, const NodePos& start, const No
     BinaryHeapOpenSet openSet;
 
     PathNode* const startNode = getNodeAtPosition(map, start, goal.absolutePosZero());
-    tryLoadRegionNative(ctx, start.absolutePosZero().toChunkPos());
+    tryLoadRegionMostlyNative(ctx, start.absolutePosZero().toChunkPos());
     startNode->cost = 0;
     startNode->combinedCost = startNode->estimatedCostToGoal;
     openSet.insert(startNode);
@@ -320,6 +306,7 @@ std::optional<Path> findPathSegment(Context& ctx, const NodePos& start, const No
     const auto primaryTimeoutTime = startTime + 500ms;
     const auto timeout = timeoutMs != 0 ? std::chrono::milliseconds{timeoutMs} : 30s;
     const auto failureTimeout = startTime + timeout;
+    std::chrono::milliseconds timeDoingIO{};
 
     bool failing = true;
     int numNodes = 0;
@@ -327,7 +314,7 @@ std::optional<Path> findPathSegment(Context& ctx, const NodePos& start, const No
     while (!openSet.isEmpty()) {
         constexpr int timeCheckInterval = 1 << 6;
         if ((numNodes & (timeCheckInterval - 1)) == 0) { // only call this once every 64 nodes
-            auto now = std::chrono::system_clock::now();
+            auto now = std::chrono::system_clock::now() - timeDoingIO;
 
             if (now >= failureTimeout || (!failing && now >= primaryTimeoutTime)) {
                 break;
@@ -421,7 +408,7 @@ std::optional<Path> findPathSegment(Context& ctx, const NodePos& start, const No
                     if (!isInBounds(origin)) return;
                 }
                 const ChunkPos neighborCpos = origin.toChunkPos();
-                tryLoadRegionNative(ctx, neighborCpos);
+                timeDoingIO += tryLoadRegionMostlyNative(ctx, neighborCpos);
                 const Chunk& chunk =
                         face == Face::UP || face == Face::DOWN ? currentChunk :
                         face == Face::NORTH ? neighborCpos == cpos ? currentChunk : getChunkOrAir(ctx, cposNorth) :

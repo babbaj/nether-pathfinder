@@ -1,36 +1,15 @@
-#include <cstdio>
 #include <filesystem>
 #include <iostream>
-#define WITH_GZFILEOP 1
-#include <zlib-ng.h>
+#include <jni.h>
 
 #include "baritone.h"
 
-int32_t beInt(std::span<const int8_t> span) {
-    if (span.size() < 4) [[unlikely]] {
-        throw std::range_error{"failed to read int"};
-    }
-    int32_t out = static_cast<int32_t>(span[0]) << 24
-            | static_cast<int32_t>(span[1]) << 16
-            | static_cast<int32_t>(span[2]) << 8
-            | static_cast<int32_t>(span[3]);
-    return out;
-}
 
 int8_t byte(std::span<const int8_t> span) {
     if (span.empty()) [[unlikely]] {
         throw std::range_error{"failed to read byte"};
     }
     return span[0];
-}
-
-template<size_t N>
-std::array<int8_t, N> decomp(gzFile file) {
-    std::array<int8_t, N> out{};
-    if (zng_gzread(file, out.data(), N) < N) {
-        throw std::range_error{"not enough data"};
-    }
-    return out;
 }
 
 int positionIndex(int x, int y, int z) {
@@ -57,39 +36,55 @@ void parseAndInsertChunk(cache_t& cache, int chunkX, int chunkZ, std::span<const
             }
         }
         it->second = std::move(chunk);
-        std::cout << "inserted chunk at " << chunkX << ", " << chunkZ << std::endl;
     }
 }
 
-void parseBaritoneRegion(cache_t& cache, RegionPos regionPos, gzFile data) {
-    int magic = beInt(decomp<4>(data));
-    if (magic != 456022911) {
-        puts("Bad magic");
-        std::terminate();
-    }
-    int insertedChunks = 0;
+void parseBaritoneRegion(cache_t& cache, RegionPos regionPos, std::span<const int8_t> data) {
     for (int x = 0; x < 32; x++) {
         for (int z = 0; z < 32; z++) {
-            const int8_t present = decomp<1>(data)[0];
+            const int8_t present = byte(data);
+            data = data.subspan<1>();
             if (present == 1) {
                 // DimensionType.height for the nether is 256 and that is what is used for serializing to disk
                 constexpr auto chunkSizeBytes = (2 * 16 * 16 * 256) / 8;
-
-                parseAndInsertChunk(cache, x + 32 * regionPos.x, z + 32 * regionPos.z, decomp<chunkSizeBytes>(data));
-                insertedChunks++;
+                if (data.size() < chunkSizeBytes) {
+                    std::cerr << "not enough bytes for chunk" << std::endl;
+                    exit(69);
+                }
+                parseAndInsertChunk(cache, x + 32 * regionPos.x, z + 32 * regionPos.z, data.subspan(0, chunkSizeBytes));
+                data = data.subspan<chunkSizeBytes>();
             }
         }
     }
-    zng_gzclose_r(data);
+
 }
 
-std::optional<gzFile> openRegionFile(std::string_view dir, RegionPos pos) {
+jbyteArray callReadRegionChunks(JNIEnv* env, const char* file) {
+    thread_local static jclass clazz = env->FindClass("dev/babbaj/pathfinder/NetherPathfinder");
+    if (!clazz) {
+        std::cerr << "No NetherPathfinder class wtf" << std::endl;
+        exit(69);
+    }
+    thread_local static jmethodID method = env->GetStaticMethodID(clazz, "readRegionChunks", "(Ljava/lang/String;)[B");
+    if (!method) {
+        std::cerr << "No readRegionChunks wtf" << std::endl;
+        exit(69);
+    }
+    std::cout << "calling readRegionChunks" << std::endl;
+    jstring fileStr = env->NewStringUTF(file);
+    auto bytes = (jbyteArray) env->CallStaticObjectMethod(clazz, method, fileStr);
+    env->DeleteLocalRef(fileStr);
+
+    if (env->ExceptionCheck()) {
+        env->ExceptionDescribe();
+        env->ExceptionClear();
+    }
+    return bytes;
+}
+
+jbyteArray readRegionFileChunks(JNIEnv* env, std::string_view dir, RegionPos pos) {
     auto fileName = std::string{"r."} + std::to_string(pos.x) + "." + std::to_string(pos.z) + ".bcr";
     auto path = std::filesystem::path{dir} / fileName;
-    gzFile file = zng_gzopen(path.string().c_str(), "rb");
-    if (!file) {
-        return nullptr;
-    }
-    zng_gzbuffer(file, 32768); // same as baritone
-    return {file};
+
+    return callReadRegionChunks(env, path.string().c_str());
 }
