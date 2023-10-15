@@ -15,6 +15,9 @@
       nativeBuildInputs = with pkgs; [ clang_16 pkg-config ];
       buildInputs = with pkgs; [
         gbenchmark
+        cmake
+        ninja
+        zig
       ];
 
       shellHook = ''
