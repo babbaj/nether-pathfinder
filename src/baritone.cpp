@@ -70,7 +70,6 @@ jbyteArray callReadRegionChunks(JNIEnv* env, const char* file) {
         std::cerr << "No readRegionChunks wtf" << std::endl;
         exit(69);
     }
-    std::cout << "calling readRegionChunks" << std::endl;
     jstring fileStr = env->NewStringUTF(file);
     auto bytes = (jbyteArray) env->CallStaticObjectMethod(clazz, method, fileStr);
     env->DeleteLocalRef(fileStr);
