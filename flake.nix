@@ -3,11 +3,11 @@
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixpkgs-unstable";
-    #flake-utils.url = "github:numtide/flake-utils/master";
+    flake-utils.url = "github:numtide/flake-utils/master";
   };
 
   outputs = { self, nixpkgs }: let
-    system = "x86_64-linux";
+    system = "x86_64-darwin";
     pkgs = import nixpkgs { inherit system; };
   in {
 
