@@ -13,8 +13,8 @@ function do_build {
     CXXFLAGS="-target $target" cmake -G Ninja $java_root/.. \
       -DPATHFINDER_TARGET=$target \
       -DCMAKE_C_COMPILER=$(realpath $java_root/zigcc.sh) -DCMAKE_CXX_COMPILER=$(realpath $java_root/zigcxx.sh) \
-      -DCMAKE_AR=$(realpath $java_root/zigar.sh)
-      -DCMAKE_RANLIB=$(realpath $java_root/zigranlib.sh)
+      -DCMAKE_AR=$(realpath $java_root/zigar.sh) \
+      -DCMAKE_RANLIB=$(realpath $java_root/zigranlib.sh) \
       -DCMAKE_BUILD_TYPE=Release
 
     ninja -j `nproc`
