@@ -18,6 +18,9 @@
             pkg-config
             cmake
             ninja
+            # zig 0.10.1 = segfault
+            # zig 0.9.1 only works on linux
+            # zig 0.11.0 only works on macos
             zig_0_9
           ];
           buildInputs = with pkgs; [

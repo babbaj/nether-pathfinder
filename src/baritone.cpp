@@ -57,7 +57,6 @@ void parseAndInsertChunk(cache_t& cache, int chunkX, int chunkZ, std::span<const
             }
         }
         it->second = std::move(chunk);
-        std::cout << "inserted chunk at " << chunkX << ", " << chunkZ << std::endl;
     }
 }
 
@@ -67,7 +66,6 @@ void parseBaritoneRegion(cache_t& cache, RegionPos regionPos, gzFile data) {
         puts("Bad magic");
         std::terminate();
     }
-    int insertedChunks = 0;
     for (int x = 0; x < 32; x++) {
         for (int z = 0; z < 32; z++) {
             const int8_t present = decomp<1>(data)[0];
@@ -76,7 +74,6 @@ void parseBaritoneRegion(cache_t& cache, RegionPos regionPos, gzFile data) {
                 constexpr auto chunkSizeBytes = (2 * 16 * 16 * 256) / 8;
 
                 parseAndInsertChunk(cache, x + 32 * regionPos.x, z + 32 * regionPos.z, decomp<chunkSizeBytes>(data));
-                insertedChunks++;
             }
         }
     }
@@ -88,7 +85,7 @@ std::optional<gzFile> openRegionFile(std::string_view dir, RegionPos pos) {
     auto path = std::filesystem::path{dir} / fileName;
     gzFile file = zng_gzopen(path.string().c_str(), "rb");
     if (!file) {
-        return nullptr;
+        return {};
     }
     zng_gzbuffer(file, 32768); // same as baritone
     return {file};
