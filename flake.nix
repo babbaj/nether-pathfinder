@@ -18,7 +18,7 @@
             pkg-config
             cmake
             ninja
-            zig
+            zig_0_9
           ];
           buildInputs = with pkgs; [
             gbenchmark
