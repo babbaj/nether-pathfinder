@@ -160,8 +160,8 @@ publishing {
     }
 
     repositories {
-        mavenLocal()
-        /*maven {
+        //mavenLocal()
+        maven {
             name = "FileSystem"
             url = uri("file://" + System.getenv("MAVEN_DIR"))
         }
@@ -172,6 +172,6 @@ publishing {
                 username = System.getenv("GITHUB_ACTOR")
                 password = System.getenv("GITHUB_TOKEN")
             }
-        }*/
+        }
     }
 }
