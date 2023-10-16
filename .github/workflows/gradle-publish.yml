@@ -13,6 +13,8 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
+        with:
+          submodules: 'recursive'
       - name: Setup Gradle
         uses: ./.github/actions/build-deps
       - name: Setup git
