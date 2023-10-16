@@ -38,7 +38,6 @@ struct Path {
 
 struct Context {
     ChunkGeneratorHell generator;
-    JavaVM* jvm;
     std::optional<std::string> baritoneCache;
     std::mutex cacheMutex;
     cache_t chunkCache;
@@ -48,8 +47,8 @@ struct Context {
     std::unordered_set<RegionPos> checkedRegions;
 
 
-    explicit Context(int64_t seed, JavaVM* jvm): generator(ChunkGeneratorHell::fromSeed(seed)), jvm(jvm) {}
-    explicit Context(int64_t seed, JavaVM* jvm, std::string&& cacheDir): generator(ChunkGeneratorHell::fromSeed(seed)), jvm(jvm), baritoneCache(cacheDir) {}
+    explicit Context(int64_t seed): generator(ChunkGeneratorHell::fromSeed(seed)) {}
+    explicit Context(int64_t seed, std::string&& cacheDir): generator(ChunkGeneratorHell::fromSeed(seed)), baritoneCache(cacheDir) {}
 };
 
 const Chunk& getOrGenChunk(Context& ctx, ChunkGenExec& executor, const ChunkPos& pos, FakeChunkMode fakeChunkMode = FakeChunkMode::GENERATE);

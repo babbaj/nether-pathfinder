@@ -81,20 +81,16 @@ extern "C" {
     }
 
     EXPORT jlong JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_newContext(JNIEnv* env, jclass, jlong seed, jstring baritoneCacheDir) {
-        JavaVM* jvm;
-        if (env->GetJavaVM(&jvm) != JNI_OK) {
-            std::cerr << "GetJavaVM failed??" << std::endl;
-        }
         Context* ctx;
         if (baritoneCacheDir != nullptr) {
             jsize len = env->GetStringLength(baritoneCacheDir);
             jboolean dontcare;
             const jchar* chars = env->GetStringChars(baritoneCacheDir, &dontcare);
             std::string str{chars, chars + len};
-            ctx = new Context{seed, jvm, std::move(str)};
+            ctx = new Context{seed, std::move(str)};
             env->ReleaseStringChars(baritoneCacheDir, chars);
         } else {
-            ctx = new Context{seed, jvm};
+            ctx = new Context{seed};
         }
         return reinterpret_cast<jlong>(ctx);
     }

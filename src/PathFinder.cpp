@@ -508,8 +508,6 @@ Path splicePaths(std::vector<Path>&& paths) {
 std::optional<Path> findPathFull(Context& ctx, const BlockPos& start, const BlockPos& goal) {
     if (!isInBounds(start)) throw "troll";
 
-    ParallelExecutor<4> topExecutor;
-    std::array<ChunkGenExec, 4> executors;
     std::vector<Path> segments;
 
     // we can't pathfind through solid blocks

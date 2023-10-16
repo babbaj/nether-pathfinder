@@ -9,7 +9,6 @@ if(PkgConfig_FOUND)
     pkg_check_modules(GBENCHMARK IMPORTED_TARGET benchmark) # not required
 endif()
 set(CMAKE_C_COMPILER_TARGET ${PATHFINDER_TARGET})
-message("meow ${CMAKE_C_COMPILER_TARGET}")
 set(CMAKE_CROSSCOMPILING True)
 set(WITH_SANITIZER False)
 set(ZLIBNG_ENABLE_TESTS False)
