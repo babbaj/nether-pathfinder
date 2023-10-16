@@ -12,12 +12,16 @@
   in {
 
     devShells.${system}.default = pkgs.mkShell {
-      nativeBuildInputs = with pkgs; [ clang_16 pkg-config ];
-      buildInputs = with pkgs; [
-        gbenchmark
+      nativeBuildInputs = with pkgs; [
+        binutils-unwrapped-all-targets
+        clang_16
+        pkg-config
         cmake
         ninja
         zig
+      ];
+      buildInputs = with pkgs; [
+        gbenchmark
       ];
 
       shellHook = ''

@@ -23,7 +23,7 @@ plugins {
 }
 
 group = 'dev.babbaj'
-version = '1.4.43'
+version = '1.4.44'
 
 java {
     toolchain {

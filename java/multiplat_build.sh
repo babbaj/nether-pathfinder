@@ -16,6 +16,8 @@ function do_build {
 
     ninja -j `nproc`
 
+    # this may fail if your binutils doesn't target arm
+    strip libnether_pathfinder.so || true
     cp libnether_pathfinder.so ../$output_path
     popd
     rm -rf build
