@@ -19,7 +19,7 @@ function do_build {
 
     ninja -j `nproc`
 
-    cp libnether_pathfinder.so ../$output_path
+    cp libnether_pathfinder.so ../$output_path || cp libnether_pathfinder.dylib ../$output_path || cp nether_pathfinder.dll ../$output_path
     popd
     rm -rf build
 }
