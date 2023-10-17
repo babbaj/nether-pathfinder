@@ -257,7 +257,6 @@ std::chrono::milliseconds tryLoadRegionNative(Context& ctx, ChunkPos pos) {
         auto t1 = std::chrono::steady_clock::now();
         auto file = openRegionFile(ctx.baritoneCache.value(), regionPos);
         if (!file) {
-            std::cout << "couldn't open region file" << std::endl;
             return {};
         }
         parseBaritoneRegion(ctx.chunkCache, regionPos, *file);
