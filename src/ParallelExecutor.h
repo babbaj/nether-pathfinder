@@ -37,7 +37,7 @@ struct Worker {
     }
 };
 
-#if 0
+#if 1
 template<int Threads>
 struct ParallelExecutor {
     std::condition_variable condition_variable;
