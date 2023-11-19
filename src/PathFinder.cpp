@@ -504,18 +504,14 @@ Path splicePaths(std::vector<Path>&& paths) {
     return path;
 }
 
-std::optional<Path> findPathFull(Context& ctx, const BlockPos& start, const BlockPos& goal) {
-    if (!isInBounds(start)) throw "troll";
+std::optional<Path> findPathFull(Context& ctx, const NodePos& start, const NodePos& goal, double fakeChunkCost) {
+    if (!isInBounds(start.absolutePosCenter())) throw "troll";
 
     std::vector<Path> segments;
 
-    // we can't pathfind through solid blocks
-    const auto realStart = findAir<Size::X2>(ctx, start);
-    const auto realGoal = findAir<Size::X2>(ctx, goal);
-
     while (true) {
-        const NodePos lastPathEnd = !segments.empty() ? NodePos{Size::X2, segments.back().getEndPos()} : realStart;
-        std::optional path = findPathSegment(ctx, lastPathEnd, realGoal, false, 0, false, 1.0);
+        const NodePos lastPathEnd = !segments.empty() ? NodePos{Size::X2, segments.back().getEndPos()} : start;
+        std::optional path = findPathSegment(ctx, lastPathEnd, goal, true, 0, false, fakeChunkCost);
         if (!path.has_value()) {
             if (cancelFlag.test()) {
                 cancelFlag.clear();
