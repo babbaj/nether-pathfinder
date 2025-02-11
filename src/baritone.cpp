@@ -47,7 +47,7 @@ void parseAndInsertChunk(cache_t& cache, int chunkX, int chunkZ, std::span<const
     if (inserted) {
         auto chunk = std::make_unique<Chunk>();
         chunk->isFromJava = true;
-        for (int y = 0; y < 128; y++) {
+        for (int y = 0; y < 256; y++) {
             for (int z = 0; z < 16; z++) {
                 for (int x = 0; x < 16; x++) {
                     auto idx = positionIndex(x, y, z);

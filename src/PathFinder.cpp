@@ -211,7 +211,7 @@ void growThenIterateOuter(const Chunk& chunk, const NodePos& pos, auto& callback
 }
 
 bool isInBounds(const BlockPos& pos) {
-    return pos.y >= 0 && pos.y < 128;
+    return pos.y >= 0 && pos.y < 256;
 }
 
 constexpr double MIN_DIST_PATH = 5; // might want to increase this

@@ -24,7 +24,7 @@ public class Octree {
     public static final int SIZEOF_X4 = SIZEOF_X2 * 8;
     public static final int SIZEOF_X8 = SIZEOF_X4 * 8;
     public static final int SIZEOF_X16 = SIZEOF_X8 * 8;
-    public static final int SIZEOF_CHUNK = SIZEOF_X16 * 8;
+    public static final int SIZEOF_CHUNK = SIZEOF_X16 * 16;
 
     public static int x16Index(int y) {
         return y >> 4;
@@ -49,11 +49,11 @@ public class Octree {
     private static long getX2Ptr(long chunk, int x, int y, int z) {
         //final int offset = (x16Index(y) * SIZEOF_X16) + (x8Index(x, y, z) * SIZEOF_X8) + (x4Index(x, y, z) * SIZEOF_X4) + (x2Index(x, y, z) * SIZEOF_X2);
 
-        // std::array<std::array<std::array<uint16_t, 64>, 8>, 8>
+        // std::array<std::array<std::array<uint16_t, 128>, 8>, 8>
         // auto x2Idx = X2_INDEX[x/2][z/2][y/2];
-        // std::array<uint16_t, 64> = 128 bytes
-        // std::array<std::array<uint16_t, 64>, 8> = 1024 bytes
-        final int indexOffset = (1024 * (x/2)) + (128 * (z/2)) + (2 * (y/2));
+        // std::array<uint16_t, 128> = 256 bytes
+        // std::array<std::array<uint16_t, 128>, 8> = 2048 bytes
+        final int indexOffset = (2048 * (x/2)) + (256 * (z/2)) + (2 * (y/2));
         // uint16_t to signed int
         final int offset = UNSAFE.getShort(X2_INDEX_PTR + indexOffset);
         return chunk + offset;
