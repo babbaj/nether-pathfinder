@@ -29,7 +29,7 @@ inline BlockPos unpackBlockPos(jlong packed) {
 }
 
 bool inBounds(int y) {
-    return y >= 0 && y < 256;
+    return y >= 0 && y < 384;
 }
 
 void throwException(JNIEnv* env, const char* msg) {
@@ -101,9 +101,9 @@ extern "C" {
 
     EXPORT void JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_insertChunkData(JNIEnv* env, jclass, Context* ctx, jint chunkX, jint chunkZ, jbooleanArray input) {
         jboolean isCopy{};
-        constexpr auto blocksInChunk = 16 * 16 * 256;
+        constexpr auto blocksInChunk = 16 * 16 * 384;
         if (auto len = env->GetArrayLength(input); len != blocksInChunk) {
-            throwException(env, "input is not 65536 elements");
+            throwException(env, "input is not 98304 elements");
             return;
         }
         jboolean* data = env->GetBooleanArrayElements(input, &isCopy);
@@ -111,7 +111,7 @@ extern "C" {
         for (int i = 0; i < blocksInChunk; i++) {
             auto x = (i >> 0) & 0xF;
             auto z = (i >> 4) & 0xF;
-            auto y = (i >> 8) & 0xFF;
+            auto y = (i >> 8) & 0x1FF;
             chunk_ptr->setBlock(x, y, z, data[i]);
         }
         chunk_ptr->isFromJava = true;

@@ -31,11 +31,11 @@ static constexpr int bitIndex(int x, int y, int z) {
 }
 
 constexpr auto makeX2Index() {
-    std::array<std::array<std::array<uint16_t, 128>, 8>, 8> out{};
+    std::array<std::array<std::array<uint16_t, 192>, 8>, 8> out{};
 
     for (int x = 0; x < 16; x += 2) {
         for (int z = 0; z < 16; z += 2) {
-            for (int y = 0; y < 256; y+= 2) {
+            for (int y = 0; y < 384; y+= 2) {
                 const auto idx = (x16Index(y) * sizeof(x16_t))
                         + (x8Index(x, y, z) * sizeof(x8_t))
                         + (x4Index(x, y, z) * sizeof(x4_t))
@@ -76,7 +76,7 @@ inline bool isEmpty(const T& input) {
 
 
 struct Chunk {
-    std::array<x16_t, 16> data{};
+    std::array<x16_t, 24> data{};
     //std::array<bool, 8> x16Empty{};
     bool isFromJava{};
 private:
@@ -99,7 +99,7 @@ private:
 
 public:
     void calcEmptyX16() {
-        for (int i = 0; i < 16; i++) {
+        for (int i = 0; i < 24; i++) {
             //x16Empty[i] = ::isEmpty(data[i]);
         }
     }
