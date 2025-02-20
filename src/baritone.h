@@ -10,7 +10,8 @@
 
 #include "ChunkGen.h"
 #include "Chunk.h"
+#include "Region.h"
 
 
-void parseBaritoneRegion(cache_t& cache, RegionPos, gzFile data);
-std::optional<gzFile> openRegionFile(std::string_view dir, RegionPos pos);
+void parseBaritoneRegion(RegionCache& cache, Dimension dim, RegionPos regionPos, gzFile data);
+std::optional<gzFile> openRegionFile(std::string_view dir, Dimension dim,  RegionPos pos);

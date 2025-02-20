@@ -5,6 +5,7 @@
 #include <zlib-ng.h>
 
 #include "baritone.h"
+#include "Region.h"
 
 int32_t beInt(std::span<const int8_t> span) {
     if (span.size() < 4) [[unlikely]] {
@@ -42,45 +43,52 @@ int8_t get2Bits(size_t i, std::span<const int8_t> data) {
     return (byte >> (6 - (i % 8))) & 0b11;
 }
 
-void parseAndInsertChunk(cache_t& cache, int chunkX, int chunkZ, std::span<const int8_t> data) {
-    auto [it, inserted] = cache.try_emplace(ChunkPos{chunkX, chunkZ});
-    if (inserted) {
-        auto chunk = std::make_unique<Chunk>();
-        chunk->isFromJava = true;
-        for (int y = 0; y < 384; y++) {
-            for (int z = 0; z < 16; z++) {
-                for (int x = 0; x < 16; x++) {
-                    auto idx = positionIndex(x, y, z);
-                    auto bits = get2Bits(idx, data);
-                    chunk->setBlock(x, y, z, bits != 0);
+void parseAndInsertChunk(Region& region, Dimension dim, int chunkX, int chunkZ, std::span<const int8_t> data) {
+    auto& chunk = region.getChunk(chunkX, chunkZ);
+    region.setChunkState(chunkX, chunkZ, ChunkState::FROM_JAVA);
+
+    const int ySize = DIMENSION_Y_SIZE[static_cast<int>(dim)];
+    for (int y = 0; y < ySize; y++) {
+        for (int z = 0; z < 16; z++) {
+            for (int x = 0; x < 16; x++) {
+                auto idx = positionIndex(x, y, z);
+                auto bits = get2Bits(idx, data);
+                if(bits != 0) {
+                    // Avoid `0` writes to prevent unnecessary page allocation by the OS
+                    chunk.setBlock(x, y, z, true);
                 }
             }
         }
-        it->second = std::move(chunk);
     }
 }
 
-void parseBaritoneRegion(cache_t& cache, RegionPos regionPos, gzFile data) {
+void parseBaritoneRegion(RegionCache& cache, Dimension dim, RegionPos regionPos, gzFile data) {
     int magic = beInt(decomp<4>(data));
     if (magic != 456022911) {
         puts("Bad magic");
         std::terminate();
     }
+
+    auto& region = cache.getRegion(regionPos);
     for (int x = 0; x < 32; x++) {
         for (int z = 0; z < 32; z++) {
             const int8_t present = decomp<1>(data)[0];
             if (present == 1) {
-                // DimensionType.height for the nether is 256 and that is what is used for serializing to disk
-                constexpr auto chunkSizeBytes = (2 * 16 * 16 * 256) / 8;
+                constexpr auto chunkSizeNether = (2 * 16 * 16 * DIMENSION_Y_SIZE[static_cast<int>(Dimension::NETHER)]) / 8;
+                constexpr auto chunkSizeOverworld = (2 * 16 * 16 * DIMENSION_Y_SIZE[static_cast<int>(Dimension::OVERWORLD)]) / 8;
 
-                parseAndInsertChunk(cache, x + 32 * regionPos.x, z + 32 * regionPos.z, decomp<chunkSizeBytes>(data));
+                if(dim == Dimension::OVERWORLD) {
+                    parseAndInsertChunk(region, dim, x + 32 * regionPos.x, z + 32 * regionPos.z, decomp<chunkSizeOverworld>(data));
+                } else {
+                    parseAndInsertChunk(region, dim, x + 32 * regionPos.x, z + 32 * regionPos.z, decomp<chunkSizeNether>(data));
+                }
             }
         }
     }
     zng_gzclose_r(data);
 }
 
-std::optional<gzFile> openRegionFile(std::string_view dir, RegionPos pos) {
+std::optional<gzFile> openRegionFile(std::string_view dir, Dimension dim, RegionPos pos) {
     auto fileName = std::string{"r."} + std::to_string(pos.x) + "." + std::to_string(pos.z) + ".bcr";
     auto path = std::filesystem::path{dir} / fileName;
     gzFile file = zng_gzopen(path.string().c_str(), "rb");

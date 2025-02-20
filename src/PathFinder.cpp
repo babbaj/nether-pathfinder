@@ -57,39 +57,31 @@ Path createPath(map_t<NodePos, std::unique_ptr<PathNode>>& map, const PathNode* 
             std::move(nodes)
     };
 }
-
 const Chunk& getOrGenChunk(Context& ctx, ChunkGenExec& executor, const ChunkPos& pos, FakeChunkMode fakeChunkMode) {
-    ctx.cacheMutex.lock();
-    auto it = ctx.chunkCache.find(pos);
-    if (it != ctx.chunkCache.end()) {
-        auto& chunk = *it->second;
-        ctx.cacheMutex.unlock();
-        if (!chunk.isFromJava && fakeChunkMode != FakeChunkMode::GENERATE) {
-            return fakeChunkMode == FakeChunkMode::AIR ? AIR_CHUNK : SOLID_CHUNK;
-        }
-        return *it->second;
-    } else if (fakeChunkMode != FakeChunkMode::GENERATE) {
-        ctx.cacheMutex.unlock();
-        return fakeChunkMode == FakeChunkMode::AIR ? AIR_CHUNK : SOLID_CHUNK;;
-    } else {
-        ctx.cacheMutex.unlock();
-        std::unique_ptr ptr = std::make_unique<Chunk>();
-        auto& chunk = *ptr;
-        ctx.generator.generateChunk(pos.x, pos.z, *ptr, executor);
-        ctx.cacheMutex.lock();
-        ctx.chunkCache.emplace(pos, std::move(ptr));
-        ctx.cacheMutex.unlock();
+    auto& region = ctx.regionCache.getRegion(pos.toRegionPos());
+    auto& chunk = region.getChunk(pos.x, pos.z);
+    auto state = region.getChunkState(pos.x, pos.z);
+
+    if(state == ChunkState::FROM_JAVA || (state == ChunkState::GENERATED && fakeChunkMode == FakeChunkMode::GENERATE )) {
         return chunk;
     }
+
+    if(fakeChunkMode != FakeChunkMode::GENERATE) {
+        return fakeChunkMode == FakeChunkMode::AIR ? AIR_CHUNK : SOLID_CHUNK;
+    }
+
+    ctx.generator.generateChunk(pos.x, pos.z, region, executor);
+    return chunk;
 }
 
 const Chunk& getChunkOrAir(Context& ctx, const ChunkPos& pos) {
-    auto it = ctx.chunkCache.find(pos);
-    if (it != ctx.chunkCache.end()) {
-        return *it->second;
-    } else {
+    auto& region = ctx.regionCache.getRegion(pos.toRegionPos());
+    auto& chunk = region.getChunk(pos.x, pos.z);
+    auto state = region.getChunkState(pos.x, pos.z);
+    if (state == ChunkState::EMPTY) {
         return AIR_CHUNK;
     }
+    return chunk;
 }
 
 // This is called inside of a big neighbor cube and returns the 4 sub cubes that are adjacent to the original cube.
@@ -137,15 +129,15 @@ std::array<BlockPos, 4> neighborCubes(const BlockPos& origin) {
 
 // face is relative to the original cube
 template<Face face, Size size, bool sizeChange, Size minSize>
-void forEachNeighborInCube(const Chunk& chunk, const NodePos& neighborNode, auto& callback) {
+void forEachNeighborInCube(const Chunk& chunk, const ChunkPos cpos, const NodePos& neighborNode, auto& callback) {
     if constexpr (sizeChange) {
-        callback(neighborNode, chunk);
+        callback(neighborNode, chunk, cpos);
         return;
     }
     const auto pos = neighborNode.absolutePosZero();
     const auto chunkLocal = pos.toChunkLocal();
     if (chunk.isEmpty<size>(chunkLocal.x, chunkLocal.y, chunkLocal.z)) {
-        callback(neighborNode, chunk);
+        callback(neighborNode, chunk, cpos);
         return;
     }
     if constexpr (size != Size::X1) {
@@ -155,51 +147,51 @@ void forEachNeighborInCube(const Chunk& chunk, const NodePos& neighborNode, auto
         if constexpr (nextSize < minSize) return;
         const std::array subCubes = neighborCubes<face, nextSize>(pos);
         for (const BlockPos& subCube : subCubes) {
-            forEachNeighborInCube<face, nextSize, false, minSize>(chunk, NodePos{nextSize, subCube}, callback);
+            forEachNeighborInCube<face, nextSize, false, minSize>(chunk, cpos, NodePos{nextSize, subCube}, callback);
         }
     }
 }
 
 
 template<Face face, Size originalSize, Size minSize>
-void growThenIterateInner(const Chunk& chunk, const NodePos& pos, auto& callback) {
+void growThenIterateInner(const Chunk& chunk, const ChunkPos cPos, const NodePos& pos, auto& callback) {
     const auto bpos = pos.absolutePosZero();
     const auto chunkLocal = bpos.toChunkLocal();
 
     switch (originalSize) {
         case Size::X1:
             if (!chunk.isEmpty<Size::X2>(chunkLocal.x, chunkLocal.y, chunkLocal.z)) {
-                forEachNeighborInCube<face, Size::X1, originalSize != Size::X1, minSize>(chunk, pos, callback);
+                forEachNeighborInCube<face, Size::X1, originalSize != Size::X1, minSize>(chunk, cPos, pos, callback);
                 return;
             }
             [[fallthrough]];
         case Size::X2:
             if (!chunk.isEmpty<Size::X4>(chunkLocal.x, chunkLocal.y, chunkLocal.z)) {
-                forEachNeighborInCube<face, Size::X2, originalSize != Size::X2, minSize>(chunk, NodePos{Size::X2, bpos},callback);
+                forEachNeighborInCube<face, Size::X2, originalSize != Size::X2, minSize>(chunk, cPos, NodePos{Size::X2, bpos},callback);
                 return;
             }
             [[fallthrough]];
         case Size::X4:
             if (!chunk.isEmpty<Size::X8>(chunkLocal.x, chunkLocal.y, chunkLocal.z)) {
-                forEachNeighborInCube<face, Size::X4, originalSize != Size::X4, minSize>(chunk, NodePos{Size::X4, bpos},callback);
+                forEachNeighborInCube<face, Size::X4, originalSize != Size::X4, minSize>(chunk, cPos,NodePos{Size::X4, bpos},callback);
                 return;
             }
             [[fallthrough]];
         case Size::X8:
             if (!chunk.isEmpty<Size::X16>(chunkLocal.x, chunkLocal.y, chunkLocal.z)) {
-                forEachNeighborInCube<face, Size::X8, originalSize != Size::X8, minSize>(chunk, NodePos{Size::X8, bpos},callback);
+                forEachNeighborInCube<face, Size::X8, originalSize != Size::X8, minSize>(chunk, cPos, NodePos{Size::X8, bpos},callback);
                 return;
             }
             [[fallthrough]];
         case Size::X16:
-            forEachNeighborInCube<face, Size::X16, originalSize != Size::X16, minSize>(chunk, NodePos{Size::X16, bpos},callback);
+            forEachNeighborInCube<face, Size::X16, originalSize != Size::X16, minSize>(chunk, cPos, NodePos{Size::X16, bpos},callback);
     }
 }
 
 
 template<Face face, Size minSize>
-void growThenIterateOuter(const Chunk& chunk, const NodePos& pos, auto& callback) {
-#define CASE(sz) case sz: growThenIterateInner<face, sz, minSize>(chunk, pos, callback); return;
+void growThenIterateOuter(const Chunk& chunk, const ChunkPos cPos, const NodePos& pos, auto& callback) {
+#define CASE(sz) case sz: growThenIterateInner<face, sz, minSize>(chunk, cPos, pos, callback); return;
     switch (pos.size) {
         CASE(Size::X1)
         CASE(Size::X2)
@@ -210,8 +202,8 @@ void growThenIterateOuter(const Chunk& chunk, const NodePos& pos, auto& callback
 #undef CASE
 }
 
-bool isInBounds(const BlockPos& pos) {
-    return pos.y >= 0 && pos.y < 384;
+bool isInBounds(Dimension dim, const BlockPos& pos) {
+    return pos.y >= 0 && pos.y < DIMENSION_Y_SIZE[(int)dim];
 }
 
 constexpr double MIN_DIST_PATH = 5; // might want to increase this
@@ -255,11 +247,12 @@ std::chrono::milliseconds tryLoadRegionNative(Context& ctx, ChunkPos pos) {
     if (ctx.baritoneCache.has_value() && ctx.checkedRegions.insert(regionPos).second) {
         // only measure when actually reading a file because there might be overhead
         auto t1 = std::chrono::steady_clock::now();
-        auto file = openRegionFile(ctx.baritoneCache.value(), regionPos);
+        auto file = openRegionFile(ctx.baritoneCache.value(), ctx.dimension, regionPos);
         if (!file) {
             return {};
         }
-        parseBaritoneRegion(ctx.chunkCache, regionPos, *file);
+
+        parseBaritoneRegion(ctx.regionCache, ctx.dimension, regionPos, *file);
 
         auto t2 = std::chrono::steady_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
@@ -317,7 +310,7 @@ std::optional<Path> findPathSegment(Context& ctx, const NodePos& start, const No
 
         if (inGoal(currentNode->pos, goal.absolutePosCenter())) {
             if (VERBOSE) {
-                std::cout << "chunkCache size = " << ctx.chunkCache.size() << '\n';
+                std::cout << "regionCache size = " << ctx.regionCache.size() << '\n';
                 std::cout << "openSet size = " << openSet.getSize() << '\n';
                 std::cout << "map size = " << map.size() << '\n';
                 std::cout << '\n';
@@ -329,7 +322,7 @@ std::optional<Path> findPathSegment(Context& ctx, const NodePos& start, const No
         const auto bpos = pos.absolutePosZero();
         const ChunkPos cpos = bpos.toChunkPos();
         const Chunk& currentChunk = getChunkOrAir(ctx, cpos);
-        if (!currentChunk.isFromJava) {
+        if (ctx.regionCache.getRegion(cpos.toRegionPos()).getChunkState(cpos.x, cpos.z) != ChunkState::FROM_JAVA) {
             fakeChunkVisits++;
         } else {
             fakeChunkVisits = 0;
@@ -359,10 +352,11 @@ std::optional<Path> findPathSegment(Context& ctx, const NodePos& start, const No
             doneFull.emplace(cpos, true);
         }
 
-        auto callback = [&](const NodePos& neighborPos, const Chunk& chunk) {
+        auto callback = [&](const NodePos& neighborPos, const Chunk& chunk, const ChunkPos chunkPos) {
             PathNode* neighborNode = getNodeAtPosition(map, neighborPos, goalCenter);
+            const auto chunkState = ctx.regionCache.getRegion(chunkPos.toRegionPos()).getChunkState(chunkPos.x, chunkPos.z);
             //auto sqrtSize = [](Size sz) { return sqrt(width(sz)); };
-            const double cost = chunk.isFromJava ? 1 : fakeChunkCost;//sqrtSize(neighborNode->pos.size);//width(neighborNode->pos.size);
+            const double cost = chunkState == ChunkState::FROM_JAVA ? 1 : fakeChunkCost;//sqrtSize(neighborNode->pos.size);//width(neighborNode->pos.size);
             const double tentativeCost = currentNode->cost + cost;
             constexpr double MIN_IMPROVEMENT = 0.01;
             if (neighborNode->cost - tentativeCost > MIN_IMPROVEMENT) {
@@ -395,7 +389,7 @@ std::optional<Path> findPathSegment(Context& ctx, const NodePos& start, const No
                 const NodePos neighborNodePos{size, bpos.offset(face, width(size))};
                 const BlockPos origin = neighborNodePos.absolutePosZero();
                 if constexpr (face == Face::UP || face == Face::DOWN) {
-                    if (!isInBounds(origin)) return;
+                    if (!isInBounds(ctx.dimension, origin)) return;
                 }
                 const ChunkPos neighborCpos = origin.toChunkPos();
                 timeDoingIO += tryLoadRegionNative(ctx, neighborCpos);
@@ -405,17 +399,23 @@ std::optional<Path> findPathSegment(Context& ctx, const NodePos& start, const No
                         face == Face::SOUTH ? neighborCpos == cpos ? currentChunk : getChunkOrAir(ctx, cposSouth) :
                         face == Face::EAST ? neighborCpos == cpos ? currentChunk : getChunkOrAir(ctx, cposEast) :
                         /* face == Face::WEST */ neighborCpos == cpos ? currentChunk : getChunkOrAir(ctx, cposWest);
+                const ChunkPos chunkPos =
+                        face == Face::UP || face == Face::DOWN ? cpos :
+                        face == Face::NORTH ? neighborCpos == cpos ? cpos : cposNorth :
+                        face == Face::SOUTH ? neighborCpos == cpos ? cpos : cposSouth :
+                        face == Face::EAST ? neighborCpos == cpos ? cpos : cposEast :
+                        /* face == Face::WEST */ neighborCpos == cpos ? cpos : cposWest;
 
                 // 1x only
                 if (/*fine*/ false) {
                     if (!chunk.isSolid(neighborNodePos.absolutePosZero())) {
-                        callback(neighborNodePos, chunk);
+                        callback(neighborNodePos, chunk, chunkPos);
                     }
                 } else {
                     if (x4Min) {
-                        growThenIterateOuter<face, Size::X4>(chunk, neighborNodePos, callback);
+                        growThenIterateOuter<face, Size::X4>(chunk, chunkPos, neighborNodePos, callback);
                     } else {
-                        growThenIterateOuter<face, Size::X2>(chunk, neighborNodePos, callback);
+                        growThenIterateOuter<face, Size::X2>(chunk, chunkPos,neighborNodePos, callback);
                     }
                 }
             }(), ...);
@@ -428,24 +428,23 @@ std::optional<Path> findPathSegment(Context& ctx, const NodePos& start, const No
         std::cout << "failing = " << failing << '\n';
         std::cout << "Open set width: " << openSet.getSize() << '\n';
         std::cout << "PathNode map size: " << map.size() << '\n';
-        std::cout << "chunk cache size: " << ctx.chunkCache.size() << '\n';
+        std::cout << "RegionCache size: " << ctx.regionCache.size() << '\n';
         std::cout << '\n';
     }
     return bestPathSoFar(map, startNode, bestSoFar, startCenter, goalCenter);
 }
 
-const Chunk& getChunkNoMutex(const BlockPos& pos, const ChunkGeneratorHell& gen, ChunkGenExec& exec, map_t<ChunkPos, std::unique_ptr<Chunk>>& cache) {
+const Chunk& getChunkNoMutex(const BlockPos& pos, const ChunkGeneratorHell& gen, ChunkGenExec& exec, RegionCache& cache) {
     const ChunkPos chunkPos = pos.toChunkPos();
-    auto it = cache.find(chunkPos);
-    if (it != cache.end()) {
-        return *it->second;
-    } else {
-        std::unique_ptr ptr = std::make_unique<Chunk>();
-        auto& chunk = *ptr;
-        gen.generateChunk(chunkPos.x, chunkPos.z, *ptr, exec);
-        cache.emplace(chunkPos, std::move(ptr));
-        return chunk;
+    const RegionPos regionPos = chunkPos.toRegionPos();
+
+    auto& region = cache.getRegion_locked(regionPos);
+    auto& chunk = region.getChunk(chunkPos.x, chunkPos.z);
+    auto state = region.getChunkState(chunkPos.x, chunkPos.z);
+    if (state == ChunkState::EMPTY) {
+        gen.generateChunk(chunkPos.x, chunkPos.z, region, exec);
     }
+    return chunk;
 }
 
 template<Size size>
@@ -455,14 +454,14 @@ NodePos findAir(Context& ctx, const BlockPos& start1x) {
     auto visited = std::unordered_set<NodePos>{};
     queue.push(start);
     visited.insert(start);
-    if (!isInBounds(start1x)) goto retard;
+    if (!isInBounds(ctx.dimension, start1x)) goto retard;
 
     while (!queue.empty()) {
         const NodePos node = queue.front();
         const auto blockPos = node.absolutePosZero();
         queue.pop();
-        if (isInBounds(node.absolutePosZero())) {
-            const auto& chunk = getChunkNoMutex(blockPos, ctx.generator, ctx.executors[0], ctx.chunkCache);
+        if (isInBounds(ctx.dimension, node.absolutePosZero())) {
+            const auto& chunk = getChunkNoMutex(blockPos, ctx.generator, ctx.executors[0], ctx.regionCache);
             if (chunk.isEmpty<size>(blockPos.x & 15, blockPos.y, blockPos.z & 15)) {
                 return node;
             }
@@ -505,7 +504,7 @@ Path splicePaths(std::vector<Path>&& paths) {
 }
 
 std::optional<Path> findPathFull(Context& ctx, const NodePos& start, const NodePos& goal, double fakeChunkCost) {
-    if (!isInBounds(start.absolutePosCenter())) throw "troll";
+    if (!isInBounds(ctx.dimension, start.absolutePosCenter())) throw "troll";
 
     std::vector<Path> segments;
 

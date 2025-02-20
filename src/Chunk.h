@@ -5,6 +5,12 @@
 #include <array>
 #include <cstring>
 
+enum class ChunkState : uint8_t {
+    EMPTY = 0
+    ,FROM_JAVA = 1
+    ,GENERATED = 2
+};
+
 using x2_t = uint8_t;
 using x4_t = std::array<x2_t, 8>;
 using x8_t = std::array<x4_t, 8>;
@@ -78,7 +84,6 @@ inline bool isEmpty(const T& input) {
 struct Chunk {
     std::array<x16_t, 24> data{};
     //std::array<bool, 8> x16Empty{};
-    bool isFromJava{};
 private:
 
 #define CHUNK_GETBIT(x, y, z)                   \

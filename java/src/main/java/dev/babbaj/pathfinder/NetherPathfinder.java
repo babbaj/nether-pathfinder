@@ -18,7 +18,13 @@ public class NetherPathfinder {
     public static int CACHE_MISS_AIR = 1;
     public static int CACHE_MISS_SOLID = 2;
 
-    public static native long newContext(long seed, String baritoneCacheDirCanBeNull);
+    // Should match Dimension enum
+    public static int DIMENSION_OVERWORLD = 0;
+    public static int DIMENSION_NETHER = 1;
+    public static int DIMENSION_END = 2;
+    public static int[] DIMENSION_MIN_Y = {-64, 0, 0};
+
+    public static native long newContext(long seed, String baritoneCacheDirCanBeNull, int dimension);
     public static native void freeContext(long pointer);
 
     /*
@@ -36,6 +42,8 @@ public class NetherPathfinder {
     public static native long getOrCreateChunk(long context, int x, int z);
 
     public static native long getChunkPointer(long context, int x, int z);
+
+    public static native void setChunkState(long context, int x, int z, int chunkState);
 
     public static native boolean hasChunkFromJava(long context, int x, int z);
 

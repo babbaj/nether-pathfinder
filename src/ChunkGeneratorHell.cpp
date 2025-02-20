@@ -1,11 +1,14 @@
 #include "ChunkGeneratorHell.h"
+#include "Region.h"
 
 #include <cmath>
 #include <cassert>
 #include <chrono>
 
-void ChunkGeneratorHell::generateChunk(int x, int z, Chunk& chunkprimer, ChunkGenExec& threadPool) const {
+void ChunkGeneratorHell::generateChunk(int x, int z, Region& region, ChunkGenExec& threadPool) const {
+    auto& chunkprimer = region.getChunk(x, z);
     prepareHeights(x, z, chunkprimer, threadPool);
+    region.setChunkState(x, z, ChunkState::GENERATED);
     chunkprimer.calcEmptyX16();
 }
 

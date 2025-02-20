@@ -10,6 +10,7 @@
 #include "ChunkGeneratorHell.h"
 #include "PathNode.h"
 #include "ChunkGen.h"
+#include "Region.h"
 
 enum class FakeChunkMode {
     GENERATE = 0
@@ -28,7 +29,6 @@ struct Path {
     BlockPos goal; // where the path wants to go, not necessarily where it ends
     std::vector<BlockPos> blocks;
     std::vector<std::unique_ptr<PathNode>> nodes;
-    cache_t chunkCache;
 
     [[nodiscard]] const BlockPos& getEndPos() const {
         // This should basically never be empty
@@ -39,16 +39,17 @@ struct Path {
 struct Context {
     ChunkGeneratorHell generator;
     std::optional<std::string> baritoneCache;
-    std::mutex cacheMutex;
-    cache_t chunkCache;
+    RegionCache regionCache;
     ParallelExecutor<4> topExecutor;
     std::array<ChunkGenExec, 4> executors;
     std::atomic_flag cancelFlag;
     std::unordered_set<RegionPos> checkedRegions;
+    Dimension dimension;
 
 
-    explicit Context(int64_t seed): generator(ChunkGeneratorHell::fromSeed(seed)) {}
-    explicit Context(int64_t seed, std::string&& cacheDir): generator(ChunkGeneratorHell::fromSeed(seed)), baritoneCache(cacheDir) {}
+    explicit Context(int64_t seed): generator(ChunkGeneratorHell::fromSeed(seed)), dimension(Dimension::NETHER) {}
+    explicit Context(int64_t seed, Dimension dim): generator(ChunkGeneratorHell::fromSeed(seed)), dimension(dim) {}
+    explicit Context(int64_t seed, Dimension dim, std::string&& cacheDir): generator(ChunkGeneratorHell::fromSeed(seed)), baritoneCache(cacheDir), dimension(dim) {}
 };
 
 const Chunk& getOrGenChunk(Context& ctx, ChunkGenExec& executor, const ChunkPos& pos, FakeChunkMode fakeChunkMode = FakeChunkMode::GENERATE);

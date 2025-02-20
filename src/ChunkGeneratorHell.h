@@ -9,6 +9,7 @@
 #include "Chunk.h"
 #include "ParallelExecutor.h"
 #include "ChunkGen.h"
+#include "Region.h"
 
 struct ChunkGeneratorHell {
 public:
@@ -34,7 +35,7 @@ public:
         };
     }
 
-    void generateChunk(int x, int z, Chunk& chunkPrimer, ChunkGenExec& threadPool) const;
+    void generateChunk(int x, int z, Region& region, ChunkGenExec& threadPool) const;
     Chunk generateChunk(int x, int z, ChunkGenExec& threadPool) const;
 };
 

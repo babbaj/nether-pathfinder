@@ -28,8 +28,8 @@ inline BlockPos unpackBlockPos(jlong packed) {
     };
 }
 
-bool inBounds(int y) {
-    return y >= 0 && y < 384;
+bool inBounds(Dimension dim, int y) {
+    return y >= 0 && y < DIMENSION_Y_SIZE[(int)dim];
 }
 
 void throwException(JNIEnv* env, const char* msg) {
@@ -80,17 +80,24 @@ extern "C" {
         }
     }
 
-    EXPORT jlong JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_newContext(JNIEnv* env, jclass, jlong seed, jstring baritoneCacheDir) {
+    EXPORT jlong JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_newContext(JNIEnv* env, jclass, jlong seed, jstring baritoneCacheDir, jint dimension) {
         Context* ctx;
+
+        Dimension dim = static_cast<Dimension>(dimension);
+        if(dimension < 0 || dimension > 2) {
+            throwException(env, "Invalid dimension");
+            return 0;
+        }
+
         if (baritoneCacheDir != nullptr) {
             jsize len = env->GetStringLength(baritoneCacheDir);
             jboolean dontcare;
             const jchar* chars = env->GetStringChars(baritoneCacheDir, &dontcare);
             std::string str{chars, chars + len};
-            ctx = new Context{seed, std::move(str)};
+            ctx = new Context{seed, dim, std::move(str)};
             env->ReleaseStringChars(baritoneCacheDir, chars);
         } else {
-            ctx = new Context{seed};
+            ctx = new Context{seed, dim};
         }
         return reinterpret_cast<jlong>(ctx);
     }
@@ -101,68 +108,66 @@ extern "C" {
 
     EXPORT void JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_insertChunkData(JNIEnv* env, jclass, Context* ctx, jint chunkX, jint chunkZ, jbooleanArray input) {
         jboolean isCopy{};
-        constexpr auto blocksInChunk = 16 * 16 * 384;
+        const auto blocksInChunk = 16 * 16 * DIMENSION_Y_SIZE[static_cast<int>(ctx->dimension)];
         if (auto len = env->GetArrayLength(input); len != blocksInChunk) {
-            throwException(env, "input is not 98304 elements");
+            throwException(env, "unexpected number of elements in chunk");
             return;
         }
         jboolean* data = env->GetBooleanArrayElements(input, &isCopy);
-        auto chunk_ptr = std::make_unique<Chunk>();
+        ChunkPos cPos = {chunkX, chunkZ};
+
+        auto& region = ctx->regionCache.getRegion(cPos.toRegionPos());
+        auto& chunk = region.getChunk(cPos.x, cPos.z);
+
         for (int i = 0; i < blocksInChunk; i++) {
             auto x = (i >> 0) & 0xF;
             auto z = (i >> 4) & 0xF;
             auto y = (i >> 8) & 0x1FF;
-            chunk_ptr->setBlock(x, y, z, data[i]);
+            chunk.setBlock(x, y, z, data[i]);
         }
-        chunk_ptr->isFromJava = true;
-        env->ReleaseBooleanArrayElements(input, data, JNI_ABORT);
 
-        std::scoped_lock lock{ctx->cacheMutex};
-        ctx->chunkCache.insert_or_assign(ChunkPos{chunkX, chunkZ}, std::move(chunk_ptr));
+        region.setChunkState(cPos.x, cPos.z, ChunkState::FROM_JAVA);
+        env->ReleaseBooleanArrayElements(input, data, JNI_ABORT);
     }
 
     EXPORT jlong JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_getOrCreateChunk(JNIEnv*, jclass, Context* ctx, jint x, jint z) {
-        std::scoped_lock lock{ctx->cacheMutex};
-        auto existing = ctx->chunkCache.find(ChunkPos{x, z});
-        if (existing != ctx->chunkCache.end()) {
-            return (jlong) &existing->second->data;
-        } else {
-            return (jlong) ctx->chunkCache.emplace(ChunkPos{x, z}, std::make_unique<Chunk>()).first->second.get();
-        }
+        auto& region = ctx->regionCache.getRegion(ChunkPos{x, z}.toRegionPos());
+        auto& chunk = region.getChunk(x, z);
+        return (jlong) &chunk.data;
     }
 
-    EXPORT jlong JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_getChunkPointer(JNIEnv*, jclass, Context* ctx, jint x, jint z) {
-        std::scoped_lock lock{ctx->cacheMutex};
-        auto existing = ctx->chunkCache.find(ChunkPos{x, z});
-        if (existing != ctx->chunkCache.end()) {
-            return (jlong) &existing->second->data;
-        } else {
-            return 0; // null pointer
-        }
+    EXPORT jlong JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_getChunkPointer(JNIEnv* env, jclass clazz, Context* ctx, jint x, jint z) {
+        auto& region = ctx->regionCache.getRegion(ChunkPos{x, z}.toRegionPos());
+        auto& chunk = region.getChunk(x, z);
+        return (jlong) &chunk.data;
     }
+
+    EXPORT void JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_setChunkState(JNIEnv* env, jclass clazz, Context* ctx, jint x, jint z, jint chunkState) {
+        ctx->regionCache.getRegion(ChunkPos{x, z}.toRegionPos()).setChunkState(x, z,
+                                                                               static_cast<ChunkState>(chunkState));
+    }
+
 
     EXPORT jboolean JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_hasChunkFromJava(JNIEnv*, jclass, Context* ctx, jint x, jint z) {
-        std::scoped_lock lock{ctx->cacheMutex};
-        auto existing = ctx->chunkCache.find(ChunkPos{x, z});
-        if (existing != ctx->chunkCache.end()) {
-            return existing->second->isFromJava;
-        } else {
-            return false;
-        }
+        auto& region = ctx->regionCache.getRegion(ChunkPos{x, z}.toRegionPos());
+        return region.getChunkState(x, z) == ChunkState::FROM_JAVA;
     }
 
     EXPORT void JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_cullFarChunks(JNIEnv*, jclass, Context* ctx, jint chunkX, jint chunkZ, jint maxDistanceBlocks) {
-        std::scoped_lock lock{ctx->cacheMutex};
-        const auto distSqBlocks = (maxDistanceBlocks / 16) * (maxDistanceBlocks / 16);
-        const auto distSq = distSqBlocks;
-        std::erase_if(ctx->chunkCache, [=](const auto& item) {
-            const auto cpos = item.first;
-            return cpos.distanceToSq({chunkX, chunkZ}) > distSq;
+        auto& region = ctx->regionCache;
+        std::scoped_lock lock{region.lock};
+
+        const auto maxDistRegionsSq = (maxDistanceBlocks / 16 / 32) * (maxDistanceBlocks / 16 / 32);
+        const auto curPos = ChunkPos{chunkX, chunkZ}.toRegionPos();
+
+        std::erase_if(region.cache, [=](const auto& item) {
+            const auto rpos = item.first;
+            return rpos.distanceToSq(curPos) > maxDistRegionsSq;
         });
     }
 
     EXPORT jobject JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_pathFind(JNIEnv* env, jclass, Context* ctx, jint x1, jint y1, jint z1, jint x2, jint y2, jint z2, jboolean x4Min, jboolean refineResult, jint timeoutMs, jboolean airIfFake, jdouble fakeChunkCost) {
-        if (!inBounds(y1) || !inBounds(y2)) {
+        if (!inBounds(ctx->dimension, y1) || !inBounds(ctx->dimension, y2)) {
             throwException(env, "Invalid y1 or y2");
             return nullptr;
         }

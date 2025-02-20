@@ -54,7 +54,7 @@ int main(int argc, const char** argv) {
             parseInt(argv[5])
     };
 
-    Context ctx{0, std::string{cache}};
+    Context ctx{0, Dimension::OVERWORLD, std::string{cache}};
     auto realStart = findAir<Size::X4>(ctx, start);
     auto realGoal = findAir<Size::X4>(ctx, end);
     std::optional<Path> path = findPathFull(ctx, realStart, realGoal, 10000).value();
