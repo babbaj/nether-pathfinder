@@ -20,6 +20,10 @@ inline jlong packBlockPos(const BlockPos& pos) {
     return ((jlong)pos.x & X_MASK) << X_SHIFT | ((jlong)pos.y & Y_MASK) << Y_SHIFT | ((jlong)pos.z & Z_MASK) << 0;
 }
 
+inline jlong packBlockPos_overworld(const BlockPos& pos) {
+    return ((jlong)pos.x & X_MASK) << X_SHIFT | ((jlong)(pos.y-64) & Y_MASK) << Y_SHIFT | ((jlong)pos.z & Z_MASK) << 0;
+}
+
 inline BlockPos unpackBlockPos(jlong packed) {
     return {
             (jint) ((packed >> X_SHIFT) & X_MASK),
@@ -167,6 +171,9 @@ extern "C" {
     }
 
     EXPORT jobject JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_pathFind(JNIEnv* env, jclass, Context* ctx, jint x1, jint y1, jint z1, jint x2, jint y2, jint z2, jboolean x4Min, jboolean refineResult, jint timeoutMs, jboolean airIfFake, jdouble fakeChunkCost) {
+        y1 -= DIMENSION_MIN_Y[(int)ctx->dimension];
+        y2 -= DIMENSION_MIN_Y[(int)ctx->dimension];
+
         if (!inBounds(ctx->dimension, y1) || !inBounds(ctx->dimension, y2)) {
             throwException(env, "Invalid y1 or y2");
             return nullptr;
@@ -177,14 +184,15 @@ extern "C" {
         std::optional<Path> path = findPathSegment(*ctx, start, goal, x4Min, timeoutMs, airIfFake, fakeChunkCost);
         if (!path) return nullptr;
 
+        auto packer = ctx->dimension == Dimension::OVERWORLD ? packBlockPos_overworld : packBlockPos;
         std::vector<jlong> packed;
         if (refineResult) {
             auto refined = refine(*ctx, path->blocks);
             packed.reserve(refined.size());
-            std::transform(refined.begin(), refined.end(), std::back_inserter(packed), packBlockPos);
+            std::transform(refined.begin(), refined.end(), std::back_inserter(packed), packer);
         } else {
             packed.reserve(path->blocks.size());
-            std::transform(path->blocks.begin(), path->blocks.end(), std::back_inserter(packed), packBlockPos);
+            std::transform(path->blocks.begin(), path->blocks.end(), std::back_inserter(packed), packer);
         }
 
         const auto len = (jint) packed.size();
