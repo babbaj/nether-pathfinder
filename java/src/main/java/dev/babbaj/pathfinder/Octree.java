@@ -91,4 +91,12 @@ public class Octree {
         final byte x2 = UNSAFE.getByte(x2Ptr);
         return ((x2 >> bit) & 1) != 0;
     }
+
+    public static void setIsFromJava(long pointer) {
+        UNSAFE.putByte(pointer + SIZEOF_CHUNK, (byte) 1);
+    }
+
+    public static boolean getIsFromJava(long pointer) {
+        return UNSAFE.getByte(pointer + SIZEOF_CHUNK) != 0;
+    }
 }

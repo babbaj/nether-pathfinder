@@ -31,23 +31,6 @@ constexpr int width(Size sizeEnum) {
     return 1 << shiftFor(sizeEnum);
 }
 
-struct RegionPos {
-    int x, z;
-
-    bool operator==(const RegionPos& other) const {
-        return this->x == other.x && this->z == other.z;
-    }
-    bool operator!=(const RegionPos& other) const {
-        return !(*this == other);
-    }
-
-    [[nodiscard]] double distanceToSq(const RegionPos& pos) const {
-        const double dx = pos.x - this->x;
-        const double dz = pos.z - this->z;
-        return (dx * dx) + (dz * dz);
-    }
-};
-
 struct ChunkPos {
     int x, z;
 
@@ -56,9 +39,16 @@ struct ChunkPos {
         const double dz = pos.z - this->z;
         return (dx * dx) + (dz * dz);
     }
+};
 
-    [[nodiscard]] RegionPos toRegionPos() const {
-        return RegionPos{this->x >> 5, this->z >> 5};
+struct RegionPos {
+    int x, z;
+
+    bool operator==(const RegionPos& other) const {
+        return this->x == other.x && this->z == other.z;
+    }
+    bool operator!=(const RegionPos& other) const {
+        return !(*this == other);
     }
 };
 
