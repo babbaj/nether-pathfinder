@@ -400,9 +400,6 @@ Node<Size::X16> x16Node(const Chunk& chunk, const BlockPos& pos) {
 
 // returns true if there is line of sight
 RaytraceResult raytrace(Context& ctx, const Vec3& from, const Vec3& to, FakeChunkMode fakeChunkMode) {
-    const_cast<Vec3&>(from).y -= DIMENSION_MIN_Y[(int)ctx.dimension];
-    const_cast<Vec3&>(to).y -= DIMENSION_MIN_Y[(int)ctx.dimension];
-
     const auto [ray, targetLen] = computeRay(from, to);
     // the algorithm only works in positive directions so we need to reflect around the target point
     uint8_t a = 0;
@@ -426,12 +423,7 @@ RaytraceResult raytrace(Context& ctx, const Vec3& from, const Vec3& to, FakeChun
             std::cerr << "raytrace whiffed" << std::endl;
             exit(696969);
         }
-
-        if (std::holds_alternative<Hit>(result.value())) {
-            auto hit = std::get<Hit>(result.value());
-            hit.where.y += DIMENSION_MIN_Y[(int)ctx.dimension];
-            return hit;
-        } else if (!std::holds_alternative<Miss>(result.value())) {
+        if (!std::holds_alternative<Miss>(result.value())) {
             return result.value();
         }
 

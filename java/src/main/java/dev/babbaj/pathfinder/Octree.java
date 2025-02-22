@@ -60,8 +60,7 @@ public class Octree {
     }
 
     // must be chunk relative coords
-    public static void setBlock(long pointer, int dimension, int x, int y, int z, boolean solid) {
-        y -= NetherPathfinder.DIMENSION_MIN_Y[dimension];
+    public static void setBlock(long pointer, int x, int y, int z, boolean solid) {
         final long x2Ptr = getX2Ptr(pointer, x, y, z);
         final int bit = bitIndex(x, y, z);
         byte x2 = UNSAFE.getByte(x2Ptr);
@@ -74,8 +73,7 @@ public class Octree {
         UNSAFE.putByte(x2Ptr, x2);
     }
 
-    public static void initBlock(long pointer, int dimension, int x, int y, int z, boolean solid) {
-        y -= NetherPathfinder.DIMENSION_MIN_Y[dimension];
+    public static void initBlock(long pointer, int x, int y, int z, boolean solid) {
         final long x2Ptr = getX2Ptr(pointer, x, y, z);
         final int bit = bitIndex(x, y, z);
         byte x2 = UNSAFE.getByte(x2Ptr);
@@ -87,8 +85,7 @@ public class Octree {
         UNSAFE.putByte(x2Ptr, x2);
     }
 
-    public static boolean getBlock(long pointer, int dimension, int x, int y, int z) {
-        y -= NetherPathfinder.DIMENSION_MIN_Y[dimension];
+    public static boolean getBlock(long pointer, int x, int y, int z) {
         final long x2Ptr = getX2Ptr(pointer, x, y, z);
         final int bit = bitIndex(x, y, z);
         final byte x2 = UNSAFE.getByte(x2Ptr);
