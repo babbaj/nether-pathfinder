@@ -60,7 +60,7 @@ void parseAndInsertChunk(cache_t& cache, int chunkX, int chunkZ, std::span<const
     }
 }
 
-void parseBaritoneRegion(cache_t& cache, RegionPos regionPos, gzFile data) {
+void parseBaritoneRegion(cache_t& cache, RegionPos regionPos, gzFile data, Dimension dim) {
     int magic = beInt(decomp<4>(data));
     if (magic != 456022911) {
         puts("Bad magic");
@@ -70,17 +70,39 @@ void parseBaritoneRegion(cache_t& cache, RegionPos regionPos, gzFile data) {
         for (int z = 0; z < 32; z++) {
             const int8_t present = decomp<1>(data)[0];
             if (present == 1) {
-                // DimensionType.height for the nether is 256 and that is what is used for serializing to disk
-                constexpr auto chunkSizeBytes = (2 * 16 * 16 * 256) / 8;
-
-                parseAndInsertChunk(cache, x + 32 * regionPos.x, z + 32 * regionPos.z, decomp<chunkSizeBytes>(data));
+                switch(dim) {
+                    case Dimension::Overworld:
+                        static constexpr size_t chunkSizeOverworld = (2 * 16 * 16 * 384) / 8;
+                        parseAndInsertChunk(cache, x + 32 * regionPos.x, z + 32 * regionPos.z, decomp<chunkSizeOverworld>(data));
+                        break;
+                    case Dimension::Nether:
+                        static constexpr size_t chunkSizeNether = (2 * 16 * 16 * 256) / 8;
+                        parseAndInsertChunk(cache, x + 32 * regionPos.x, z + 32 * regionPos.z, decomp<chunkSizeNether>(data));
+                        break;
+                    case Dimension::End:
+                        static constexpr size_t chunkSizeEnd = (2 * 16 * 16 * 256) / 8;
+                        parseAndInsertChunk(cache, x + 32 * regionPos.x, z + 32 * regionPos.z, decomp<chunkSizeEnd>(data));
+                        break;
+                }
             }
         }
     }
     zng_gzclose_r(data);
 }
 
-std::optional<gzFile> openRegionFile(std::string_view dir, RegionPos pos) {
+std::optional<std::tuple<gzFile, Dimension>> openRegionFile(std::string_view dir, RegionPos pos) {
+    Dimension dim;
+    auto cacheParent = std::filesystem::path{dir}.parent_path().filename().string();
+    if(cacheParent == "the_nether_128") {
+        dim = Dimension::Nether;
+    } else if (cacheParent == "overworld_384") {
+        dim = Dimension::Overworld;
+    } else if (cacheParent == "the_end_256") {
+        dim = Dimension::End;
+    } else {
+        return {};
+    }
+
     auto fileName = std::string{"r."} + std::to_string(pos.x) + "." + std::to_string(pos.z) + ".bcr";
     auto path = std::filesystem::path{dir} / fileName;
     gzFile file = zng_gzopen(path.string().c_str(), "rb");
@@ -88,5 +110,5 @@ std::optional<gzFile> openRegionFile(std::string_view dir, RegionPos pos) {
         return {};
     }
     zng_gzbuffer(file, 32768); // same as baritone
-    return {file};
+    return {{file, dim}};
 }

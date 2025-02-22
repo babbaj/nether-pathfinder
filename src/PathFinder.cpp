@@ -259,7 +259,9 @@ std::chrono::milliseconds tryLoadRegionNative(Context& ctx, ChunkPos pos) {
         if (!file) {
             return {};
         }
-        parseBaritoneRegion(ctx.chunkCache, regionPos, *file);
+
+        auto [data, dim] = file.value();
+        parseBaritoneRegion(ctx.chunkCache, regionPos, data, dim);
 
         auto t2 = std::chrono::steady_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
