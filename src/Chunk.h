@@ -76,9 +76,9 @@ inline bool isEmpty(const T& input) {
 
 
 struct Chunk {
-    std::array<x16_t, 24> data{};
+    std::array<x16_t, 24> data;
     //std::array<bool, 8> x16Empty{};
-    bool isFromJava{};
+    bool isFromJava;
 private:
 
 #define CHUNK_GETBIT(x, y, z)                   \

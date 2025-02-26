@@ -10,6 +10,7 @@
 
 #include "ChunkGen.h"
 #include "Chunk.h"
+#include "Allocator.h"
 
 enum class Dimension {
     Overworld
@@ -17,5 +18,5 @@ enum class Dimension {
     ,End
 };
 
-void parseBaritoneRegion(cache_t& cache, RegionPos regionPos, gzFile data, Dimension dim);
+void parseBaritoneRegion(Allocator<Chunk>&, cache_t& cache, RegionPos regionPos, gzFile data, Dimension dim);
 std::optional<std::tuple<gzFile, Dimension>> openRegionFile(std::string_view dir, RegionPos pos);

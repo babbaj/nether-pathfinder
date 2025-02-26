@@ -107,7 +107,7 @@ extern "C" {
             return;
         }
         jboolean* data = env->GetBooleanArrayElements(input, &isCopy);
-        auto chunk_ptr = std::make_unique<Chunk>();
+        auto chunk_ptr = ctx->chunkAllocator.allocate();
         for (int i = 0; i < blocksInChunk; i++) {
             auto x = (i >> 0) & 0xF;
             auto z = (i >> 4) & 0xF;
@@ -118,7 +118,7 @@ extern "C" {
         env->ReleaseBooleanArrayElements(input, data, JNI_ABORT);
 
         std::scoped_lock lock{ctx->cacheMutex};
-        ctx->chunkCache.insert_or_assign(ChunkPos{chunkX, chunkZ}, std::move(chunk_ptr));
+        ctx->chunkCache.insert_or_assign(ChunkPos{chunkX, chunkZ}, chunk_ptr);
     }
 
     EXPORT jlong JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_getOrCreateChunk(JNIEnv*, jclass, Context* ctx, jint x, jint z) {
@@ -127,7 +127,8 @@ extern "C" {
         if (existing != ctx->chunkCache.end()) {
             return (jlong) &existing->second->data;
         } else {
-            return (jlong) ctx->chunkCache.emplace(ChunkPos{x, z}, std::make_unique<Chunk>()).first->second.get();
+            Chunk* chunk = ctx->chunkAllocator.allocate();
+            return (jlong) ctx->chunkCache.emplace(ChunkPos{x, z}, chunk).first->second;
         }
     }
 

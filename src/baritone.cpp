@@ -5,6 +5,7 @@
 #include <zlib-ng.h>
 
 #include "baritone.h"
+#include "Allocator.h"
 
 int32_t beInt(std::span<const int8_t> span) {
     if (span.size() < 4) [[unlikely]] {
@@ -42,10 +43,10 @@ int8_t get2Bits(size_t i, std::span<const int8_t> data) {
     return (byte >> (6 - (i % 8))) & 0b11;
 }
 
-void parseAndInsertChunk(cache_t& cache, int chunkX, int chunkZ, std::span<const int8_t> data) {
+void parseAndInsertChunk(Allocator<Chunk>& chunkAllocator, cache_t& cache, int chunkX, int chunkZ, std::span<const int8_t> data) {
     auto [it, inserted] = cache.try_emplace(ChunkPos{chunkX, chunkZ});
     if (inserted) {
-        auto chunk = std::make_unique<Chunk>();
+        auto chunk = chunkAllocator.allocate();
         chunk->isFromJava = true;
         for (int y = 0; y < 384; y++) {
             for (int z = 0; z < 16; z++) {
@@ -56,11 +57,11 @@ void parseAndInsertChunk(cache_t& cache, int chunkX, int chunkZ, std::span<const
                 }
             }
         }
-        it->second = std::move(chunk);
+        it->second = chunk;
     }
 }
 
-void parseBaritoneRegion(cache_t& cache, RegionPos regionPos, gzFile data, Dimension dim) {
+void parseBaritoneRegion(Allocator<Chunk>& allocator, cache_t& cache, RegionPos regionPos, gzFile data, Dimension dim) {
     int magic = beInt(decomp<4>(data));
     if (magic != 456022911) {
         puts("Bad magic");
@@ -73,15 +74,15 @@ void parseBaritoneRegion(cache_t& cache, RegionPos regionPos, gzFile data, Dimen
                 switch(dim) {
                     case Dimension::Overworld:
                         static constexpr size_t chunkSizeOverworld = (2 * 16 * 16 * 384) / 8;
-                        parseAndInsertChunk(cache, x + 32 * regionPos.x, z + 32 * regionPos.z, decomp<chunkSizeOverworld>(data));
+                        parseAndInsertChunk(allocator, cache, x + 32 * regionPos.x, z + 32 * regionPos.z, decomp<chunkSizeOverworld>(data));
                         break;
                     case Dimension::Nether:
                         static constexpr size_t chunkSizeNether = (2 * 16 * 16 * 256) / 8;
-                        parseAndInsertChunk(cache, x + 32 * regionPos.x, z + 32 * regionPos.z, decomp<chunkSizeNether>(data));
+                        parseAndInsertChunk(allocator, cache, x + 32 * regionPos.x, z + 32 * regionPos.z, decomp<chunkSizeNether>(data));
                         break;
                     case Dimension::End:
                         static constexpr size_t chunkSizeEnd = (2 * 16 * 16 * 256) / 8;
-                        parseAndInsertChunk(cache, x + 32 * regionPos.x, z + 32 * regionPos.z, decomp<chunkSizeEnd>(data));
+                        parseAndInsertChunk(allocator, cache, x + 32 * regionPos.x, z + 32 * regionPos.z, decomp<chunkSizeEnd>(data));
                         break;
                 }
             }

@@ -72,14 +72,13 @@ const Chunk& getOrGenChunk(Context& ctx, ChunkGenExec& executor, const ChunkPos&
         ctx.cacheMutex.unlock();
         return fakeChunkMode == FakeChunkMode::AIR ? AIR_CHUNK : SOLID_CHUNK;;
     } else {
+        Chunk* chunk = ctx.chunkAllocator.allocate();
         ctx.cacheMutex.unlock();
-        std::unique_ptr ptr = std::make_unique<Chunk>();
-        auto& chunk = *ptr;
-        ctx.generator.generateChunk(pos.x, pos.z, *ptr, executor);
+        ctx.generator.generateChunk(pos.x, pos.z, *chunk, executor);
         ctx.cacheMutex.lock();
-        ctx.chunkCache.emplace(pos, std::move(ptr));
+        ctx.chunkCache.emplace(pos, chunk);
         ctx.cacheMutex.unlock();
-        return chunk;
+        return *chunk;
     }
 }
 
@@ -211,7 +210,7 @@ void growThenIterateOuter(const Chunk& chunk, const NodePos& pos, auto& callback
 }
 
 bool isInBounds(const BlockPos& pos) {
-    return pos.y >= 0 && pos.y < 384;
+    return pos.y >= 0 && pos.y < 128;
 }
 
 constexpr double MIN_DIST_PATH = 5; // might want to increase this
@@ -261,7 +260,7 @@ std::chrono::milliseconds tryLoadRegionNative(Context& ctx, ChunkPos pos) {
         }
 
         auto [data, dim] = file.value();
-        parseBaritoneRegion(ctx.chunkCache, regionPos, data, dim);
+        parseBaritoneRegion(ctx.chunkAllocator, ctx.chunkCache, regionPos, data, dim);
 
         auto t2 = std::chrono::steady_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
@@ -331,9 +330,9 @@ std::optional<Path> findPathSegment(Context& ctx, const NodePos& start, const No
         const auto bpos = pos.absolutePosZero();
         const ChunkPos cpos = bpos.toChunkPos();
         const Chunk& currentChunk = getChunkOrAir(ctx, cpos);
-        if (!currentChunk.isFromJava) {
+        /*if (!currentChunk.isFromJava) {
             fakeChunkVisits++;
-        } else {
+        } else*/ {
             fakeChunkVisits = 0;
         }
         if (fakeChunkVisits >= 100 && airIfFake) {
@@ -364,7 +363,7 @@ std::optional<Path> findPathSegment(Context& ctx, const NodePos& start, const No
         auto callback = [&](const NodePos& neighborPos, const Chunk& chunk) {
             PathNode* neighborNode = getNodeAtPosition(map, neighborPos, goalCenter);
             //auto sqrtSize = [](Size sz) { return sqrt(width(sz)); };
-            const double cost = chunk.isFromJava ? 1 : fakeChunkCost;//sqrtSize(neighborNode->pos.size);//width(neighborNode->pos.size);
+            const double cost = /*chunk.isFromJava ? 1 :*/ fakeChunkCost;//sqrtSize(neighborNode->pos.size);//width(neighborNode->pos.size);
             const double tentativeCost = currentNode->cost + cost;
             constexpr double MIN_IMPROVEMENT = 0.01;
             if (neighborNode->cost - tentativeCost > MIN_IMPROVEMENT) {
@@ -436,16 +435,16 @@ std::optional<Path> findPathSegment(Context& ctx, const NodePos& start, const No
     return bestPathSoFar(map, startNode, bestSoFar, startCenter, goalCenter);
 }
 
-const Chunk& getChunkNoMutex(const BlockPos& pos, const ChunkGeneratorHell& gen, ChunkGenExec& exec, map_t<ChunkPos, std::unique_ptr<Chunk>>& cache) {
+const Chunk& getChunkNoMutex(const BlockPos& pos, const ChunkGeneratorHell& gen, ChunkGenExec& exec, map_t<ChunkPos, Chunk*>& cache, Allocator<Chunk>& allocator) {
     const ChunkPos chunkPos = pos.toChunkPos();
     auto it = cache.find(chunkPos);
     if (it != cache.end()) {
         return *it->second;
     } else {
-        std::unique_ptr ptr = std::make_unique<Chunk>();
+        Chunk* ptr = allocator.allocate();
         auto& chunk = *ptr;
         gen.generateChunk(chunkPos.x, chunkPos.z, *ptr, exec);
-        cache.emplace(chunkPos, std::move(ptr));
+        cache.emplace(chunkPos, ptr);
         return chunk;
     }
 }
@@ -464,7 +463,7 @@ NodePos findAir(Context& ctx, const BlockPos& start1x) {
         const auto blockPos = node.absolutePosZero();
         queue.pop();
         if (isInBounds(node.absolutePosZero())) {
-            const auto& chunk = getChunkNoMutex(blockPos, ctx.generator, ctx.executors[0], ctx.chunkCache);
+            const auto& chunk = getChunkNoMutex(blockPos, ctx.generator, ctx.executors[0], ctx.chunkCache, ctx.chunkAllocator);
             if (chunk.isEmpty<size>(blockPos.x & 15, blockPos.y, blockPos.z & 15)) {
                 return node;
             }

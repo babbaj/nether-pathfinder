@@ -10,6 +10,7 @@
 #include "ChunkGeneratorHell.h"
 #include "PathNode.h"
 #include "ChunkGen.h"
+#include "Allocator.h"
 
 enum class FakeChunkMode {
     GENERATE = 0
@@ -40,6 +41,7 @@ struct Context {
     ChunkGeneratorHell generator;
     std::optional<std::string> baritoneCache;
     std::mutex cacheMutex;
+    Allocator<Chunk> chunkAllocator;
     cache_t chunkCache;
     ParallelExecutor<4> topExecutor;
     std::array<ChunkGenExec, 4> executors;
