@@ -21,7 +21,7 @@
             # zig 0.10.1 = segfault
             # zig 0.9.1 only works on linux
             # zig 0.11.0 only works on macos
-            zig
+            zig_0_12
           ];
           buildInputs = with pkgs; [
             gbenchmark
