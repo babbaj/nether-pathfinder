@@ -74,11 +74,24 @@ inline bool isEmpty(const T& input) {
     return true;
 }
 
+enum class ChunkState : uint8_t {
+    FROM_JAVA = 0
+    ,FAKE = 1 // could be generated or just air
+};
+
+enum class Dimension {
+    Overworld
+    ,Nether
+    ,End
+};
+
+inline int dimensionHeight(Dimension dim) {
+    return dim == Dimension::Overworld ? 384 : 256;
+}
 
 struct Chunk {
     std::array<x16_t, 24> data;
     //std::array<bool, 8> x16Empty{};
-    bool isFromJava;
 private:
 
 #define CHUNK_GETBIT(x, y, z)                   \

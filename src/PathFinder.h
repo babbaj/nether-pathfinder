@@ -47,10 +47,11 @@ struct Context {
     std::array<ChunkGenExec, 4> executors;
     std::atomic_flag cancelFlag;
     std::unordered_set<RegionPos> checkedRegions;
+    Dimension dimension;
 
 
-    explicit Context(int64_t seed): generator(ChunkGeneratorHell::fromSeed(seed)) {}
-    explicit Context(int64_t seed, std::string&& cacheDir): generator(ChunkGeneratorHell::fromSeed(seed)), baritoneCache(cacheDir) {}
+    explicit Context(int64_t seed, Dimension dim): generator(ChunkGeneratorHell::fromSeed(seed)), dimension(dim) {}
+    explicit Context(int64_t seed, std::string&& cacheDir, Dimension dim): generator(ChunkGeneratorHell::fromSeed(seed)), baritoneCache(cacheDir), dimension(dim) {}
 };
 
 const Chunk& getOrGenChunk(Context& ctx, ChunkGenExec& executor, const ChunkPos& pos, FakeChunkMode fakeChunkMode = FakeChunkMode::GENERATE);

@@ -62,21 +62,21 @@ const Chunk& getOrGenChunk(Context& ctx, ChunkGenExec& executor, const ChunkPos&
     ctx.cacheMutex.lock();
     auto it = ctx.chunkCache.find(pos);
     if (it != ctx.chunkCache.end()) {
-        auto& chunk = *it->second;
+        auto& [state, chunk] = it->second;
         ctx.cacheMutex.unlock();
-        if (!chunk.isFromJava && fakeChunkMode != FakeChunkMode::GENERATE) {
+        if (state != ChunkState::FROM_JAVA && fakeChunkMode != FakeChunkMode::GENERATE) {
             return fakeChunkMode == FakeChunkMode::AIR ? AIR_CHUNK : SOLID_CHUNK;
         }
-        return *it->second;
+        return *chunk;
     } else if (fakeChunkMode != FakeChunkMode::GENERATE) {
         ctx.cacheMutex.unlock();
-        return fakeChunkMode == FakeChunkMode::AIR ? AIR_CHUNK : SOLID_CHUNK;;
+        return fakeChunkMode == FakeChunkMode::AIR ? AIR_CHUNK : SOLID_CHUNK;
     } else {
-        Chunk* chunk = ctx.chunkAllocator.allocate();
+        Chunk* chunk = ctx.chunkAllocator.allocate(false); // chunk generator expects zeroed chunks
         ctx.cacheMutex.unlock();
         ctx.generator.generateChunk(pos.x, pos.z, *chunk, executor);
         ctx.cacheMutex.lock();
-        ctx.chunkCache.emplace(pos, chunk);
+        ctx.chunkCache.emplace(pos, std::pair{ChunkState::FAKE, chunk});
         ctx.cacheMutex.unlock();
         return *chunk;
     }
@@ -85,7 +85,7 @@ const Chunk& getOrGenChunk(Context& ctx, ChunkGenExec& executor, const ChunkPos&
 const Chunk& getChunkOrAir(Context& ctx, const ChunkPos& pos) {
     auto it = ctx.chunkCache.find(pos);
     if (it != ctx.chunkCache.end()) {
-        return *it->second;
+        return *it->second.second;
     } else {
         return AIR_CHUNK;
     }
@@ -209,8 +209,8 @@ void growThenIterateOuter(const Chunk& chunk, const NodePos& pos, auto& callback
 #undef CASE
 }
 
-bool isInBounds(const BlockPos& pos) {
-    return pos.y >= 0 && pos.y < 128;
+bool isInBounds(Dimension dim, const BlockPos& pos) {
+    return pos.y >= 0 && pos.y < dimensionHeight(dim);
 }
 
 constexpr double MIN_DIST_PATH = 5; // might want to increase this
@@ -396,7 +396,7 @@ std::optional<Path> findPathSegment(Context& ctx, const NodePos& start, const No
                 const NodePos neighborNodePos{size, bpos.offset(face, width(size))};
                 const BlockPos origin = neighborNodePos.absolutePosZero();
                 if constexpr (face == Face::UP || face == Face::DOWN) {
-                    if (!isInBounds(origin)) return;
+                    if (!isInBounds(ctx.dimension, origin)) return;
                 }
                 const ChunkPos neighborCpos = origin.toChunkPos();
                 timeDoingIO += tryLoadRegionNative(ctx, neighborCpos);
@@ -435,16 +435,17 @@ std::optional<Path> findPathSegment(Context& ctx, const NodePos& start, const No
     return bestPathSoFar(map, startNode, bestSoFar, startCenter, goalCenter);
 }
 
-const Chunk& getChunkNoMutex(const BlockPos& pos, const ChunkGeneratorHell& gen, ChunkGenExec& exec, map_t<ChunkPos, Chunk*>& cache, Allocator<Chunk>& allocator) {
+// TODO: fix this lol
+const Chunk& getChunkNoMutex(const BlockPos& pos, const ChunkGeneratorHell& gen, ChunkGenExec& exec, cache_t& cache, Allocator<Chunk>& allocator) {
     const ChunkPos chunkPos = pos.toChunkPos();
     auto it = cache.find(chunkPos);
     if (it != cache.end()) {
-        return *it->second;
+        return *it->second.second;
     } else {
-        Chunk* ptr = allocator.allocate();
+        Chunk* ptr = allocator.allocate(true);
         auto& chunk = *ptr;
         gen.generateChunk(chunkPos.x, chunkPos.z, *ptr, exec);
-        cache.emplace(chunkPos, ptr);
+        cache.emplace(chunkPos, std::pair{ChunkState::FAKE, ptr});
         return chunk;
     }
 }
@@ -456,13 +457,13 @@ NodePos findAir(Context& ctx, const BlockPos& start1x) {
     auto visited = std::unordered_set<NodePos>{};
     queue.push(start);
     visited.insert(start);
-    if (!isInBounds(start1x)) goto retard;
+    if (!isInBounds(ctx.dimension, start1x)) goto retard;
 
     while (!queue.empty()) {
         const NodePos node = queue.front();
         const auto blockPos = node.absolutePosZero();
         queue.pop();
-        if (isInBounds(node.absolutePosZero())) {
+        if (isInBounds(ctx.dimension, node.absolutePosZero())) {
             const auto& chunk = getChunkNoMutex(blockPos, ctx.generator, ctx.executors[0], ctx.chunkCache, ctx.chunkAllocator);
             if (chunk.isEmpty<size>(blockPos.x & 15, blockPos.y, blockPos.z & 15)) {
                 return node;
@@ -506,7 +507,7 @@ Path splicePaths(std::vector<Path>&& paths) {
 }
 
 std::optional<Path> findPathFull(Context& ctx, const NodePos& start, const NodePos& goal, double fakeChunkCost) {
-    if (!isInBounds(start.absolutePosCenter())) throw "troll";
+    if (!isInBounds(ctx.dimension, start.absolutePosCenter())) throw "troll";
 
     std::vector<Path> segments;
 

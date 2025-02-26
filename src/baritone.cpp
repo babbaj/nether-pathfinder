@@ -46,8 +46,7 @@ int8_t get2Bits(size_t i, std::span<const int8_t> data) {
 void parseAndInsertChunk(Allocator<Chunk>& chunkAllocator, cache_t& cache, int chunkX, int chunkZ, std::span<const int8_t> data) {
     auto [it, inserted] = cache.try_emplace(ChunkPos{chunkX, chunkZ});
     if (inserted) {
-        auto chunk = chunkAllocator.allocate();
-        chunk->isFromJava = true;
+        auto chunk = chunkAllocator.allocate(true);
         for (int y = 0; y < 384; y++) {
             for (int z = 0; z < 16; z++) {
                 for (int x = 0; x < 16; x++) {
@@ -57,7 +56,7 @@ void parseAndInsertChunk(Allocator<Chunk>& chunkAllocator, cache_t& cache, int c
                 }
             }
         }
-        it->second = chunk;
+        it->second = {ChunkState::FROM_JAVA, chunk};
     }
 }
 

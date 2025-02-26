@@ -80,17 +80,23 @@ extern "C" {
         }
     }
 
-    EXPORT jlong JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_newContext(JNIEnv* env, jclass, jlong seed, jstring baritoneCacheDir) {
+    EXPORT jlong JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_newContext(JNIEnv* env, jclass, jlong seed, jstring baritoneCacheDir, jint dimension) {
+        auto dim = static_cast<Dimension>(dimension);
+        if(dimension < 0 || dimension > 2) {
+            throwException(env, "Invalid dimension");
+            return 0;
+        }
+
         Context* ctx;
         if (baritoneCacheDir != nullptr) {
             jsize len = env->GetStringLength(baritoneCacheDir);
             jboolean dontcare;
             const jchar* chars = env->GetStringChars(baritoneCacheDir, &dontcare);
             std::string str{chars, chars + len};
-            ctx = new Context{seed, std::move(str)};
+            ctx = new Context{seed, std::move(str), dim};
             env->ReleaseStringChars(baritoneCacheDir, chars);
         } else {
-            ctx = new Context{seed};
+            ctx = new Context{seed, dim};
         }
         return reinterpret_cast<jlong>(ctx);
     }
@@ -101,34 +107,33 @@ extern "C" {
 
     EXPORT void JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_insertChunkData(JNIEnv* env, jclass, Context* ctx, jint chunkX, jint chunkZ, jbooleanArray input) {
         jboolean isCopy{};
-        constexpr auto blocksInChunk = 16 * 16 * 384;
+        const auto blocksInChunk = 16 * 16 * dimensionHeight(ctx->dimension);
         if (auto len = env->GetArrayLength(input); len != blocksInChunk) {
-            throwException(env, "input is not 98304 elements");
+            throwException(env, ctx->dimension == Dimension::Overworld ? "input is not 16 * 16 * 384 elements" : "input is not 16 * 16 * 256 elements");
             return;
         }
         jboolean* data = env->GetBooleanArrayElements(input, &isCopy);
-        auto chunk_ptr = ctx->chunkAllocator.allocate();
+        auto chunk_ptr = ctx->chunkAllocator.allocate(true);
         for (int i = 0; i < blocksInChunk; i++) {
             auto x = (i >> 0) & 0xF;
             auto z = (i >> 4) & 0xF;
             auto y = (i >> 8) & 0x1FF;
             chunk_ptr->setBlock(x, y, z, data[i]);
         }
-        chunk_ptr->isFromJava = true;
         env->ReleaseBooleanArrayElements(input, data, JNI_ABORT);
 
         std::scoped_lock lock{ctx->cacheMutex};
-        ctx->chunkCache.insert_or_assign(ChunkPos{chunkX, chunkZ}, chunk_ptr);
+        ctx->chunkCache.insert_or_assign(ChunkPos{chunkX, chunkZ}, std::pair{ChunkState::FROM_JAVA, chunk_ptr});
     }
 
     EXPORT jlong JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_getOrCreateChunk(JNIEnv*, jclass, Context* ctx, jint x, jint z) {
         std::scoped_lock lock{ctx->cacheMutex};
         auto existing = ctx->chunkCache.find(ChunkPos{x, z});
         if (existing != ctx->chunkCache.end()) {
-            return (jlong) &existing->second->data;
+            return (jlong) &existing->second.second;
         } else {
-            Chunk* chunk = ctx->chunkAllocator.allocate();
-            return (jlong) ctx->chunkCache.emplace(ChunkPos{x, z}, chunk).first->second;
+            Chunk* chunk = ctx->chunkAllocator.allocate(false);
+            return (jlong) ctx->chunkCache.emplace(ChunkPos{x, z}, std::pair{ChunkState::FAKE, chunk}).first->second.second;
         }
     }
 
@@ -136,17 +141,27 @@ extern "C" {
         std::scoped_lock lock{ctx->cacheMutex};
         auto existing = ctx->chunkCache.find(ChunkPos{x, z});
         if (existing != ctx->chunkCache.end()) {
-            return (jlong) &existing->second->data;
+            return (jlong) &existing->second.second;
         } else {
             return 0; // null pointer
         }
     }
 
+    EXPORT jboolean JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_setChunkState(JNIEnv* env, jclass clazz, Context* ctx, jint x, jint z, jboolean fromJava) {
+        auto it = ctx->chunkCache.find(ChunkPos{x, z});
+        if (it != ctx->chunkCache.end()) {
+            it->second.first = fromJava ? ChunkState::FROM_JAVA : ChunkState::FAKE;
+            return true;
+        }
+        return false;
+    }
+
+
     EXPORT jboolean JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_hasChunkFromJava(JNIEnv*, jclass, Context* ctx, jint x, jint z) {
         std::scoped_lock lock{ctx->cacheMutex};
         auto existing = ctx->chunkCache.find(ChunkPos{x, z});
         if (existing != ctx->chunkCache.end()) {
-            return existing->second->isFromJava;
+            return existing->second.first == ChunkState::FROM_JAVA;
         } else {
             return false;
         }
@@ -158,7 +173,9 @@ extern "C" {
         const auto distSq = distSqBlocks;
         std::erase_if(ctx->chunkCache, [=](const auto& item) {
             const auto cpos = item.first;
-            return cpos.distanceToSq({chunkX, chunkZ}) > distSq;
+            bool out = cpos.distanceToSq({chunkX, chunkZ}) > distSq;
+            if (out) ctx->chunkAllocator.free(item.second.second);
+            return out;
         });
     }
 

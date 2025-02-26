@@ -30,8 +30,17 @@ constexpr size_t pool_max_elements() {
 
 template<typename T>
 struct Allocator {
-    std::vector<Value<T>*> freeList;
+    std::vector<void*> freeList;
     std::vector<Pool<T>> pools;
+
+    Allocator() = default;
+    Allocator(const Allocator&) = delete;
+    Allocator(Allocator&& other) = default;
+    ~Allocator() {
+        for (auto& p : pools) {
+            delete[] p.elements;
+        }
+    }
 
     template<typename... Args>
     T* allocate_init(Args&&... args) {
@@ -39,15 +48,15 @@ struct Allocator {
         return new (ptr) T(std::forward<Args>(args)...);
     }
 
-    T* allocate() requires std::is_trivial_v<T> {
-        return (T*) allocate0();
+    T* allocate(bool reuse) requires std::is_trivial_v<T> {
+        return (T*) allocate0(reuse);
     }
 
-    void* allocate0() {
-        if (!freeList.empty()) {
+    void* allocate0(bool reuse) {
+        if (reuse && !freeList.empty()) {
             auto out = freeList.back();
             freeList.pop_back();
-            return out->as();
+            return out;
         }
         if (!pools.empty()) {
             Pool<T>& p = pools.back();
@@ -69,12 +78,6 @@ struct Allocator {
 
     void free(T* ptr) {
         std::destroy_at(ptr);
-        freeList.push_back(std::launder(reinterpret_cast<Value<T>*>(ptr)));
-    }
-
-    ~Allocator() {
-        for (auto& p : pools) {
-            delete[] p.elements;
-        }
+        freeList.push_back(ptr);
     }
 };

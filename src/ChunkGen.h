@@ -18,6 +18,6 @@ template<typename K, typename V>
 using map_t = std::unordered_map<K, V>;
 #endif
 
-using cache_t = map_t<ChunkPos, Chunk*>;
+using cache_t = map_t<ChunkPos, std::pair<ChunkState, Chunk*>>;
 
 using ChunkGenExec = ParallelExecutor<3>;
