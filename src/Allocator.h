@@ -68,7 +68,7 @@ struct Allocator {
         }
 
         auto* elems = new (std::align_val_t{4096}) Value<T>[pool_max_elements<T>()];
-        auto pool = Pool {
+        auto pool = Pool<T> {
             0,
             elems
         };
