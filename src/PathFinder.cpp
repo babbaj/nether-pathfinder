@@ -442,7 +442,7 @@ const Chunk& getChunkNoMutex(const BlockPos& pos, const ChunkGeneratorHell& gen,
     if (it != cache.end()) {
         return *it->second.second;
     } else {
-        Chunk* ptr = allocator.allocate(true);
+        Chunk* ptr = allocator.allocate(false);
         auto& chunk = *ptr;
         gen.generateChunk(chunkPos.x, chunkPos.z, *ptr, exec);
         cache.emplace(chunkPos, std::pair{ChunkState::FAKE, ptr});
