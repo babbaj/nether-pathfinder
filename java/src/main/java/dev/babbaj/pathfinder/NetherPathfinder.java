@@ -22,7 +22,7 @@ public class NetherPathfinder {
     public static int DIMENSION_NETHER = 1;
     public static int DIMENSION_END = 2;
 
-    public static native long newContext(long seed, String baritoneCacheDirCanBeNull);
+    public static native long newContext(long seed, String baritoneCacheDirCanBeNull, int dimension);
     public static native void freeContext(long pointer);
 
     /*
