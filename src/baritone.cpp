@@ -43,16 +43,23 @@ int8_t get2Bits(size_t i, std::span<const int8_t> data) {
     return (byte >> (6 - (i % 8))) & 0b11;
 }
 
-void parseAndInsertChunk(Allocator<Chunk>& chunkAllocator, cache_t& cache, int chunkX, int chunkZ, std::span<const int8_t> data) {
+void parseAndInsertChunk(Allocator<Chunk>& chunkAllocator, cache_t& cache, int chunkX, int chunkZ, int height, std::span<const int8_t> data) {
     auto [it, inserted] = cache.try_emplace(ChunkPos{chunkX, chunkZ});
     if (inserted) {
         auto chunk = chunkAllocator.allocate(true);
-        for (int y = 0; y < 384; y++) {
+        for (int y = 0; y < height; y++) {
+            bool foundBlockInPage = false;
             for (int z = 0; z < 16; z++) {
                 for (int x = 0; x < 16; x++) {
                     auto idx = positionIndex(x, y, z);
                     auto bits = get2Bits(idx, data);
-                    chunk->setBlock(x, y, z, bits != 0);
+                    if (y % 128 == 0) foundBlockInPage = false;
+                    // Don't do unnecessary writes because they may trigger a page to be unnecessarily allocated.
+                    // Also try to be branch predictor friendly (too lazy to verify if this is any different than branching on bits != 0 every time).
+                    foundBlockInPage |= bits != 0;
+                    if (foundBlockInPage) {
+                        chunk->setBlock(x, y, z, bits != 0);
+                    }
                 }
             }
         }
@@ -73,15 +80,12 @@ void parseBaritoneRegion(Allocator<Chunk>& allocator, cache_t& cache, RegionPos 
                 switch(dim) {
                     case Dimension::Overworld:
                         static constexpr size_t chunkSizeOverworld = (2 * 16 * 16 * 384) / 8;
-                        parseAndInsertChunk(allocator, cache, x + 32 * regionPos.x, z + 32 * regionPos.z, decomp<chunkSizeOverworld>(data));
+                        parseAndInsertChunk(allocator, cache, x + 32 * regionPos.x, z + 32 * regionPos.z, 384, decomp<chunkSizeOverworld>(data));
                         break;
                     case Dimension::Nether:
-                        static constexpr size_t chunkSizeNether = (2 * 16 * 16 * 256) / 8;
-                        parseAndInsertChunk(allocator, cache, x + 32 * regionPos.x, z + 32 * regionPos.z, decomp<chunkSizeNether>(data));
-                        break;
                     case Dimension::End:
-                        static constexpr size_t chunkSizeEnd = (2 * 16 * 16 * 256) / 8;
-                        parseAndInsertChunk(allocator, cache, x + 32 * regionPos.x, z + 32 * regionPos.z, decomp<chunkSizeEnd>(data));
+                        static constexpr size_t chunkSize = (2 * 16 * 16 * 256) / 8;
+                        parseAndInsertChunk(allocator, cache, x + 32 * regionPos.x, z + 32 * regionPos.z, 256, decomp<chunkSize>(data));
                         break;
                 }
             }
