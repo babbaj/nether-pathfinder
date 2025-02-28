@@ -38,7 +38,7 @@ struct Allocator {
     Allocator(Allocator&& other) = default;
     ~Allocator() {
         for (auto& p : pools) {
-            delete[] p.elements;
+            operator delete[] (p.elements, std::align_val_t{4096});
         }
     }
 
