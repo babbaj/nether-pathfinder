@@ -9,11 +9,11 @@
 
 #ifdef _WIN32
 void* alloc_pool() {
-    return VirtualAlloc(nullptr, POOL_SIZE, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE));
+    return VirtualAlloc(nullptr, POOL_SIZE, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
 }
 
 void free_pool(void* ptr) {
-    VirtualFree(region, 0, MEM_RELEASE);
+    VirtualFree(ptr, 0, MEM_RELEASE);
 }
 #else
 void* alloc_pool() {
