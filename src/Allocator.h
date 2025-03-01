@@ -7,6 +7,7 @@
 #include <cstring>
 
 constexpr size_t POOL_SIZE = 4096 * 2048; // 8 MiB (682 chunks)
+constexpr uintptr_t POOL_PTR_MASK = ~(POOL_SIZE - 1);
 
 template<typename T>
 struct Value {
@@ -20,6 +21,7 @@ struct Value {
 template<typename T>
 struct Pool {
     size_t next;
+    size_t frees;
     Value<T>* elements;
 };
 
@@ -28,9 +30,13 @@ constexpr size_t pool_max_elements() {
     return POOL_SIZE / sizeof(T);
 }
 
+void* alloc_pool();
+void free_pool(void* ptr);
+
 template<typename T>
 struct Allocator {
-    std::vector<void*> freeList;
+    // pointer to elements -> index in pools vector
+    std::unordered_map<uintptr_t, size_t> poolByPointer;
     std::vector<Pool<T>> pools;
 
     Allocator() = default;
@@ -38,7 +44,9 @@ struct Allocator {
     Allocator(Allocator&& other) = default;
     ~Allocator() {
         for (auto& p : pools) {
-            operator delete[] (p.elements, std::align_val_t{4096});
+            if (p.elements) {
+                free_pool(p.elements);
+            }
         }
     }
 
@@ -48,16 +56,11 @@ struct Allocator {
         return new (ptr) T(std::forward<Args>(args)...);
     }
 
-    T* allocate(bool reuse) requires std::is_trivial_v<T> {
-        return (T*) allocate0(reuse);
+    T* allocate() requires std::is_trivial_v<T> {
+        return (T*) allocate0();
     }
 
-    void* allocate0(bool reuse) {
-        if (reuse && !freeList.empty()) {
-            auto out = freeList.back();
-            freeList.pop_back();
-            return out;
-        }
+    void* allocate0() {
         if (!pools.empty()) {
             Pool<T>& p = pools.back();
             if (p.next < pool_max_elements<T>()) {
@@ -67,8 +70,9 @@ struct Allocator {
             }
         }
 
-        auto* elems = new (std::align_val_t{4096}) Value<T>[pool_max_elements<T>()];
+        auto* elems = (Value<T>*) alloc_pool();
         auto pool = Pool<T> {
+            0,
             0,
             elems
         };
@@ -78,6 +82,22 @@ struct Allocator {
 
     void free(T* ptr) {
         std::destroy_at(ptr);
-        freeList.push_back(ptr);
+        auto upperBits = reinterpret_cast<uintptr_t>(ptr) & POOL_PTR_MASK;
+        auto it = poolByPointer.find(upperBits);
+        if (it != poolByPointer.end()) {
+            Pool<T>& pool = pools[it->second];
+            if (!pool.elements || pool.frees == pool_max_elements<T>()) {
+                puts("[nether-pathfinder] this pool has already been freed");
+                std::terminate();
+            }
+            pool.frees++;
+            if (pool.frees == pool_max_elements<T>()) {
+                free_pool(pool.elements);
+                pool.elements = nullptr;
+            }
+        } else {
+            puts("[nether-pathfinder] no pool associated with this pointer");
+            std::terminate();
+        }
     }
 };

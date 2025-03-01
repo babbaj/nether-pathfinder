@@ -43,7 +43,7 @@ struct ParallelExecutor {
     std::condition_variable condition_variable;
     std::mutex mutex;
     std::array<Worker, Threads - 1> workers = std::apply([&](auto... uwu) {
-        return std::array{(uwu, Worker{condition_variable, mutex})...};
+        return std::array{((void) uwu, Worker{condition_variable, mutex})...};
     }, std::array<char, Threads -1>{});
 
     template<typename... Fn> requires (sizeof...(Fn) == Threads)

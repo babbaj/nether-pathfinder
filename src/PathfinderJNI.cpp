@@ -115,7 +115,7 @@ extern "C" {
             return;
         }
         jboolean* data = env->GetBooleanArrayElements(input, &isCopy);
-        auto chunk_ptr = ctx->chunkAllocator.allocate(true);
+        auto chunk_ptr = ctx->chunkAllocator.allocate();
         for (int i = 0; i < blocksInChunk; i++) {
             auto x = (i >> 0) & 0xF;
             auto z = (i >> 4) & 0xF;
@@ -134,7 +134,7 @@ extern "C" {
         if (existing != ctx->chunkCache.end()) {
             return existing->second.second;
         } else {
-            Chunk* chunk = ctx->chunkAllocator.allocate(false);
+            Chunk* chunk = ctx->chunkAllocator.allocate();
             return ctx->chunkCache.emplace(ChunkPos{x, z}, std::pair{ChunkState::FAKE, chunk}).first->second.second;
         }
     }

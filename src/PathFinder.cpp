@@ -72,7 +72,7 @@ const Chunk& getOrGenChunk(Context& ctx, ChunkGenExec& executor, const ChunkPos&
         ctx.cacheMutex.unlock();
         return fakeChunkMode == FakeChunkMode::AIR ? AIR_CHUNK : SOLID_CHUNK;
     } else {
-        Chunk* chunk = ctx.chunkAllocator.allocate(false); // chunk generator expects zeroed chunks
+        Chunk* chunk = ctx.chunkAllocator.allocate();
         ctx.cacheMutex.unlock();
         ctx.generator.generateChunk(pos.x, pos.z, *chunk, executor);
         ctx.cacheMutex.lock();
@@ -442,7 +442,7 @@ const Chunk& getChunkNoMutex(const BlockPos& pos, const ChunkGeneratorHell& gen,
     if (it != cache.end()) {
         return *it->second.second;
     } else {
-        Chunk* ptr = allocator.allocate(false);
+        Chunk* ptr = allocator.allocate();
         auto& chunk = *ptr;
         gen.generateChunk(chunkPos.x, chunkPos.z, *ptr, exec);
         cache.emplace(chunkPos, std::pair{ChunkState::FAKE, ptr});

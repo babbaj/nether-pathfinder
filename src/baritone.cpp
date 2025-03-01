@@ -46,7 +46,7 @@ int8_t get2Bits(size_t i, std::span<const int8_t> data) {
 void parseAndInsertChunk(Allocator<Chunk>& chunkAllocator, cache_t& cache, int chunkX, int chunkZ, int height, std::span<const int8_t> data) {
     auto [it, inserted] = cache.try_emplace(ChunkPos{chunkX, chunkZ});
     if (inserted) {
-        auto chunk = chunkAllocator.allocate(true);
+        auto chunk = chunkAllocator.allocate();
         for (int y = 0; y < height; y++) {
             bool foundBlockInPage = false;
             for (int z = 0; z < 16; z++) {
