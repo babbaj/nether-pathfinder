@@ -12,10 +12,6 @@ constexpr uintptr_t POOL_PTR_MASK = ~(POOL_SIZE - 1);
 template<typename T>
 struct Value {
     alignas(T) char buf[sizeof(T)];
-
-    T* as() {
-        return std::launder((T*) buf);
-    }
 };
 
 template<typename T>
@@ -57,7 +53,8 @@ struct Allocator {
     }
 
     T* allocate() requires std::is_trivial_v<T> {
-        return (T*) allocate0();
+        void* ptr = allocate0();
+        return new (ptr) T;
     }
 
     void* allocate0() {
@@ -66,7 +63,7 @@ struct Allocator {
             if (p.next < pool_max_elements<T>()) {
                 auto out = &p.elements[p.next];
                 p.next++;
-                return out->as();
+                return out;
             }
         }
 
@@ -77,7 +74,7 @@ struct Allocator {
             elems
         };
         pools.push_back(pool);
-        return elems[0].as();
+        return &elems[0];
     }
 
     void free(T* ptr) {
