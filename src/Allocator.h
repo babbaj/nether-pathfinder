@@ -76,7 +76,7 @@ struct Allocator {
             rawPointer
         };
         pools.push_back(pool);
-        poolByPointer.emplace(reinterpret_cast<uintptr_t>(elems) & POOL_PTR_MASK, pools.size() - 1);
+        poolByPointer.insert_or_assign(reinterpret_cast<uintptr_t>(elems) & POOL_PTR_MASK, pools.size() - 1);
         return &reinterpret_cast<Value<T>*>(elems)[0];
     }
 
