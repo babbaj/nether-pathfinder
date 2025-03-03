@@ -19,6 +19,7 @@ struct Pool {
     size_t next;
     size_t frees;
     Value<T>* elements;
+    void* originalPointer;
 };
 
 template<typename T>
@@ -26,7 +27,7 @@ constexpr size_t pool_max_elements() {
     return POOL_SIZE / sizeof(T);
 }
 
-void* alloc_pool();
+std::pair<void*, void*> alloc_pool();
 void free_pool(void* ptr);
 
 template<typename T>
@@ -67,15 +68,16 @@ struct Allocator {
             }
         }
 
-        auto* elems = (Value<T>*) alloc_pool();
+        auto [elems, rawPointer] = alloc_pool();
         auto pool = Pool<T> {
             1,
             0,
-            elems
+            reinterpret_cast<Value<T>*>(elems),
+            rawPointer
         };
         pools.push_back(pool);
         poolByPointer.emplace(reinterpret_cast<uintptr_t>(elems) & POOL_PTR_MASK, pools.size() - 1);
-        return &elems[0];
+        return &reinterpret_cast<Value<T>*>(elems)[0];
     }
 
     void free(T* ptr) {
@@ -90,7 +92,7 @@ struct Allocator {
             }
             pool.frees++;
             if (pool.frees == pool_max_elements<T>()) {
-                free_pool(pool.elements);
+                free_pool(pool.originalPointer);
                 pool.elements = nullptr;
             }
         } else {
