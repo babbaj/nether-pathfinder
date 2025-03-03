@@ -69,7 +69,7 @@ struct Allocator {
 
         auto* elems = (Value<T>*) alloc_pool();
         auto pool = Pool<T> {
-            0,
+            1,
             0,
             elems
         };
