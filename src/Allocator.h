@@ -38,18 +38,33 @@ void add_pool_global(void*);
 void remove_pools_global(std::span<void*> pools);
 void init_page_handler();
 
+size_t getPageSize();
+
 template<typename T>
 struct Allocator {
+    virtual ~Allocator() = default;
+
+    virtual T* allocate() {
+        return new T{};
+    }
+
+    virtual void free(T* ptr) {
+        delete ptr;
+    }
+};
+
+template<typename T> requires (sizeof(T) % 4096 == 0)
+struct PageAllocator : Allocator<T> {
     // pointer to elements -> index in pools vector
     std::unordered_map<uintptr_t, size_t> poolByPointer;
     std::vector<Pool<T>> pools;
 
-    explicit Allocator() {
+    explicit PageAllocator() {
         init_page_handler();
     }
-    Allocator(const Allocator&) = delete;
-    Allocator(Allocator&& other) = default;
-    ~Allocator() {
+    PageAllocator(const PageAllocator&) = delete;
+    PageAllocator(PageAllocator&& other) = default;
+    ~PageAllocator() override {
         std::vector<void*> meow;
         for (auto& p : pools) {
             if (p.elements) {
@@ -66,7 +81,7 @@ struct Allocator {
         return new (ptr) T(std::forward<Args>(args)...);
     }
 
-    T* allocate() requires std::is_trivial_v<T> {
+    T* allocate() override {
         void* ptr = allocate0();
         return new (ptr) T;
     }
@@ -99,7 +114,7 @@ struct Allocator {
         return &reinterpret_cast<Value<T>*>(elems)[0];
     }
 
-    void free(T* ptr) {
+    void free(T* ptr) override {
         std::destroy_at(ptr);
         decommit(ptr, sizeof(T));
         auto upperBits = reinterpret_cast<uintptr_t>(ptr) & POOL_PTR_MASK;

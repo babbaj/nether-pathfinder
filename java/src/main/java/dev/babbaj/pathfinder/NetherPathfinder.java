@@ -22,7 +22,9 @@ public class NetherPathfinder {
     public static int DIMENSION_NETHER = 1;
     public static int DIMENSION_END = 2;
 
-    public static native long newContext(long seed, String baritoneCacheDirCanBeNull, int dimension);
+    // pass true to use the custom chunk allocator that will reduce memory usage and maybe be faster. false to just use new/delete
+    // this is only supported on systems with 4k pages
+    public static native long newContext(long seed, String baritoneCacheDirCanBeNull, int dimension, boolean allocator);
     public static native void freeContext(long pointer);
 
     /*

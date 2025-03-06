@@ -82,7 +82,7 @@ extern "C" {
         }
     }
 
-    EXPORT Context* JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_newContext(JNIEnv* env, jclass, jlong seed, jstring baritoneCacheDir, jint dimension) {
+    EXPORT Context* JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_newContext(JNIEnv* env, jclass, jlong seed, jstring baritoneCacheDir, jint dimension, jboolean pageAllocator) {
         auto dim = static_cast<Dimension>(dimension);
         if(dimension < 0 || dimension > 2) {
             throwException(env, "Invalid dimension");
@@ -95,10 +95,10 @@ extern "C" {
             jboolean dontcare;
             const jchar* chars = env->GetStringChars(baritoneCacheDir, &dontcare);
             std::string str{chars, chars + len};
-            ctx = new Context{seed, std::move(str), dim};
+            ctx = new Context{seed, std::move(str), dim, static_cast<bool>(pageAllocator)};
             env->ReleaseStringChars(baritoneCacheDir, chars);
         } else {
-            ctx = new Context{seed, dim};
+            ctx = new Context{seed, dim, static_cast<bool>(pageAllocator)};
         }
         return ctx;
     }
@@ -115,7 +115,7 @@ extern "C" {
             return;
         }
         jboolean* data = env->GetBooleanArrayElements(input, &isCopy);
-        auto chunk_ptr = ctx->chunkAllocator.allocate();
+        auto chunk_ptr = ctx->chunkAllocator->allocate();
         for (int i = 0; i < blocksInChunk; i++) {
             auto x = (i >> 0) & 0xF;
             auto z = (i >> 4) & 0xF;
@@ -134,7 +134,7 @@ extern "C" {
         if (existing != ctx->chunkCache.end()) {
             return existing->second.second;
         } else {
-            Chunk* chunk = ctx->chunkAllocator.allocate();
+            Chunk* chunk = ctx->chunkAllocator->allocate();
             return ctx->chunkCache.emplace(ChunkPos{x, z}, std::pair{ChunkState::FAKE, chunk}).first->second.second;
         }
     }
@@ -176,7 +176,7 @@ extern "C" {
         std::erase_if(ctx->chunkCache, [=](const auto& item) {
             const auto cpos = item.first;
             bool out = cpos.distanceToSq({chunkX, chunkZ}) > distSq;
-            if (out) ctx->chunkAllocator.free(item.second.second);
+            if (out) ctx->chunkAllocator->free(item.second.second);
             return out;
         });
     }

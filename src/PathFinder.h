@@ -41,7 +41,7 @@ struct Context {
     ChunkGeneratorHell generator;
     std::optional<std::string> baritoneCache;
     std::mutex cacheMutex;
-    Allocator<Chunk> chunkAllocator;
+    std::unique_ptr<Allocator<Chunk>> chunkAllocator;
     cache_t chunkCache;
     ParallelExecutor<4> topExecutor;
     std::array<ChunkGenExec, 4> executors;
@@ -50,8 +50,17 @@ struct Context {
     Dimension dimension;
 
 
-    explicit Context(int64_t seed, Dimension dim): generator(ChunkGeneratorHell::fromSeed(seed)), dimension(dim) {}
-    explicit Context(int64_t seed, std::string&& cacheDir, Dimension dim): generator(ChunkGeneratorHell::fromSeed(seed)), baritoneCache(cacheDir), dimension(dim) {}
+    explicit Context(int64_t seed, std::optional<std::string>&& cacheDir, Dimension dim, bool pageAllocator):
+        generator(ChunkGeneratorHell::fromSeed(seed)), baritoneCache(cacheDir), dimension(dim)
+        {
+            if (pageAllocator && getPageSize() == 4096) {
+                chunkAllocator = std::make_unique<PageAllocator<Chunk>>();
+            } else {
+                chunkAllocator = std::make_unique<Allocator<Chunk>>();
+            }
+        }
+    explicit Context(int64_t seed, Dimension dim, bool pageAllocator): Context(seed, std::nullopt, dim, pageAllocator) {}
+    explicit Context(int64_t seed, std::string&& cacheDir, Dimension dim, bool pageAllocator): Context(seed, std::optional{cacheDir}, dim, pageAllocator) {}
 };
 
 const Chunk& getOrGenChunk(Context& ctx, ChunkGenExec& executor, const ChunkPos& pos, FakeChunkMode fakeChunkMode = FakeChunkMode::GENERATE);
