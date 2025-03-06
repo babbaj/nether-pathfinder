@@ -18,16 +18,17 @@ std::shared_ptr<std::vector<void*>> all_pools;
 
 bool is_pool_pointer(void* ptr) {
     auto pools = all_pools;
-    return std::find(pools->rbegin(), pools->rend(), ptr & POOL_PTR_MASK) != pools->rend();
+    return std::find(pools->rbegin(), pools->rend(), (void*) (((uintptr_t) ptr) & POOL_PTR_MASK) != pools->rend();
 }
 
+size_t g_page_size = 0;
 LONG page_handler(PEXCEPTION_POINTERS ptr) {
     PEXCEPTION_RECORD record = ptr->ExceptionRecord;
     if (record->ExceptionCode == EXCEPTION_ACCESS_VIOLATION) {
-        void* base = (void*)(record->ExceptionInformation[1]);
-        if (is_pool_pointer(base)) {
-            // TODO: get page size dynamically
-            if (VirtualAlloc(base, 4096, MEM_COMMIT, PAGE_EXECUTE_READWRITE)) {
+        void* fault_address = (void*)(record->ExceptionInformation[1]);
+        if (is_pool_pointer(fault_address)) {
+            void* page_aligned = (void*)((uintptr_t)fault_address & ~(g_page_size - 1));
+            if (VirtualAlloc(page_aligned, g_page_size, MEM_COMMIT, PAGE_EXECUTE_READWRITE)) {
                 return EXCEPTION_CONTINUE_EXECUTION;
             }
         }
@@ -38,6 +39,9 @@ LONG page_handler(PEXCEPTION_POINTERS ptr) {
 std::atomic_flag handler_added;
 void init_page_handler() {
     if (!handler_added.test_and_set()) {
+        SYSTEM_INFO si;
+        GetSystemInfo(&si);
+        g_page_size = si.dwPageSize;
         AddVectoredExceptionHandler(0, PVECTORED_EXCEPTION_HANDLER(page_handler));
     }
 }
