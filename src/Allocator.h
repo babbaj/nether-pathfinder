@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <memory>
 #include <cstring>
+#include <iostream>
 
 constexpr size_t POOL_SIZE = 4096 * 2048; // 8 MiB (682 chunks)
 constexpr uintptr_t POOL_PTR_MASK = ~(POOL_SIZE - 1);
@@ -29,6 +30,7 @@ constexpr size_t pool_max_elements() {
 
 std::pair<void*, void*> alloc_pool();
 void free_pool(void* ptr);
+void decommit(void* ptr, size_t len);
 
 template<typename T>
 struct Allocator {
@@ -76,12 +78,18 @@ struct Allocator {
             rawPointer
         };
         pools.push_back(pool);
-        poolByPointer.insert_or_assign(reinterpret_cast<uintptr_t>(elems) & POOL_PTR_MASK, pools.size() - 1);
+        auto base = reinterpret_cast<uintptr_t>(elems) & POOL_PTR_MASK;
+        auto [it, inserted] = poolByPointer.emplace(base, pools.size() - 1);
+        if (!inserted) {
+            std::cout << "pool at " << base << " already exists in poolByPointer" << std::endl;
+            std::terminate();
+        }
         return &reinterpret_cast<Value<T>*>(elems)[0];
     }
 
     void free(T* ptr) {
         std::destroy_at(ptr);
+        decommit(ptr, sizeof(T));
         auto upperBits = reinterpret_cast<uintptr_t>(ptr) & POOL_PTR_MASK;
         auto it = poolByPointer.find(upperBits);
         if (it != poolByPointer.end()) {
@@ -93,6 +101,7 @@ struct Allocator {
             pool.frees++;
             if (pool.frees == pool_max_elements<T>()) {
                 free_pool(pool.originalPointer);
+                poolByPointer.erase(it);
                 pool.elements = nullptr;
             }
         } else {
