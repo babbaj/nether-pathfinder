@@ -72,7 +72,7 @@ const Chunk& getOrGenChunk(Context& ctx, ChunkGenExec& executor, const ChunkPos&
         ctx.cacheMutex.unlock();
         return fakeChunkMode == FakeChunkMode::AIR ? AIR_CHUNK : SOLID_CHUNK;
     } else {
-        Chunk* chunk = ctx.chunkAllocator.allocate();
+        Chunk* chunk = ctx.chunkAllocator->allocate();
         ctx.cacheMutex.unlock();
         ctx.generator.generateChunk(pos.x, pos.z, *chunk, executor);
         ctx.cacheMutex.lock();
@@ -260,7 +260,7 @@ std::chrono::milliseconds tryLoadRegionNative(Context& ctx, ChunkPos pos) {
         }
 
         auto [data, dim] = file.value();
-        parseBaritoneRegion(ctx.chunkAllocator, ctx.chunkCache, regionPos, data, dim);
+        parseBaritoneRegion(*ctx.chunkAllocator, ctx.chunkCache, regionPos, data, dim);
 
         auto t2 = std::chrono::steady_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
@@ -464,7 +464,7 @@ NodePos findAir(Context& ctx, const BlockPos& start1x) {
         const auto blockPos = node.absolutePosZero();
         queue.pop();
         if (isInBounds(ctx.dimension, node.absolutePosZero())) {
-            const auto& chunk = getChunkNoMutex(blockPos, ctx.generator, ctx.executors[0], ctx.chunkCache, ctx.chunkAllocator);
+            const auto& chunk = getChunkNoMutex(blockPos, ctx.generator, ctx.executors[0], ctx.chunkCache, *ctx.chunkAllocator);
             if (chunk.isEmpty<size>(blockPos.x & 15, blockPos.y, blockPos.z & 15)) {
                 return node;
             }
@@ -523,6 +523,16 @@ std::optional<Path> findPathFull(Context& ctx, const NodePos& start, const NodeP
             }
         } else {
             const bool finished = path->type == Path::Type::FINISHED;
+            auto endCpos = path->blocks.end()->toChunkPos();
+            const auto distSqBlocks = (200 / 16) * (200 / 16);
+            const auto distSq = distSqBlocks;
+            std::erase_if(ctx.chunkCache, [&](const auto& item) {
+                const auto cpos = item.first;
+                bool out = cpos.distanceToSq({endCpos.x, endCpos.z}) > distSq;
+                if (out) ctx.chunkAllocator->free(item.second.second);
+                return out;
+            });
+
             segments.push_back(std::move(*path));
             if (finished) break;
         }

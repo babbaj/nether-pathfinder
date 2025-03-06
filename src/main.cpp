@@ -132,7 +132,7 @@ int main(int argc, char** argv) {
     auto nyaa = std::chrono::duration_cast<std::chrono::milliseconds>(owo - uwu).count();
     std::cout << "first iteration took " << nyaa / 1000.0 << "s " << std::endl;*/
 
-    Context ctx{seed, {}};
+    Context ctx{seed, {}, true};
     auto t1 = std::chrono::steady_clock::now();
     auto realStart = findAir<Size::X4>(ctx, {0, 50, 0});
     auto realGoal = findAir<Size::X4>(ctx, ONE_HUNDRED_K);
@@ -148,14 +148,14 @@ int main(int argc, char** argv) {
         const auto& endPos = path->getEndPos();
         std::cout << "start = " << "{" << path->start.x << ", " << path->start.y << ", " << path->start.z << "} end = " << "{" << endPos.x << ", " << endPos.y << ", " << endPos.z << "}\n";
 
-        std::cout<< "refining..." << std::endl;
+        /*std::cout<< "refining..." << std::endl;
         auto t1 = std::chrono::steady_clock::now();
         auto refined = refine(ctx, path->blocks);
         auto t2 = std::chrono::steady_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
         std::cout << "refining took " << duration / 1000.0 << "s " << std::endl;
         std::cout << "done refining" << std::endl;
-        std::cout << "refined path has " << refined.size() << std::endl;
+        std::cout << "refined path has " << refined.size() << std::endl;*/
         //writeBreadCrumbFile("test", *path);
         printSizes(*path);
     } else {
