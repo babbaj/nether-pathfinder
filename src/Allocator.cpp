@@ -5,6 +5,7 @@
 #include <atomic>
 #else
 #include <sys/mman.h>
+#include <unistd.h>
 #endif
 
 void* alignToPoolSize(void* base) {
