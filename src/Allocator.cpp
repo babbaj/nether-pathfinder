@@ -2,6 +2,7 @@
 
 #ifdef _WIN32
 #include <windows.h>
+#include <atomic>
 #else
 #include <sys/mman.h>
 #endif
@@ -11,6 +12,57 @@ void* alignToPoolSize(void* base) {
 }
 
 #ifdef _WIN32
+// in case multiple threads want to change the global pool list at the same time but this does not need to be held to read it
+std::mutex pool_mutate_mutex;
+std::shared_ptr<std::vector<void*>> all_pools;
+
+bool is_pool_pointer(void* ptr) {
+    auto pools = all_pools;
+    return std::find(pools->rbegin(), pools->rend(), ptr & POOL_PTR_MASK) != pools->rend();
+}
+
+LONG page_handler(PEXCEPTION_POINTERS ptr) {
+    PEXCEPTION_RECORD record = ptr->ExceptionRecord;
+    if (record->ExceptionCode == EXCEPTION_ACCESS_VIOLATION) {
+        void* base = (void*)(record->ExceptionInformation[1]);
+        if (is_pool_pointer(base)) {
+            // TODO: get page size dynamically
+            if (VirtualAlloc(base, 4096, MEM_COMMIT, PAGE_EXECUTE_READWRITE)) {
+                return EXCEPTION_CONTINUE_EXECUTION;
+            }
+        }
+    }
+    return EXCEPTION_CONTINUE_SEARCH;
+}
+
+std::atomic_flag handler_added;
+void init_page_handler() {
+    if (!handler_added.test_and_set()) {
+        AddVectoredExceptionHandler(0, PVECTORED_EXCEPTION_HANDLER(page_handler));
+    }
+}
+
+void add_pool_global(void* pool) {
+    std::lock_guard lock{pool_mutate_mutex};
+    std::vector<void*> new_pools;
+    new_pools.reserve(all_pools->size() + 1);
+    std::copy(all_pools->begin(), all_pools->end(), std::back_inserter(new_pools));
+    new_pools.push_back(pool);
+    all_pools = std::make_shared<std::vector<void*>>(std::move(new_pools));
+}
+
+void remove_pools_global(std::span<void*> pools) {
+    std::lock_guard lock{pool_mutate_mutex};
+    auto& old_pools = *all_pools;
+    auto new_pools = std::vector<void*>(old_pools.size());
+    for (auto p : old_pools) {
+        if (std::find(pools.begin(), pools.end(), p) == pools.end()) {
+            new_pools.push_back(p);
+        }
+    }
+    all_pools = std::make_shared<std::vector<void*>>(new_pools);
+}
+
 std::pair<void*, void*> alloc_pool() {
     void* original = VirtualAlloc(nullptr, POOL_SIZE * 2, MEM_RESERVE, PAGE_READWRITE);
     if (!original) {
@@ -18,12 +70,6 @@ std::pair<void*, void*> alloc_pool() {
     }
 
     void* aligned = alignToPoolSize(original);
-    void* committed = VirtualAlloc(aligned, POOL_SIZE, MEM_COMMIT, PAGE_READWRITE);
-    if (!committed) {
-        VirtualFree(original, 0, MEM_RELEASE);
-        return {nullptr, nullptr};
-    }
-
     return {aligned, original};
 }
 
@@ -53,4 +99,9 @@ void decommit(void* ptr, size_t len) {
     madvise(ptr, len, MADV_DONTNEED);
     //mmap(ptr, len, PROT_NONE, MAP_FIXED, -1, 0);
 }
+
+// not needed on linux
+void add_pool_global(void*) {}
+void remove_pools_global(std::span<void*>) {}
+void init_page_handler() {}
 #endif

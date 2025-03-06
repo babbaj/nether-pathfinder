@@ -6,6 +6,8 @@
 #include <memory>
 #include <cstring>
 #include <iostream>
+#include <span>
+#include <algorithm>
 
 constexpr size_t POOL_SIZE = 4096 * 2048; // 8 MiB (682 chunks)
 constexpr uintptr_t POOL_PTR_MASK = ~(POOL_SIZE - 1);
@@ -32,21 +34,30 @@ std::pair<void*, void*> alloc_pool();
 void free_pool(void* ptr);
 void decommit(void* ptr, size_t len);
 
+void add_pool_global(void*);
+void remove_pools_global(std::span<void*> pools);
+void init_page_handler();
+
 template<typename T>
 struct Allocator {
     // pointer to elements -> index in pools vector
     std::unordered_map<uintptr_t, size_t> poolByPointer;
     std::vector<Pool<T>> pools;
 
-    Allocator() = default;
+    explicit Allocator() {
+        init_page_handler();
+    }
     Allocator(const Allocator&) = delete;
     Allocator(Allocator&& other) = default;
     ~Allocator() {
+        std::vector<void*> meow;
         for (auto& p : pools) {
             if (p.elements) {
                 free_pool(p.elements);
             }
+            meow.push_back(p.elements);
         }
+        remove_pools_global(meow);
     }
 
     template<typename... Args>
@@ -78,6 +89,7 @@ struct Allocator {
             rawPointer
         };
         pools.push_back(pool);
+        add_pool_global(pool.elements);
         auto base = reinterpret_cast<uintptr_t>(elems) & POOL_PTR_MASK;
         auto [it, inserted] = poolByPointer.emplace(base, pools.size() - 1);
         if (!inserted) {
@@ -101,6 +113,7 @@ struct Allocator {
             pool.frees++;
             if (pool.frees == pool_max_elements<T>()) {
                 free_pool(pool.originalPointer);
+                remove_pools_global({(void**) &pool.elements, 1});
                 poolByPointer.erase(it);
                 pool.elements = nullptr;
             }
