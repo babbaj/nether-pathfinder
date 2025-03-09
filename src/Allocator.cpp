@@ -56,8 +56,10 @@ void init_page_handler() {
 void add_pool_global(void* pool) {
     std::lock_guard lock{pool_mutate_mutex};
     std::vector<void*> new_pools;
-    new_pools.reserve(all_pools->size() + 1);
-    std::copy(all_pools->begin(), all_pools->end(), std::back_inserter(new_pools));
+    new_pools.reserve(all_pools ? all_pools->size() + 1 : 1);
+    if(all_pools) {
+        std::copy(all_pools->begin(), all_pools->end(), std::back_inserter(new_pools));
+    }
     new_pools.push_back(pool);
     all_pools = std::make_shared<std::vector<void*>>(std::move(new_pools));
 }
