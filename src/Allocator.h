@@ -68,7 +68,7 @@ struct PageAllocator : Allocator<T> {
         std::vector<void*> meow;
         for (auto& p : pools) {
             if (p.elements) {
-                free_pool(p.elements);
+                free_pool(p.originalPointer);
             }
             meow.push_back(p.elements);
         }
