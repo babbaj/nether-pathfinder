@@ -28,6 +28,7 @@ std::mutex pool_mutate_mutex;
 std::shared_ptr<std::vector<void*>> all_pools;
 
 bool is_pool_pointer(void* ptr) {
+    if(!all_pools) return false;
     auto pools = all_pools;
     return std::find(pools->rbegin(), pools->rend(), (void*) (((uintptr_t) ptr) & POOL_PTR_MASK)) != pools->rend();
 }
