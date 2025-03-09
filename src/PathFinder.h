@@ -61,6 +61,13 @@ struct Context {
         }
     explicit Context(int64_t seed, Dimension dim, bool pageAllocator): Context(seed, std::nullopt, dim, pageAllocator) {}
     explicit Context(int64_t seed, std::string&& cacheDir, Dimension dim, bool pageAllocator): Context(seed, std::optional{cacheDir}, dim, pageAllocator) {}
+    ~Context() {
+        for (auto& p : chunkCache) {
+            if (p.second.second) {
+                chunkAllocator->free(p.second.second);
+            }
+        }
+    }
 };
 
 const Chunk& getOrGenChunk(Context& ctx, ChunkGenExec& executor, const ChunkPos& pos, FakeChunkMode fakeChunkMode = FakeChunkMode::GENERATE);
