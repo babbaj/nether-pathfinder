@@ -68,7 +68,8 @@ void add_pool_global(void* pool) {
 void remove_pools_global(std::span<void*> pools) {
     std::lock_guard lock{pool_mutate_mutex};
     auto& old_pools = *all_pools;
-    auto new_pools = std::vector<void*>(old_pools.size());
+    std::vector<void*> new_pools;
+    new_pools.reserve(old_pools.size());
     for (auto p : old_pools) {
         if (std::find(pools.begin(), pools.end(), p) == pools.end()) {
             new_pools.push_back(p);
