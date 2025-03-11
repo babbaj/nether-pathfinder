@@ -38,7 +38,7 @@ LONG page_handler(PEXCEPTION_POINTERS ptr) {
         void* fault_address = (void*)(record->ExceptionInformation[1]);
         if (is_pool_pointer(fault_address)) {
             void* page_aligned = (void*)((uintptr_t)fault_address & ~(4096 - 1));
-            if (VirtualAlloc(page_aligned, 4096, MEM_COMMIT, PAGE_EXECUTE_READWRITE)) {
+            if (VirtualAlloc(page_aligned, 4096, MEM_COMMIT, PAGE_READWRITE)) {
                 return EXCEPTION_CONTINUE_EXECUTION;
             }
         }
@@ -76,7 +76,7 @@ void remove_pools_global(std::span<void*> pools) {
 }
 
 std::pair<void*, void*> alloc_pool() {
-    void* original = VirtualAlloc(nullptr, POOL_SIZE * 2, MEM_RESERVE, PAGE_READWRITE);
+    void* original = VirtualAlloc(nullptr, POOL_SIZE * 2, MEM_RESERVE, PAGE_NOACCESS);
     if (!original) {
         return {nullptr, nullptr};
     }
