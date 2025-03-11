@@ -25,10 +25,9 @@ size_t getPageSize() {
 #ifdef _WIN32
 // in case multiple threads want to change the global pool list at the same time but this does not need to be held to read it
 std::mutex pool_mutate_mutex;
-std::shared_ptr<std::vector<void*>> all_pools;
+std::shared_ptr<std::vector<void*>> all_pools = std::make_shared<std::vector<void*>>();
 
 bool is_pool_pointer(void* ptr) {
-    if(!all_pools) return false;
     auto pools = all_pools;
     return std::find(pools->rbegin(), pools->rend(), (void*) (((uintptr_t) ptr) & POOL_PTR_MASK)) != pools->rend();
 }
@@ -57,10 +56,8 @@ void init_page_handler() {
 void add_pool_global(void* pool) {
     std::lock_guard lock{pool_mutate_mutex};
     std::vector<void*> new_pools;
-    new_pools.reserve(all_pools ? all_pools->size() + 1 : 1);
-    if(all_pools) {
-        std::copy(all_pools->begin(), all_pools->end(), std::back_inserter(new_pools));
-    }
+    new_pools.reserve(all_pools->size() + 1);
+    std::copy(all_pools->begin(), all_pools->end(), std::back_inserter(new_pools));
     new_pools.push_back(pool);
     all_pools = std::make_shared<std::vector<void*>>(std::move(new_pools));
 }

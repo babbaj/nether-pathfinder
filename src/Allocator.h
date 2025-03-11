@@ -40,6 +40,7 @@ void init_page_handler();
 
 size_t getPageSize();
 
+// this doesn't really need to be generic it's only ever gonna be used for chunks lol
 template<typename T>
 struct Allocator {
     virtual ~Allocator() = default;
@@ -50,6 +51,10 @@ struct Allocator {
 
     virtual void free(T* ptr) {
         delete ptr;
+    }
+
+    virtual bool auto_frees_on_destroy() {
+        return false;
     }
 };
 
@@ -65,14 +70,14 @@ struct PageAllocator : Allocator<T> {
     PageAllocator(const PageAllocator&) = delete;
     PageAllocator(PageAllocator&& other) = default;
     ~PageAllocator() override {
-        std::vector<void*> meow;
+        std::vector<void*> toRemove;
         for (auto& p : pools) {
-            if (p.elements) {
+            if (p.originalPointer) {
                 free_pool(p.originalPointer);
             }
-            meow.push_back(p.elements);
+            toRemove.push_back(p.elements);
         }
-        remove_pools_global(meow);
+        remove_pools_global(toRemove);
     }
 
     template<typename... Args>
@@ -131,10 +136,15 @@ struct PageAllocator : Allocator<T> {
                 remove_pools_global({(void**) &pool.elements, 1});
                 poolByPointer.erase(it);
                 pool.elements = nullptr;
+                pool.originalPointer = nullptr;
             }
         } else {
             puts("[nether-pathfinder] no pool associated with this pointer");
             std::terminate();
         }
+    }
+
+    bool auto_frees_on_destroy() override {
+        return std::is_trivially_destructible_v<T>;
     }
 };

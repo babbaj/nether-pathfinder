@@ -62,9 +62,12 @@ struct Context {
     explicit Context(int64_t seed, Dimension dim, bool pageAllocator): Context(seed, std::nullopt, dim, pageAllocator) {}
     explicit Context(int64_t seed, std::string&& cacheDir, Dimension dim, bool pageAllocator): Context(seed, std::optional{cacheDir}, dim, pageAllocator) {}
     ~Context() {
-        for (auto& p : chunkCache) {
-            if (p.second.second) {
-                chunkAllocator->free(p.second.second);
+        // useless optimization
+        if (!chunkAllocator->auto_frees_on_destroy()) {
+            for (auto &p: chunkCache) {
+                if (p.second.second) {
+                    chunkAllocator->free(p.second.second);
+                }
             }
         }
     }
