@@ -47,20 +47,24 @@ struct Context {
     std::array<ChunkGenExec, 4> executors;
     std::atomic_flag cancelFlag;
     std::unordered_set<RegionPos> checkedRegions;
+    int maxHeight;
     Dimension dimension;
 
 
-    explicit Context(int64_t seed, std::optional<std::string>&& cacheDir, Dimension dim, bool pageAllocator):
-        generator(ChunkGeneratorHell::fromSeed(seed)), baritoneCache(cacheDir), dimension(dim)
+    explicit Context(int64_t seed, std::optional<std::string>&& cacheDir, Dimension dim, int maxHeight, bool pageAllocator):
+        generator(ChunkGeneratorHell::fromSeed(seed)), baritoneCache(cacheDir), maxHeight(maxHeight), dimension(dim)
         {
+            if (maxHeight <= 0 || maxHeight > 384) {
+                throw std::range_error("bad max height");
+            }
             if (pageAllocator && getPageSize() == 4096) {
                 chunkAllocator = std::make_unique<PageAllocator<Chunk>>();
             } else {
                 chunkAllocator = std::make_unique<Allocator<Chunk>>();
             }
         }
-    explicit Context(int64_t seed, Dimension dim, bool pageAllocator): Context(seed, std::nullopt, dim, pageAllocator) {}
-    explicit Context(int64_t seed, std::string&& cacheDir, Dimension dim, bool pageAllocator): Context(seed, std::optional{cacheDir}, dim, pageAllocator) {}
+    explicit Context(int64_t seed, Dimension dim, int maxHeight, bool pageAllocator): Context(seed, std::nullopt, dim, maxHeight, pageAllocator) {}
+    explicit Context(int64_t seed, std::string&& cacheDir, Dimension dim, int maxHeight, bool pageAllocator): Context(seed, std::optional{cacheDir}, dim, maxHeight, pageAllocator) {}
     ~Context() {
         // useless optimization
         if (!chunkAllocator->auto_frees_on_destroy()) {

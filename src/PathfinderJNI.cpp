@@ -82,11 +82,15 @@ extern "C" {
         }
     }
 
-    EXPORT Context* JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_newContext(JNIEnv* env, jclass, jlong seed, jstring baritoneCacheDir, jint dimension, jboolean pageAllocator) {
+    EXPORT Context* JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_newContext(JNIEnv* env, jclass, jlong seed, jstring baritoneCacheDir, jint dimension, jint maxHeight, jboolean pageAllocator) {
         auto dim = static_cast<Dimension>(dimension);
-        if(dimension < 0 || dimension > 2) {
+        if (dimension < 0 || dimension > 2) {
             throwException(env, "Invalid dimension");
-            return 0;
+            return nullptr;
+        }
+        if (maxHeight <= 0 || maxHeight > 384) {
+            throwException(env, "Invalid max height (must be between 0 and 384)");
+            return nullptr;
         }
 
         Context* ctx;
@@ -95,10 +99,10 @@ extern "C" {
             jboolean dontcare;
             const jchar* chars = env->GetStringChars(baritoneCacheDir, &dontcare);
             std::string str{chars, chars + len};
-            ctx = new Context{seed, std::move(str), dim, static_cast<bool>(pageAllocator)};
+            ctx = new Context{seed, std::move(str), dim, maxHeight, static_cast<bool>(pageAllocator)};
             env->ReleaseStringChars(baritoneCacheDir, chars);
         } else {
-            ctx = new Context{seed, dim, static_cast<bool>(pageAllocator)};
+            ctx = new Context{seed, dim, maxHeight, static_cast<bool>(pageAllocator)};
         }
         return ctx;
     }

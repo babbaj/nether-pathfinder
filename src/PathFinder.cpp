@@ -209,8 +209,8 @@ void growThenIterateOuter(const Chunk& chunk, const NodePos& pos, auto& callback
 #undef CASE
 }
 
-bool isInBounds(Dimension dim, const BlockPos& pos) {
-    return pos.y >= 0 && pos.y < dimensionHeight(dim);
+bool isInBounds(int worldHeight, const BlockPos& pos) {
+    return pos.y >= 0 && pos.y < worldHeight;
 }
 
 constexpr double MIN_DIST_PATH = 5; // might want to increase this
@@ -396,7 +396,7 @@ std::optional<Path> findPathSegment(Context& ctx, const NodePos& start, const No
                 const NodePos neighborNodePos{size, bpos.offset(face, width(size))};
                 const BlockPos origin = neighborNodePos.absolutePosZero();
                 if constexpr (face == Face::UP || face == Face::DOWN) {
-                    if (!isInBounds(ctx.dimension, origin)) return;
+                    if (!isInBounds(ctx.maxHeight, origin)) return;
                 }
                 const ChunkPos neighborCpos = origin.toChunkPos();
                 timeDoingIO += tryLoadRegionNative(ctx, neighborCpos);
@@ -457,13 +457,13 @@ NodePos findAir(Context& ctx, const BlockPos& start1x) {
     auto visited = std::unordered_set<NodePos>{};
     queue.push(start);
     visited.insert(start);
-    if (!isInBounds(ctx.dimension, start1x)) goto retard;
+    if (!isInBounds(ctx.maxHeight, start1x)) goto retard;
 
     while (!queue.empty()) {
         const NodePos node = queue.front();
         const auto blockPos = node.absolutePosZero();
         queue.pop();
-        if (isInBounds(ctx.dimension, node.absolutePosZero())) {
+        if (isInBounds(ctx.maxHeight, node.absolutePosZero())) {
             const auto& chunk = getChunkNoMutex(blockPos, ctx.generator, ctx.executors[0], ctx.chunkCache, *ctx.chunkAllocator);
             if (chunk.isEmpty<size>(blockPos.x & 15, blockPos.y, blockPos.z & 15)) {
                 return node;
@@ -507,7 +507,7 @@ Path splicePaths(std::vector<Path>&& paths) {
 }
 
 std::optional<Path> findPathFull(Context& ctx, const NodePos& start, const NodePos& goal, double fakeChunkCost) {
-    if (!isInBounds(ctx.dimension, start.absolutePosCenter())) throw "troll";
+    if (!isInBounds(ctx.maxHeight, start.absolutePosCenter())) throw "troll";
 
     std::vector<Path> segments;
 

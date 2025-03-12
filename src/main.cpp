@@ -132,7 +132,7 @@ int main(int argc, char** argv) {
     auto nyaa = std::chrono::duration_cast<std::chrono::milliseconds>(owo - uwu).count();
     std::cout << "first iteration took " << nyaa / 1000.0 << "s " << std::endl;*/
 
-    Context ctx{seed, {}, true};
+    Context ctx{seed, Dimension::Nether, 128, true};
     auto t1 = std::chrono::steady_clock::now();
     auto realStart = findAir<Size::X4>(ctx, {0, 50, 0});
     auto realGoal = findAir<Size::X4>(ctx, ONE_HUNDRED_K);
