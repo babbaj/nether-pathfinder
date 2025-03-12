@@ -154,6 +154,7 @@ extern "C" {
     }
 
     EXPORT jboolean JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_setChunkState(JNIEnv* env, jclass clazz, Context* ctx, jint x, jint z, jboolean fromJava) {
+        std::scoped_lock lock{ctx->cacheMutex};
         auto it = ctx->chunkCache.find(ChunkPos{x, z});
         if (it != ctx->chunkCache.end()) {
             it->second.first = fromJava ? ChunkState::FROM_JAVA : ChunkState::FAKE;
