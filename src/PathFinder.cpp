@@ -82,12 +82,13 @@ const Chunk& getOrGenChunk(Context& ctx, ChunkGenExec& executor, const ChunkPos&
     }
 }
 
-const Chunk& getChunkOrAir(Context& ctx, const ChunkPos& pos) {
+std::pair<ChunkState, const Chunk&> getChunkOrAir(Context& ctx, const ChunkPos& pos) {
     auto it = ctx.chunkCache.find(pos);
     if (it != ctx.chunkCache.end()) {
-        return *it->second.second;
+        auto& [state, chunk] = it->second;
+        return {state, *chunk};
     } else {
-        return AIR_CHUNK;
+        return {ChunkState::FAKE, AIR_CHUNK};
     }
 }
 
@@ -136,15 +137,15 @@ std::array<BlockPos, 4> neighborCubes(const BlockPos& origin) {
 
 // face is relative to the original cube
 template<Face face, Size size, bool sizeChange, Size minSize>
-void forEachNeighborInCube(const Chunk& chunk, const NodePos& neighborNode, auto& callback) {
+void forEachNeighborInCube(const Chunk& chunk, ChunkState state, const NodePos& neighborNode, auto& callback) {
     if constexpr (sizeChange) {
-        callback(neighborNode, chunk);
+        callback(neighborNode, chunk, state);
         return;
     }
     const auto pos = neighborNode.absolutePosZero();
     const auto chunkLocal = pos.toChunkLocal();
     if (chunk.isEmpty<size>(chunkLocal.x, chunkLocal.y, chunkLocal.z)) {
-        callback(neighborNode, chunk);
+        callback(neighborNode, chunk, state);
         return;
     }
     if constexpr (size != Size::X1) {
@@ -154,51 +155,51 @@ void forEachNeighborInCube(const Chunk& chunk, const NodePos& neighborNode, auto
         if constexpr (nextSize < minSize) return;
         const std::array subCubes = neighborCubes<face, nextSize>(pos);
         for (const BlockPos& subCube : subCubes) {
-            forEachNeighborInCube<face, nextSize, false, minSize>(chunk, NodePos{nextSize, subCube}, callback);
+            forEachNeighborInCube<face, nextSize, false, minSize>(chunk, state, NodePos{nextSize, subCube}, callback);
         }
     }
 }
 
 
 template<Face face, Size originalSize, Size minSize>
-void growThenIterateInner(const Chunk& chunk, const NodePos& pos, auto& callback) {
+void growThenIterateInner(const Chunk& chunk, ChunkState state, const NodePos& pos, auto& callback) {
     const auto bpos = pos.absolutePosZero();
     const auto chunkLocal = bpos.toChunkLocal();
 
     switch (originalSize) {
         case Size::X1:
             if (!chunk.isEmpty<Size::X2>(chunkLocal.x, chunkLocal.y, chunkLocal.z)) {
-                forEachNeighborInCube<face, Size::X1, originalSize != Size::X1, minSize>(chunk, pos, callback);
+                forEachNeighborInCube<face, Size::X1, originalSize != Size::X1, minSize>(chunk, state, pos, callback);
                 return;
             }
             [[fallthrough]];
         case Size::X2:
             if (!chunk.isEmpty<Size::X4>(chunkLocal.x, chunkLocal.y, chunkLocal.z)) {
-                forEachNeighborInCube<face, Size::X2, originalSize != Size::X2, minSize>(chunk, NodePos{Size::X2, bpos},callback);
+                forEachNeighborInCube<face, Size::X2, originalSize != Size::X2, minSize>(chunk, state, NodePos{Size::X2, bpos},callback);
                 return;
             }
             [[fallthrough]];
         case Size::X4:
             if (!chunk.isEmpty<Size::X8>(chunkLocal.x, chunkLocal.y, chunkLocal.z)) {
-                forEachNeighborInCube<face, Size::X4, originalSize != Size::X4, minSize>(chunk, NodePos{Size::X4, bpos},callback);
+                forEachNeighborInCube<face, Size::X4, originalSize != Size::X4, minSize>(chunk, state, NodePos{Size::X4, bpos},callback);
                 return;
             }
             [[fallthrough]];
         case Size::X8:
             if (!chunk.isEmpty<Size::X16>(chunkLocal.x, chunkLocal.y, chunkLocal.z)) {
-                forEachNeighborInCube<face, Size::X8, originalSize != Size::X8, minSize>(chunk, NodePos{Size::X8, bpos},callback);
+                forEachNeighborInCube<face, Size::X8, originalSize != Size::X8, minSize>(chunk, state, NodePos{Size::X8, bpos},callback);
                 return;
             }
             [[fallthrough]];
         case Size::X16:
-            forEachNeighborInCube<face, Size::X16, originalSize != Size::X16, minSize>(chunk, NodePos{Size::X16, bpos},callback);
+            forEachNeighborInCube<face, Size::X16, originalSize != Size::X16, minSize>(chunk, state, NodePos{Size::X16, bpos},callback);
     }
 }
 
 
 template<Face face, Size minSize>
-void growThenIterateOuter(const Chunk& chunk, const NodePos& pos, auto& callback) {
-#define CASE(sz) case sz: growThenIterateInner<face, sz, minSize>(chunk, pos, callback); return;
+void growThenIterateOuter(const Chunk& chunk, ChunkState state, const NodePos& pos, auto& callback) {
+#define CASE(sz) case sz: growThenIterateInner<face, sz, minSize>(chunk, state, pos, callback); return;
     switch (pos.size) {
         CASE(Size::X1)
         CASE(Size::X2)
@@ -329,10 +330,10 @@ std::optional<Path> findPathSegment(Context& ctx, const NodePos& start, const No
         const auto size = pos.size;
         const auto bpos = pos.absolutePosZero();
         const ChunkPos cpos = bpos.toChunkPos();
-        const Chunk& currentChunk = getChunkOrAir(ctx, cpos);
-        /*if (!currentChunk.isFromJava) {
+        const std::pair currentChunk = getChunkOrAir(ctx, cpos);
+        if (currentChunk.first != ChunkState::FROM_JAVA) {
             fakeChunkVisits++;
-        } else*/ {
+        } else {
             fakeChunkVisits = 0;
         }
         if (fakeChunkVisits >= 100 && airIfFake) {
@@ -360,10 +361,9 @@ std::optional<Path> findPathSegment(Context& ctx, const NodePos& start, const No
             doneFull.emplace(cpos, true);
         }
 
-        auto callback = [&](const NodePos& neighborPos, const Chunk& chunk) {
+        auto callback = [&](const NodePos& neighborPos, const Chunk& chunk, ChunkState state) {
             PathNode* neighborNode = getNodeAtPosition(map, neighborPos, goalCenter);
-            //auto sqrtSize = [](Size sz) { return sqrt(width(sz)); };
-            const double cost = /*chunk.isFromJava ? 1 :*/ fakeChunkCost;//sqrtSize(neighborNode->pos.size);//width(neighborNode->pos.size);
+            const double cost = state == ChunkState::FROM_JAVA ? 1 : fakeChunkCost;
             const double tentativeCost = currentNode->cost + cost;
             constexpr double MIN_IMPROVEMENT = 0.01;
             if (neighborNode->cost - tentativeCost > MIN_IMPROVEMENT) {
@@ -400,7 +400,7 @@ std::optional<Path> findPathSegment(Context& ctx, const NodePos& start, const No
                 }
                 const ChunkPos neighborCpos = origin.toChunkPos();
                 timeDoingIO += tryLoadRegionNative(ctx, neighborCpos);
-                const Chunk& chunk =
+                const auto [state, chunk] =
                         face == Face::UP || face == Face::DOWN ? currentChunk :
                         face == Face::NORTH ? neighborCpos == cpos ? currentChunk : getChunkOrAir(ctx, cposNorth) :
                         face == Face::SOUTH ? neighborCpos == cpos ? currentChunk : getChunkOrAir(ctx, cposSouth) :
@@ -410,13 +410,13 @@ std::optional<Path> findPathSegment(Context& ctx, const NodePos& start, const No
                 // 1x only
                 if (/*fine*/ false) {
                     if (!chunk.isSolid(neighborNodePos.absolutePosZero())) {
-                        callback(neighborNodePos, chunk);
+                        callback(neighborNodePos, chunk, state);
                     }
                 } else {
                     if (x4Min) {
-                        growThenIterateOuter<face, Size::X4>(chunk, neighborNodePos, callback);
+                        growThenIterateOuter<face, Size::X4>(chunk, state, neighborNodePos, callback);
                     } else {
-                        growThenIterateOuter<face, Size::X2>(chunk, neighborNodePos, callback);
+                        growThenIterateOuter<face, Size::X2>(chunk, state, neighborNodePos, callback);
                     }
                 }
             }(), ...);

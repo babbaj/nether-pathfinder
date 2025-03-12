@@ -27,17 +27,17 @@ size_t getPageSize() {
 std::mutex pool_mutate_mutex;
 std::shared_ptr<std::vector<void*>> all_pools = std::make_shared<std::vector<void*>>();
 
-bool is_pool_pointer(void* ptr) {
+bool is_pool_pointer(uintptr_t address) {
     auto pools = all_pools;
-    return std::find(pools->rbegin(), pools->rend(), (void*) (((uintptr_t) ptr) & POOL_PTR_MASK)) != pools->rend();
+    return std::find(pools->rbegin(), pools->rend(), (void*) (address & POOL_PTR_MASK)) != pools->rend();
 }
 
 LONG page_handler(PEXCEPTION_POINTERS ptr) {
     PEXCEPTION_RECORD record = ptr->ExceptionRecord;
     if (record->ExceptionCode == EXCEPTION_ACCESS_VIOLATION) {
-        void* fault_address = (void*)(record->ExceptionInformation[1]);
+        uintptr_t fault_address = (uintptr_t) (record->ExceptionInformation[1]);
         if (is_pool_pointer(fault_address)) {
-            void* page_aligned = (void*)((uintptr_t)fault_address & ~(4096 - 1));
+            void* page_aligned = (void*) (fault_address & ~(4096 - 1));
             if (VirtualAlloc(page_aligned, 4096, MEM_COMMIT, PAGE_READWRITE)) {
                 return EXCEPTION_CONTINUE_EXECUTION;
             }
