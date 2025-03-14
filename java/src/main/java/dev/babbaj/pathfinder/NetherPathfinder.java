@@ -39,9 +39,12 @@ public class NetherPathfinder {
     */
     public static native void insertChunkData(long context, int chunkX, int chunkZ, boolean[] data);
 
-    public static native long getOrCreateChunk(long context, int x, int z);
+    public static native long allocateAndInsertChunk(long context, int x, int z);
 
-    public static native long getChunkPointer(long context, int x, int z);
+    // do not write to the chunk this returns
+    public static native long getChunkOrDefault(long context, int x, int z, boolean solid);
+
+    public static native long getChunk(long context, int x, int z);
 
     // returns true if the chunk existed and the change was made
     public static native boolean setChunkState(long context, int x, int z, boolean fromJava);

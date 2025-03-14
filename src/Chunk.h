@@ -111,12 +111,6 @@ private:
 #undef CHUNK_GETBIT
 
 public:
-    void calcEmptyX16() {
-        for (int i = 0; i < 24; i++) {
-            //x16Empty[i] = ::isEmpty(data[i]);
-        }
-    }
-
     const x16_t& getX16(int y) const {
         return data[x16Index(y)];
     }
@@ -179,7 +173,6 @@ public:
 
 template<>
 inline bool Chunk::isEmpty<Size::X16>(int, int y, int) const {
-    //return x16Empty[x16Index(y)];
     return ::isEmpty(data[x16Index(y)]);
 }
 
@@ -205,13 +198,12 @@ inline bool Chunk::isEmpty<Size::X1>(int x, int y, int z) const {
     return getBit(x, y, z) == 0;
 }
 
-static const Chunk AIR_CHUNK = [] {
-        Chunk out{};
-        out.calcEmptyX16();
-        return out;
-    }();
+static const Chunk AIR_CHUNK alignas(4096) = [] {
+    Chunk out{};
+    return out;
+}();
 
-static const Chunk SOLID_CHUNK = [] {
+static const Chunk SOLID_CHUNK alignas(4096) = [] {
     Chunk out{};
     memset(&out.data, 0xFF, sizeof(out.data));
     return out;

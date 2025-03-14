@@ -7,6 +7,21 @@
 #include "PathFinder.h"
 #include "Refiner.h"
 
+#ifdef _WIN32
+#include <windows.h>
+#include <atomic>
+void makeReadOnly(void* ptr, size_t len) {
+    DWORD old;
+    return VirtualProtect(lpAddress, dwSize, PAGE_READONLY, &old);
+}
+#else
+#include <sys/mman.h>
+#include <unistd.h>
+void makeReadOnly(void* ptr, size_t len) {
+    mprotect(ptr, len, PROT_READ);
+}
+#endif
+
 static_assert(sizeof(jlong) == sizeof(void*)); // 32 bit btfo
 
 constexpr jint NUM_X_BITS = 26;//1 + MathHelper.log2(MathHelper.smallestEncompassingPowerOfTwo(30000000));
@@ -52,6 +67,11 @@ extern "C" {
 #endif
 
     EXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved) {
+        if (getPageSize() == 4096) {
+            makeReadOnly((void *) &AIR_CHUNK, sizeof(Chunk));
+            makeReadOnly((void *) &SOLID_CHUNK, sizeof(Chunk));
+        }
+
         JNIEnv* env;
         if (vm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_8) != JNI_OK) {
             return JNI_EVERSION;
@@ -128,33 +148,41 @@ extern "C" {
         }
         env->ReleaseBooleanArrayElements(input, data, JNI_ABORT);
 
-        std::scoped_lock lock{ctx->cacheMutex};
         ctx->chunkCache.insert_or_assign(ChunkPos{chunkX, chunkZ}, std::pair{ChunkState::FROM_JAVA, chunk_ptr});
     }
 
-    EXPORT Chunk* JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_getOrCreateChunk(JNIEnv*, jclass, Context* ctx, jint x, jint z) {
-        std::scoped_lock lock{ctx->cacheMutex};
+    EXPORT Chunk* JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_allocateAndInsertChunk(JNIEnv*, jclass, Context* ctx, jint x, jint z) {
+        Chunk* chunk = ctx->chunkAllocator->allocate();
+        auto p = std::pair{ChunkState::FROM_JAVA, chunk};
+        auto existing = ctx->chunkCache.find(ChunkPos{x, z});
+        if (existing != ctx->chunkCache.end()) {
+            ctx->chunkAllocator->free(existing->second.second);
+            existing->second = p;
+        } else {
+            ctx->chunkCache.emplace(ChunkPos{x, z}, p);
+        }
+        return chunk;
+    }
+
+    EXPORT Chunk* JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_getChunkOrDefault(JNIEnv*, jclass, Context* ctx, jint x, jint z, jboolean solid) {
         auto existing = ctx->chunkCache.find(ChunkPos{x, z});
         if (existing != ctx->chunkCache.end()) {
             return existing->second.second;
         } else {
-            Chunk* chunk = ctx->chunkAllocator->allocate();
-            return ctx->chunkCache.emplace(ChunkPos{x, z}, std::pair{ChunkState::FAKE, chunk}).first->second.second;
+            return const_cast<Chunk*>(solid ? &SOLID_CHUNK : &AIR_CHUNK);
         }
     }
 
-    EXPORT Chunk* JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_getChunkPointer(JNIEnv*, jclass, Context* ctx, jint x, jint z) {
-        std::scoped_lock lock{ctx->cacheMutex};
+    EXPORT Chunk* JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_getChunk(JNIEnv*, jclass, Context* ctx, jint x, jint z) {
         auto existing = ctx->chunkCache.find(ChunkPos{x, z});
         if (existing != ctx->chunkCache.end()) {
             return existing->second.second;
         } else {
-            return 0; // null pointer
+            return nullptr;
         }
     }
 
     EXPORT jboolean JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_setChunkState(JNIEnv* env, jclass clazz, Context* ctx, jint x, jint z, jboolean fromJava) {
-        std::scoped_lock lock{ctx->cacheMutex};
         auto it = ctx->chunkCache.find(ChunkPos{x, z});
         if (it != ctx->chunkCache.end()) {
             it->second.first = fromJava ? ChunkState::FROM_JAVA : ChunkState::FAKE;
@@ -165,7 +193,6 @@ extern "C" {
 
 
     EXPORT jboolean JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_hasChunkFromJava(JNIEnv*, jclass, Context* ctx, jint x, jint z) {
-        std::scoped_lock lock{ctx->cacheMutex};
         auto existing = ctx->chunkCache.find(ChunkPos{x, z});
         if (existing != ctx->chunkCache.end()) {
             return existing->second.first == ChunkState::FROM_JAVA;
@@ -175,7 +202,6 @@ extern "C" {
     }
 
     EXPORT void JNICALL Java_dev_babbaj_pathfinder_NetherPathfinder_cullFarChunks(JNIEnv*, jclass, Context* ctx, jint chunkX, jint chunkZ, jint maxDistanceBlocks) {
-        std::scoped_lock lock{ctx->cacheMutex};
         const auto distSqBlocks = (maxDistanceBlocks / 16) * (maxDistanceBlocks / 16);
         const auto distSq = distSqBlocks;
         std::erase_if(ctx->chunkCache, [=](const auto& item) {
