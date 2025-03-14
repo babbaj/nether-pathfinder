@@ -12,7 +12,7 @@
 #include <atomic>
 void makeReadOnly(void* ptr, size_t len) {
     DWORD old;
-    return VirtualProtect(lpAddress, dwSize, PAGE_READONLY, &old);
+    VirtualProtect(ptr, len, PAGE_READONLY, &old);
 }
 #else
 #include <sys/mman.h>
