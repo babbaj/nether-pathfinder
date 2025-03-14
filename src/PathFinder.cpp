@@ -58,19 +58,20 @@ Path createPath(map_t<NodePos, std::unique_ptr<PathNode>>& map, const PathNode* 
     };
 }
 
-const Chunk& getOrGenChunk(Context& ctx, ChunkGenExec& executor, const ChunkPos& pos, FakeChunkMode fakeChunkMode) {
+const Chunk& getRealChunkFromCacheOrFakeChunkMaybeGen(Context& ctx, ChunkGenExec& executor, const ChunkPos& pos, FakeChunkMode mode) {
+    if (mode == FakeChunkMode::GENERATE) {
+        return getOrGenChunk(ctx, executor, pos);
+    }
+    return getRealChunkOrDefault(ctx, pos, mode == FakeChunkMode::SOLID);
+}
+
+const Chunk& getOrGenChunk(Context& ctx, ChunkGenExec& executor, const ChunkPos& pos) {
     ctx.cacheMutex.lock();
     auto it = ctx.chunkCache.find(pos);
     if (it != ctx.chunkCache.end()) {
-        auto& [state, chunk] = it->second;
+        Chunk* chunk = it->second.second;
         ctx.cacheMutex.unlock();
-        if (state != ChunkState::FROM_JAVA && fakeChunkMode != FakeChunkMode::GENERATE) {
-            return fakeChunkMode == FakeChunkMode::AIR ? AIR_CHUNK : SOLID_CHUNK;
-        }
         return *chunk;
-    } else if (fakeChunkMode != FakeChunkMode::GENERATE) {
-        ctx.cacheMutex.unlock();
-        return fakeChunkMode == FakeChunkMode::AIR ? AIR_CHUNK : SOLID_CHUNK;
     } else {
         Chunk* chunk = ctx.chunkAllocator->allocate();
         ctx.cacheMutex.unlock();
@@ -79,6 +80,17 @@ const Chunk& getOrGenChunk(Context& ctx, ChunkGenExec& executor, const ChunkPos&
         ctx.chunkCache.emplace(pos, std::pair{ChunkState::FAKE, chunk});
         ctx.cacheMutex.unlock();
         return *chunk;
+    }
+}
+
+const Chunk& getRealChunkOrDefault(Context& ctx, const ChunkPos& pos, bool solid) {
+    auto it = ctx.chunkCache.find(pos);
+    if (it != ctx.chunkCache.end()) {
+        auto& [state, chunk] = it->second;
+        if (state != ChunkState::FROM_JAVA) return solid ? SOLID_CHUNK : AIR_CHUNK;
+        return *chunk;
+    } else {
+        return solid ? SOLID_CHUNK : AIR_CHUNK;
     }
 }
 
@@ -288,7 +300,7 @@ std::optional<Path> findPathSegment(Context& ctx, const NodePos& start, const No
     startNode->cost = 0;
     startNode->combinedCost = startNode->estimatedCostToGoal;
     openSet.insert(startNode);
-    getOrGenChunk(ctx, ctx.executors[0], start.absolutePosZero().toChunkPos(), fakeChunkMode);
+    getRealChunkFromCacheOrFakeChunkMaybeGen(ctx, ctx.executors[0], start.absolutePosZero().toChunkPos(), fakeChunkMode);
 
     PathNode* bestSoFar = startNode;
     double bestHeuristicSoFar = startNode->estimatedCostToGoal;
@@ -346,16 +358,16 @@ std::optional<Path> findPathSegment(Context& ctx, const NodePos& start, const No
         if (!airIfFake && !doneFull.contains(cpos)) {
             ctx.topExecutor.compute(
                     [&] {
-                        return getOrGenChunk(ctx, ctx.executors[0], cposNorth, fakeChunkMode);
+                        return getRealChunkFromCacheOrFakeChunkMaybeGen(ctx, ctx.executors[0], cposNorth, fakeChunkMode);
                     },
                     [&] {
-                        return getOrGenChunk(ctx, ctx.executors[1], cposSouth, fakeChunkMode);
+                        return getRealChunkFromCacheOrFakeChunkMaybeGen(ctx, ctx.executors[1], cposSouth, fakeChunkMode);
                     },
                     [&] {
-                        return getOrGenChunk(ctx, ctx.executors[2], cposEast, fakeChunkMode);
+                        return getRealChunkFromCacheOrFakeChunkMaybeGen(ctx, ctx.executors[2], cposEast, fakeChunkMode);
                     },
                     [&] {
-                        return getOrGenChunk(ctx, ctx.executors[3], cposWest, fakeChunkMode);
+                        return getRealChunkFromCacheOrFakeChunkMaybeGen(ctx, ctx.executors[3], cposWest, fakeChunkMode);
                     }
             );
             doneFull.emplace(cpos, true);

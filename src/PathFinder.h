@@ -15,7 +15,7 @@
 enum class FakeChunkMode {
     GENERATE = 0
     ,AIR = 1
-    //,SOLID = 2
+    ,SOLID = 2
 };
 
 struct Path {
@@ -77,7 +77,12 @@ struct Context {
     }
 };
 
-const Chunk& getOrGenChunk(Context& ctx, ChunkGenExec& executor, const ChunkPos& pos, FakeChunkMode fakeChunkMode = FakeChunkMode::GENERATE);
+// long name but I do not care
+// simply calls getRealChunkOrDefault or getOrGenChunk depending on mode
+const Chunk& getRealChunkFromCacheOrFakeChunkMaybeGen(Context& ctx, ChunkGenExec& executor, const ChunkPos& pos, FakeChunkMode mode);
+// gets from cache, or generates and inserts into cache
+const Chunk& getOrGenChunk(Context& ctx, ChunkGenExec& executor, const ChunkPos& pos);
+const Chunk& getRealChunkOrDefault(Context& ctx, const ChunkPos& pos, bool solid);
 
 std::optional<Path> findPathFull(Context& ctx, const NodePos& start, const NodePos& goal, double fakeChunkCost);
 std::optional<Path> findPathSegment(Context& ctx, const NodePos& start, const NodePos& goal, bool x4Min, int failTimeoutMs, bool airIfFake, double fakeChunkCost);

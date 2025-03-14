@@ -413,7 +413,7 @@ RaytraceResult raytrace(Context& ctx, const Vec3& from, const Vec3& to, FakeChun
         a |= 1;
     }
     const BlockPos realOriginBlock = vecToBlockPos(from);
-    auto firstNode = x16Node(getOrGenChunk(ctx, ctx.executors[0], realOriginBlock.toChunkPos(), fakeChunkMode), realOriginBlock);
+    auto firstNode = x16Node(getRealChunkFromCacheOrFakeChunkMaybeGen(ctx, ctx.executors[0], realOriginBlock.toChunkPos(), fakeChunkMode), realOriginBlock);
 
     Node<Size::X16> currentNode = firstNode;
     while (true) {
@@ -440,7 +440,7 @@ RaytraceResult raytrace(Context& ctx, const Vec3& from, const Vec3& to, FakeChun
                 neighborPos.x += (a & 4) ? -16 : 16;
                 break;
         }
-        currentNode = x16Node(getOrGenChunk(ctx, ctx.executors[0], neighborPos.toChunkPos(), fakeChunkMode), neighborPos);
+        currentNode = x16Node(getRealChunkFromCacheOrFakeChunkMaybeGen(ctx, ctx.executors[0], neighborPos.toChunkPos(), fakeChunkMode), neighborPos);
     }
 }
 

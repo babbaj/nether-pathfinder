@@ -13,7 +13,9 @@ import java.util.zip.ZipInputStream;
 
 public class NetherPathfinder {
 
-    // How the raytracer will treat chunks that aren't actually observed
+    // How the raytracer will treat chunks that aren't actually observed.
+    // When chunk generation is used the caller must synchronize calls that read from the cache with calls that may mutate the cache.
+    // No synchronization is done within the jni code
     public static int CACHE_MISS_GENERATE = 0;
     public static int CACHE_MISS_AIR = 1;
     public static int CACHE_MISS_SOLID = 2;
@@ -35,7 +37,6 @@ public class NetherPathfinder {
     }
 
     chunkX and chunkZ are chunk coords, not block coords.
-    This is currently not thread safe
     */
     public static native void insertChunkData(long context, int chunkX, int chunkZ, boolean[] data);
 
@@ -53,7 +54,7 @@ public class NetherPathfinder {
 
     public static native void cullFarChunks(long context, int chunkX, int chunkZ, int maxDistanceBlocks);
 
-    public static native PathSegment pathFind(long context, int x1, int y1, int z1, int x2, int y2, int z2, boolean atLeastX4, boolean refine, int failTimeoutInMillis, boolean useAirIfChunkNotLoaded, double fakeChunkCost);
+    public static native PathSegment pathFind(long context, int x1, int y1, int z1, int x2, int y2, int z2, boolean atLeastX4, boolean refine, int failTimeoutInMillis, boolean defaultAirElseGenerate, double fakeChunkCost);
 
     private static native void raytrace0(long context, int fakeChunkMode, int inputs, double[] start, double[] end, boolean[] hitsOut, double[] hitPosOutCanBeNull);
 
