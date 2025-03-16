@@ -68,36 +68,41 @@ void parseAndInsertChunk(Allocator<Chunk>& chunkAllocator, cache_t& cache, int c
 }
 
 void parseBaritoneRegion(Allocator<Chunk>& allocator, cache_t& cache, RegionPos regionPos, gzFile data, Dimension dim) {
-    int magic = beInt(decomp<4>(data));
-    if (magic != 456022911) {
-        puts("Bad magic");
-        std::terminate();
-    }
-    for (int x = 0; x < 32; x++) {
-        for (int z = 0; z < 32; z++) {
-            const int8_t present = decomp<1>(data)[0];
-            if (present == 1) {
-                switch(dim) {
-                    case Dimension::Overworld:
-                        static constexpr size_t chunkSizeOverworld = (2 * 16 * 16 * 384) / 8;
-                        parseAndInsertChunk(allocator, cache, x + 32 * regionPos.x, z + 32 * regionPos.z, 384, decomp<chunkSizeOverworld>(data));
-                        break;
-                    case Dimension::Nether:
-                    case Dimension::End:
-                        static constexpr size_t chunkSize = (2 * 16 * 16 * 256) / 8;
-                        parseAndInsertChunk(allocator, cache, x + 32 * regionPos.x, z + 32 * regionPos.z, 256, decomp<chunkSize>(data));
-                        break;
+    try {
+        int magic = beInt(decomp<4>(data));
+        if (magic != 456022911) {
+            std::cerr << "Bad magic for baritone region " << regionPos.x << "," << regionPos.z << std::endl;
+            goto close;
+        }
+        for (int x = 0; x < 32; x++) {
+            for (int z = 0; z < 32; z++) {
+                const int8_t present = decomp<1>(data)[0];
+                if (present == 1) {
+                    switch (dim) {
+                        case Dimension::Overworld:
+                            static constexpr size_t chunkSizeOverworld = (2 * 16 * 16 * 384) / 8;
+                            parseAndInsertChunk(allocator, cache, x + 32 * regionPos.x, z + 32 * regionPos.z, 384, decomp<chunkSizeOverworld>(data));
+                            break;
+                        case Dimension::Nether:
+                        case Dimension::End:
+                            static constexpr size_t chunkSize = (2 * 16 * 16 * 256) / 8;
+                            parseAndInsertChunk(allocator, cache, x + 32 * regionPos.x, z + 32 * regionPos.z, 256, decomp<chunkSize>(data));
+                            break;
+                    }
                 }
             }
         }
+    } catch(...) {
+        std::cerr << "exception thrown parsing " << regionPos.x << "," << regionPos.z << std::endl;
     }
+    close:
     zng_gzclose_r(data);
 }
 
 std::optional<std::tuple<gzFile, Dimension>> openRegionFile(std::string_view dir, RegionPos pos) {
     Dimension dim;
     auto cacheParent = std::filesystem::path{dir}.parent_path().filename().string();
-    if(cacheParent == "the_nether_128") {
+    if (cacheParent == "the_nether_128") {
         dim = Dimension::Nether;
     } else if (cacheParent == "overworld_384") {
         dim = Dimension::Overworld;
