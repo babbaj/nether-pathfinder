@@ -66,24 +66,30 @@ const Chunk& getRealChunkFromCacheOrFakeChunkMaybeGen(Context& ctx, ChunkGenExec
 }
 
 const Chunk& getOrGenChunk(Context& ctx, ChunkGenExec& executor, const ChunkPos& pos) {
-    ctx.cacheMutex.lock();
-    auto it = ctx.chunkCache.find(pos);
-    if (it != ctx.chunkCache.end()) {
-        Chunk* chunk = it->second.second;
-        ctx.cacheMutex.unlock();
-        return *chunk;
-    } else {
-        Chunk* chunk = ctx.chunkAllocator->allocate();
-        ctx.cacheMutex.unlock();
-        ctx.generator.generateChunk(pos.x, pos.z, *chunk, executor);
-        ctx.cacheMutex.lock();
-        ctx.chunkCache.emplace(pos, std::pair{ChunkState::FAKE, chunk});
-        ctx.cacheMutex.unlock();
-        return *chunk;
+    {
+        std::shared_lock lock(ctx.cacheMutex);
+        auto it = ctx.chunkCache.find(pos);
+        if (it != ctx.chunkCache.end()) {
+            return *it->second.second;
+        }
     }
+    Chunk* chunk;
+    {
+        std::unique_lock lock(ctx.cacheMutex);
+        chunk = ctx.chunkAllocator->allocate();
+    }
+    ctx.generator.generateChunk(pos.x, pos.z, *chunk, executor);
+    std::unique_lock lock(ctx.cacheMutex);
+    auto [it, inserted] = ctx.chunkCache.emplace(pos, std::pair{ChunkState::FAKE, chunk});
+    if (!inserted) {
+        // someone else generated this chunk while we were generating it
+        ctx.chunkAllocator->free(chunk);
+    }
+    return *it->second.second;
 }
 
 const Chunk& getRealChunkOrDefault(Context& ctx, const ChunkPos& pos, bool solid) {
+    std::shared_lock lock(ctx.cacheMutex);
     auto it = ctx.chunkCache.find(pos);
     if (it != ctx.chunkCache.end()) {
         auto& [state, chunk] = it->second;
@@ -95,6 +101,7 @@ const Chunk& getRealChunkOrDefault(Context& ctx, const ChunkPos& pos, bool solid
 }
 
 std::pair<ChunkState, const Chunk&> getChunkOrAir(Context& ctx, const ChunkPos& pos) {
+    std::shared_lock lock(ctx.cacheMutex);
     auto it = ctx.chunkCache.find(pos);
     if (it != ctx.chunkCache.end()) {
         auto& [state, chunk] = it->second;
@@ -262,25 +269,61 @@ bool inGoal(const NodePos& node, const BlockPos& goal) {
 }
 
 
-std::chrono::milliseconds tryLoadRegionNative(Context& ctx, ChunkPos pos) {
-    auto regionPos = RegionPos{pos.x >> 5, pos.z >> 5};
-    if (ctx.baritoneCache.has_value() && ctx.checkedRegions.insert(regionPos).second) {
-        // only measure when actually reading a file because there might be overhead
-        auto t1 = std::chrono::steady_clock::now();
-        auto file = openRegionFile(ctx.baritoneCache.value(), regionPos);
-        if (!file) {
-            return {};
-        }
+// Takes the cache mutex around each allocation so a region can be parsed without holding it.
+struct LockedAllocator final : Allocator<Chunk> {
+    std::shared_mutex& mutex;
+    Allocator<Chunk>& inner;
 
-        auto [data, dim] = file.value();
-        parseBaritoneRegion(*ctx.chunkAllocator, ctx.chunkCache, regionPos, data, dim);
+    LockedAllocator(std::shared_mutex& mutex, Allocator<Chunk>& inner): mutex(mutex), inner(inner) {}
 
-        auto t2 = std::chrono::steady_clock::now();
-        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
-        return duration;
-        //std::cout << "Loading region took " << duration.count() << "ms" << std::endl;
+    Chunk* allocate() override {
+        std::unique_lock lock(mutex);
+        return inner.allocate();
     }
-    return {};
+
+    void free(Chunk* ptr) override {
+        std::unique_lock lock(mutex);
+        inner.free(ptr);
+    }
+};
+
+std::chrono::milliseconds tryLoadRegionNative(Context& ctx, ChunkPos pos) {
+    if (!ctx.baritoneCache.has_value()) return {};
+    auto regionPos = RegionPos{pos.x >> 5, pos.z >> 5};
+    {
+        std::shared_lock lock(ctx.cacheMutex);
+        if (ctx.checkedRegions.contains(regionPos)) return {};
+    }
+    {
+        std::unique_lock lock(ctx.cacheMutex);
+        if (!ctx.checkedRegions.insert(regionPos).second) return {};
+    }
+    // only measure when actually reading a file because there might be overhead
+    auto t1 = std::chrono::steady_clock::now();
+    auto file = openRegionFile(ctx.baritoneCache.value(), regionPos);
+    if (!file) {
+        return {};
+    }
+
+    // Decompressing a region takes long enough that lookups should not wait for it, so parse into
+    // a map of our own and merge it afterwards. A chunk that arrived in the meantime wins.
+    auto [data, dim] = file.value();
+    LockedAllocator allocator{ctx.cacheMutex, *ctx.chunkAllocator};
+    cache_t loaded;
+    parseBaritoneRegion(allocator, loaded, regionPos, data, dim);
+    {
+        std::unique_lock lock(ctx.cacheMutex);
+        for (const auto& [chunkPos, entry] : loaded) {
+            if (!ctx.chunkCache.emplace(chunkPos, entry).second) {
+                ctx.chunkAllocator->free(entry.second);
+            }
+        }
+    }
+
+    auto t2 = std::chrono::steady_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
+    return duration;
+    //std::cout << "Loading region took " << duration.count() << "ms" << std::endl;
 }
 
 std::atomic_flag cancelFlag;
@@ -447,21 +490,6 @@ std::optional<Path> findPathSegment(Context& ctx, const NodePos& start, const No
     return bestPathSoFar(map, startNode, bestSoFar, startCenter, goalCenter);
 }
 
-// TODO: fix this lol
-const Chunk& getChunkNoMutex(const BlockPos& pos, const ChunkGeneratorHell& gen, ChunkGenExec& exec, cache_t& cache, Allocator<Chunk>& allocator) {
-    const ChunkPos chunkPos = pos.toChunkPos();
-    auto it = cache.find(chunkPos);
-    if (it != cache.end()) {
-        return *it->second.second;
-    } else {
-        Chunk* ptr = allocator.allocate();
-        auto& chunk = *ptr;
-        gen.generateChunk(chunkPos.x, chunkPos.z, *ptr, exec);
-        cache.emplace(chunkPos, std::pair{ChunkState::FAKE, ptr});
-        return chunk;
-    }
-}
-
 template<Size size>
 NodePos findAir(Context& ctx, const BlockPos& start1x) {
     auto start = NodePos{size, start1x};
@@ -476,7 +504,7 @@ NodePos findAir(Context& ctx, const BlockPos& start1x) {
         const auto blockPos = node.absolutePosZero();
         queue.pop();
         if (isInBounds(ctx.maxHeight, node.absolutePosZero())) {
-            const auto& chunk = getChunkNoMutex(blockPos, ctx.generator, ctx.executors[0], ctx.chunkCache, *ctx.chunkAllocator);
+            const auto& chunk = getOrGenChunk(ctx, ctx.executors[0], blockPos.toChunkPos());
             if (chunk.isEmpty<size>(blockPos.x & 15, blockPos.y, blockPos.z & 15)) {
                 return node;
             }
@@ -538,6 +566,7 @@ std::optional<Path> findPathFull(Context& ctx, const NodePos& start, const NodeP
             auto endCpos = path->blocks.end()->toChunkPos();
             const auto distSqBlocks = (200 / 16) * (200 / 16);
             const auto distSq = distSqBlocks;
+            std::unique_lock lock(ctx.cacheMutex);
             std::erase_if(ctx.chunkCache, [&](const auto& item) {
                 const auto cpos = item.first;
                 bool out = cpos.distanceToSq({endCpos.x, endCpos.z}) > distSq;
