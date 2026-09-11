@@ -334,8 +334,7 @@ SubtreeResult proc_subtree(uint8_t a, const Vec3& origin, double targetLen, doub
     }
 }
 
-// returns none if we didn't intersect at all
-std::optional<RaytraceResult> raytrace16x(uint8_t a, Ray ray, double targetLen, const Node<Size::X16>& node) {
+RaytraceResult raytrace16x(uint8_t a, Ray ray, double targetLen, const Node<Size::X16>& node) {
     // idk I copy/pasted this from stackoverflow
     // IEEE stability fix
     const double divx = 1 / ray.dir.x;
@@ -377,12 +376,13 @@ std::optional<RaytraceResult> raytrace16x(uint8_t a, Ray ray, double targetLen, 
             return Miss{exit};
         }
     } else {
-        // didn't intersect the node, this means we did something wrong
-        if (tmin != tmax) {
-            assert(!"this shit broke");
+        // The ray only touches this node along an edge or at a corner, and rounding made the
+        // interval empty. Either the ray ends there, or it continues into the node on the other
+        // side of that edge; either way there is nothing to test in this node.
+        if (tmin >= targetLen) {
+            return Finished{};
         }
-        // we hit the corner precisely
-        return {};
+        return Miss{exitPlane(tx1, ty1, tz1)};
     }
 }
 
@@ -418,16 +418,12 @@ RaytraceResult raytrace(Context& ctx, const Vec3& from, const Vec3& to, FakeChun
     Node<Size::X16> currentNode = firstNode;
     while (true) {
         Ray reflectedRay = reflectRay(ray, center(currentNode), a);
-        auto result = raytrace16x(a, reflectedRay, targetLen, currentNode);
-        if (!result) {
-            std::cerr << "raytrace whiffed" << std::endl;
-            exit(696969);
-        }
-        if (!std::holds_alternative<Miss>(result.value())) {
-            return result.value();
+        const RaytraceResult result = raytrace16x(a, reflectedRay, targetLen, currentNode);
+        if (!std::holds_alternative<Miss>(result)) {
+            return result;
         }
 
-        const Plane plane = std::get<Miss>(result.value()).exitPlane;
+        const Plane plane = std::get<Miss>(result).exitPlane;
         BlockPos neighborPos = {currentNode.x, currentNode.y, currentNode.z};
         switch (plane) {
             case Plane::XY:
