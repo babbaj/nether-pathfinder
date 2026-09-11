@@ -14,8 +14,10 @@ struct Worker {
     std::condition_variable& condition;
     std::mutex& mutex;
     std::function<void()> task;
+    // Members are constructed in declaration order and the thread starts running in its
+    // constructor, so everything the thread reads has to be declared before it.
+    std::atomic_bool stopRequest{false};
     std::thread thread;
-    std::atomic_bool stopRequest;
 
     Worker(std::condition_variable& cv, std::mutex& m): condition(cv), mutex(m), thread([this] {
         while (true) {
