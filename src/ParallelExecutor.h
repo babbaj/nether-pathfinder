@@ -80,8 +80,13 @@ struct ParallelExecutor {
     }
 
     ~ParallelExecutor() {
-        for (auto& w : workers) {
-            w.stop();
+        {
+            // A worker checks for a stop request and goes to sleep under this mutex. Setting the
+            // flags without holding it can land between the two, and that notify is never seen.
+            std::lock_guard lock(mutex);
+            for (auto& w : workers) {
+                w.stop();
+            }
         }
         this->condition_variable.notify_all();
         for (auto& w : workers) {
