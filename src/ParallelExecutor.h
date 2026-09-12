@@ -21,12 +21,17 @@ struct Worker {
 
     Worker(std::condition_variable& cv, std::mutex& m): condition(cv), mutex(m), thread([this] {
         while (true) {
-            std::unique_lock lock(this->mutex);
-            condition.wait(lock, [this] { return stopRequest.load(std::memory_order_acquire) || static_cast<bool>(this->task); });
-            if (stopRequest.load(std::memory_order_acquire)) return;
+            std::function<void()> work;
+            {
+                std::unique_lock lock(this->mutex);
+                condition.wait(lock, [this] { return stopRequest.load(std::memory_order_acquire) || static_cast<bool>(this->task); });
+                if (stopRequest.load(std::memory_order_acquire)) return;
 
-            this->task();
-            this->task = nullptr;
+                work = std::move(this->task);
+                this->task = nullptr;
+            }
+            // run it with the mutex released, otherwise the workers take turns instead of running at the same time
+            work();
         }
     }) {}
 
