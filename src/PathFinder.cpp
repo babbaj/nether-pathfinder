@@ -322,8 +322,6 @@ std::chrono::milliseconds tryLoadRegionNative(Context& ctx, ChunkPos pos) {
     //std::cout << "Loading region took " << duration.count() << "ms" << std::endl;
 }
 
-std::atomic_flag cancelFlag;
-
 std::optional<Path> findPathSegment(Context& ctx, const NodePos& start, const NodePos& goal, bool x4Min, int timeoutMs, bool airIfFake, double fakeChunkCost) {
     const auto fakeChunkMode = airIfFake ? FakeChunkMode::AIR : FakeChunkMode::GENERATE;
     const auto goalCenter = goal.absolutePosCenter();
@@ -361,7 +359,7 @@ std::optional<Path> findPathSegment(Context& ctx, const NodePos& start, const No
 
             if (now >= failureTimeout || (!failing && now >= primaryTimeoutTime)) {
                 break;
-            } else if (cancelFlag.test()) {
+            } else if (ctx.cancelFlag.test()) {
                 return {};
             }
         }
@@ -570,8 +568,8 @@ std::optional<Path> findPathFull(Context& ctx, const NodePos& start, const NodeP
         const NodePos lastPathEnd = !segments.empty() ? NodePos{Size::X2, segments.back().getEndPos()} : start;
         std::optional path = findPathSegment(ctx, lastPathEnd, goal, true, 0, false, fakeChunkCost);
         if (!path.has_value()) {
-            if (cancelFlag.test()) {
-                cancelFlag.clear();
+            if (ctx.cancelFlag.test()) {
+                ctx.cancelFlag.clear();
                 return std::nullopt;
             } else {
                 break;
