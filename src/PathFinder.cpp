@@ -291,11 +291,7 @@ std::chrono::milliseconds tryLoadRegionNative(Context& ctx, ChunkPos pos) {
     if (!ctx.baritoneCache.has_value()) return {};
     auto regionPos = RegionPos{pos.x >> 5, pos.z >> 5};
     {
-        std::shared_lock lock(ctx.cacheMutex);
-        if (ctx.checkedRegions.contains(regionPos)) return {};
-    }
-    {
-        std::unique_lock lock(ctx.cacheMutex);
+        std::lock_guard lock(ctx.checkedRegionsMutex);
         if (!ctx.checkedRegions.insert(regionPos).second) return {};
     }
     // only measure when actually reading a file because there might be overhead
@@ -490,13 +486,32 @@ std::optional<Path> findPathSegment(Context& ctx, const NodePos& start, const No
     return bestPathSoFar(map, startNode, bestSoFar, startCenter, goalCenter);
 }
 
+// the caller holds cacheMutex
+const Chunk& getChunkNoMutex(const BlockPos& pos, const ChunkGeneratorHell& gen, ChunkGenExec& exec, cache_t& cache, Allocator<Chunk>& allocator, bool airIfFake) {
+    const ChunkPos chunkPos = pos.toChunkPos();
+    auto it = cache.find(chunkPos);
+    if (it != cache.end()) {
+        return *it->second.second;
+    } else if (airIfFake) {
+        return AIR_CHUNK;
+    } else {
+        Chunk* ptr = allocator.allocate();
+        auto& chunk = *ptr;
+        gen.generateChunk(chunkPos.x, chunkPos.z, *ptr, exec);
+        cache.emplace(chunkPos, std::pair{ChunkState::FAKE, ptr});
+        return chunk;
+    }
+}
+
 template<Size size>
-NodePos findAir(Context& ctx, const BlockPos& start1x) {
+NodePos findAir(Context& ctx, const BlockPos& start1x, bool airIfFake) {
     auto start = NodePos{size, start1x};
     auto queue = std::queue<NodePos>{};
     auto visited = std::unordered_set<NodePos>{};
     queue.push(start);
     visited.insert(start);
+    // one lock for the whole search rather than one per chunk
+    std::unique_lock lock(ctx.cacheMutex);
     if (!isInBounds(ctx.maxHeight, start1x)) goto retard;
 
     while (!queue.empty()) {
@@ -504,7 +519,7 @@ NodePos findAir(Context& ctx, const BlockPos& start1x) {
         const auto blockPos = node.absolutePosZero();
         queue.pop();
         if (isInBounds(ctx.maxHeight, node.absolutePosZero())) {
-            const auto& chunk = getOrGenChunk(ctx, ctx.executors[0], blockPos.toChunkPos());
+            const auto& chunk = getChunkNoMutex(blockPos, ctx.generator, ctx.executors[0], ctx.chunkCache, *ctx.chunkAllocator, airIfFake);
             if (chunk.isEmpty<size>(blockPos.x & 15, blockPos.y, blockPos.z & 15)) {
                 return node;
             }
@@ -526,8 +541,8 @@ NodePos findAir(Context& ctx, const BlockPos& start1x) {
     exit(1);
 }
 
-template NodePos findAir<Size::X2>(Context& ctx, const BlockPos& start1x);
-template NodePos findAir<Size::X4>(Context& ctx, const BlockPos& start1x);
+template NodePos findAir<Size::X2>(Context& ctx, const BlockPos& start1x, bool airIfFake);
+template NodePos findAir<Size::X4>(Context& ctx, const BlockPos& start1x, bool airIfFake);
 
 
 void appendPath(Path& path, Path&& segment) {

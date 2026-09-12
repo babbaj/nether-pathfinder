@@ -4,6 +4,7 @@
 #include <optional>
 #include <unordered_set>
 #include <shared_mutex>
+#include <mutex>
 
 #include <jni.h>
 
@@ -41,14 +42,15 @@ struct Path {
 struct Context {
     ChunkGeneratorHell generator;
     std::optional<std::string> baritoneCache;
-    // Guards chunkCache, checkedRegions and chunkAllocator. Lookups take it shared, anything
-    // that inserts, removes or allocates takes it exclusively.
+    // Guards chunkCache and chunkAllocator. Lookups take it shared, anything that inserts,
+    // removes or allocates takes it exclusively.
     std::shared_mutex cacheMutex;
     std::unique_ptr<Allocator<Chunk>> chunkAllocator;
     cache_t chunkCache;
     ParallelExecutor<4> topExecutor;
     std::array<ChunkGenExec, 4> executors;
     std::atomic_flag cancelFlag;
+    std::mutex checkedRegionsMutex;
     std::unordered_set<RegionPos> checkedRegions;
     int maxHeight;
     Dimension dimension;
@@ -91,4 +93,4 @@ std::optional<Path> findPathFull(Context& ctx, const NodePos& start, const NodeP
 std::optional<Path> findPathSegment(Context& ctx, const NodePos& start, const NodePos& goal, bool x4Min, int failTimeoutMs, bool airIfFake, double fakeChunkCost);
 
 template<Size size>
-NodePos findAir(Context& ctx, const BlockPos& start1x);
+NodePos findAir(Context& ctx, const BlockPos& start1x, bool airIfFake = false);

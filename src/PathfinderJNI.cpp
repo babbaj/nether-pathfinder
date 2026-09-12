@@ -229,8 +229,8 @@ extern "C" {
             return nullptr;
         }
         ctx->cancelFlag.clear();
-        const NodePos start = x4Min ? findAir<Size::X4>(*ctx, {x1, y1, z1}) : findAir<Size::X2>(*ctx, {x1, y1, z1});
-        const NodePos goal = x4Min ? findAir<Size::X4>(*ctx, {x2, y2, z2}) : findAir<Size::X2>(*ctx, {x2, y2, z2});
+        const NodePos start = x4Min ? findAir<Size::X4>(*ctx, {x1, y1, z1}, airIfFake) : findAir<Size::X2>(*ctx, {x1, y1, z1}, airIfFake);
+        const NodePos goal = x4Min ? findAir<Size::X4>(*ctx, {x2, y2, z2}, airIfFake) : findAir<Size::X2>(*ctx, {x2, y2, z2}, airIfFake);
         std::optional<Path> path = findPathSegment(*ctx, start, goal, x4Min, timeoutMs, airIfFake, fakeChunkCost);
         if (!path) return nullptr;
 
